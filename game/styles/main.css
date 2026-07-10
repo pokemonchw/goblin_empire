@@ -343,6 +343,10 @@ h3 {
     outline: none;
 }
 
+.research-row {
+    grid-template-columns: minmax(120px, 0.9fr) minmax(86px, 0.55fr) minmax(180px, 1.3fr) minmax(128px, 0.8fr) auto;
+}
+
 .building-row:focus-visible {
     box-shadow: 0 0 0 2px rgba(210, 177, 95, 0.45);
 }
@@ -360,9 +364,15 @@ h3 {
 }
 
 .building-main span,
+.research-line,
 .building-cost,
 .building-availability {
     color: var(--color-muted);
+}
+
+.research-line {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .building-cost {
@@ -552,6 +562,10 @@ h3 {
     .building-row {
         grid-template-columns: 1fr;
         align-items: stretch;
+    }
+
+    .research-row {
+        grid-template-columns: 1fr;
     }
 
     .building-availability {

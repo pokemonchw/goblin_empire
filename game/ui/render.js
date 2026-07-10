@@ -1341,28 +1341,28 @@
      * 渲染研究标签页。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @param {HTMLElement} tabContentElement - 标签页内容容器，会被写入研究卡片。
+     * @param {HTMLElement} tabContentElement - 标签页内容容器，会被写入研究列表。
      * @returns {void} 无返回值。
      */
     function renderResearchTab(state, tabContentElement) {
         // HTMLElement 标题元素：显示研究标签页名称。
         var headingElement = createTextElement("h2", game.text.TEXT_REGISTRY.tabs.research.name);
 
-        // HTMLElement 网格元素：承载所有已解锁科技卡片。
-        var gridElement = document.createElement("div");
+        // HTMLElement 列表元素：承载所有已解锁科技研究行。
+        var listElement = document.createElement("div");
 
         tabContentElement.appendChild(headingElement);
         tabContentElement.appendChild(renderResearchSummary(state));
         tabContentElement.appendChild(renderResearchControls());
         tabContentElement.appendChild(createTextElement("h3", game.text.TEXT_REGISTRY.ui.researchTitle));
-        gridElement.className = "action-grid";
+        listElement.className = "building-list research-list";
 
         // TechnologyDefinition[] 可见科技定义数组：按筛选和排序生成。
         var visibleTechnologies = getVisibleResearchTechnologies(state);
 
         // number 循环索引：遍历可见科技定义数组的整数下标。
         for (var technologyIndex = 0; technologyIndex < visibleTechnologies.length; technologyIndex += 1) {
-            // TechnologyDefinition 当前科技定义：用于渲染研究卡片。
+            // TechnologyDefinition 当前科技定义：用于渲染研究行。
             var technologyDefinition = visibleTechnologies[technologyIndex];
 
             // TechnologyState 当前科技状态：用于判断显示和完成态。
@@ -1372,10 +1372,10 @@
                 continue;
             }
 
-            gridElement.appendChild(renderTechnologyCard(state, technologyDefinition, technologyState));
+            listElement.appendChild(renderTechnologyRow(state, technologyDefinition, technologyState));
         }
 
-        tabContentElement.appendChild(gridElement);
+        tabContentElement.appendChild(listElement);
     }
 
     /**
@@ -1481,43 +1481,125 @@
     }
 
     /**
-     * 渲染单个科技卡片。
+     * 渲染单个科技研究行。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {TechnologyDefinition} technologyDefinition - 科技定义对象。
      * @param {TechnologyState} technologyState - 科技运行时状态对象。
-     * @returns {HTMLElement} 科技卡片元素。
+     * @returns {HTMLElement} 科技研究行元素。
      */
-    function renderTechnologyCard(state, technologyDefinition, technologyState) {
-        // HTMLElement 卡片元素：承载单个科技研究入口。
-        var cardElement = document.createElement("div");
+    function renderTechnologyRow(state, technologyDefinition, technologyState) {
+        // boolean 当前是否可研究：综合暂停、完成状态和资源库存。
+        var canResearch = game.technology.canResearch(state, technologyDefinition);
+
+        // string[] 缺口文本数组：资源不足时显示在研究行成本信息中。
+        var missingTexts = game.resources.getMissingResourceTexts(state, technologyDefinition.price);
+
+        // string 研究线路名称：用于行内固定字段和悬浮框。
+        var lineName = getTechnologyLine(technologyDefinition.id);
+
+        // string 可用倒计时文本：可研究时显示“可用”，资源不足时显示等待时间或不可用。
+        var availabilityText = technologyState.isResearched ? "已完成" : formatActionAvailabilityText(state, technologyDefinition.price);
+
+        // string 按钮文本：按完成、暂停、可研究和缺资源状态显示。
+        var buttonText = "缺资源";
+
+        // HTMLElement 行元素：承载单个研究的基础字段、倒计时和按钮。
+        var rowElement = document.createElement("div");
+
+        // HTMLElement 主信息元素：承载研究名称和完成状态。
+        var mainElement = document.createElement("div");
+
+        // HTMLElement 名称元素：显示研究中文名。
+        var nameElement = document.createElement("strong");
+
+        // HTMLElement 状态元素：显示已完成或待研究状态。
+        var statusElement = document.createElement("span");
+
+        // HTMLElement 线路元素：显示研究所属线路。
+        var lineElement = document.createElement("div");
+
+        // HTMLElement 成本元素：显示研究消耗和缺失资源。
+        var costElement = document.createElement("div");
+
+        // HTMLElement 倒计时元素：显示当前资源速度下何时可研究。
+        var availabilityElement = document.createElement("div");
 
         // HTMLButtonElement 研究按钮：点击后尝试研究科技。
         var buttonElement = document.createElement("button");
 
-        // boolean 当前是否可研究：综合暂停、完成状态和资源库存。
-        var canResearch = game.technology.canResearch(state, technologyDefinition);
+        rowElement.className = canResearch ? "building-row research-row is-affordable" : "building-row research-row is-locked";
+        rowElement.tabIndex = 0;
 
-        // string[] 缺口文本数组：资源不足时显示研究缺口。
-        var missingTexts = game.resources.getMissingResourceTexts(state, technologyDefinition.price);
+        mainElement.className = "building-main research-main";
+        nameElement.textContent = technologyDefinition.name;
+        statusElement.textContent = technologyState.isResearched ? game.text.TEXT_REGISTRY.ui.completed : "待研究";
+        mainElement.appendChild(nameElement);
+        mainElement.appendChild(statusElement);
 
-        cardElement.className = "action-card";
+        lineElement.className = "research-line";
+        lineElement.textContent = "线路：" + lineName;
+
+        costElement.className = "building-cost";
+        costElement.textContent = "研究消耗：" + formatPriceList(technologyDefinition.price);
+
+        if (missingTexts.length > 0 && !technologyState.isResearched) {
+            // HTMLElement 缺口元素：和研究消耗同列显示，便于横向扫描。
+            var missingElement = createTextElement("span", "缺失：" + missingTexts.join("，"));
+
+            missingElement.className = "building-missing";
+            costElement.appendChild(missingElement);
+        }
+
+        availabilityElement.className = "building-availability";
+        availabilityElement.textContent = "可用倒计时：" + availabilityText;
+
         buttonElement.type = "button";
         buttonElement.dataset.technologyId = technologyDefinition.id;
         buttonElement.disabled = !canResearch;
-        buttonElement.textContent = technologyState.isResearched ? technologyDefinition.name + "（" + game.text.TEXT_REGISTRY.ui.completed + "）" : technologyDefinition.name;
-        cardElement.appendChild(buttonElement);
-        cardElement.appendChild(createTextElement("p", technologyDefinition.description));
-        cardElement.appendChild(createTextElement("p", "线路：" + getTechnologyLine(technologyDefinition.id)));
-        cardElement.appendChild(createTextElement("p", "解锁：" + formatUnlockPreview(technologyDefinition.unlocks || {})));
-        cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.costPrefix + formatPriceList(technologyDefinition.price)));
-
-        if (missingTexts.length > 0 && !technologyState.isResearched) {
-            cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.missingPrefix + missingTexts.join("，")));
-            appendPriceAvailabilityText(cardElement, state, technologyDefinition.price);
+        if (technologyState.isResearched) {
+            buttonText = "完成";
+        } else if (canResearch) {
+            buttonText = "研究";
+        } else if (state.isPaused) {
+            buttonText = "已暂停";
         }
+        buttonElement.textContent = buttonText;
 
-        return cardElement;
+        rowElement.appendChild(mainElement);
+        rowElement.appendChild(lineElement);
+        rowElement.appendChild(costElement);
+        rowElement.appendChild(availabilityElement);
+        rowElement.appendChild(buttonElement);
+        rowElement.appendChild(createTechnologyTooltip(technologyDefinition, technologyState, lineName));
+        return rowElement;
+    }
+
+    /**
+     * 创建研究悬浮详情框。
+     *
+     * @param {TechnologyDefinition} technologyDefinition - 科技定义对象，用于读取介绍、价格和解锁包。
+     * @param {TechnologyState} technologyState - 科技运行时状态对象，用于显示完成状态。
+     * @param {string} lineName - 研究线路中文名称。
+     * @returns {HTMLElement} 研究悬浮框元素。
+     */
+    function createTechnologyTooltip(technologyDefinition, technologyState, lineName) {
+        // HTMLElement 悬浮框元素：承载研究介绍、消耗和解锁详情。
+        var tooltipElement = document.createElement("div");
+
+        // HTMLElement 明细列表元素：用键值行展示研究详情。
+        var listElement = document.createElement("dl");
+
+        tooltipElement.className = "building-tooltip research-tooltip";
+        tooltipElement.setAttribute("role", "tooltip");
+        tooltipElement.appendChild(createTextElement("h4", technologyDefinition.name));
+        appendTooltipDefinition(listElement, "研究介绍", technologyDefinition.description);
+        appendTooltipDefinition(listElement, "线路", lineName);
+        appendTooltipDefinition(listElement, "研究消耗", formatPriceList(technologyDefinition.price));
+        appendTooltipDefinition(listElement, "解锁内容", formatUnlockPreview(technologyDefinition.unlocks || {}));
+        appendTooltipDefinition(listElement, "研究状态", technologyState.isResearched ? "已完成" : "未完成");
+        tooltipElement.appendChild(listElement);
+        return tooltipElement;
     }
 
     /**
@@ -1597,15 +1679,15 @@
      * @returns {string} 科技线路中文名。
      */
     function getTechnologyLine(technologyId) {
-        if (technologyId === "marks" || technologyId === "foraging" || technologyId === "digging" || technologyId === "hut_building") {
+        if (technologyId === "marks" || technologyId === "deadwood_cultivation" || technologyId === "foraging" || technologyId === "digging" || technologyId === "hut_building" || technologyId === "woodcraft") {
             return "生存";
         }
 
-        if (technologyId === "mining" || technologyId === "metallurgy" || technologyId === "crude_tools" || technologyId === "engineering" || technologyId === "machinery" || technologyId === "steel" || technologyId === "black_iron_smelting") {
+        if (technologyId === "mining" || technologyId === "metallurgy" || technologyId === "charcoal_burning" || technologyId === "crude_tools" || technologyId === "engineering" || technologyId === "machinery" || technologyId === "steel" || technologyId === "black_iron_smelting") {
             return "矿业";
         }
 
-        if (technologyId === "clan_rules" || technologyId === "counting" || technologyId === "calendar" || technologyId === "currency" || technologyId === "writing" || technologyId === "diplomacy" || technologyId === "imperial_code" || technologyId === "migration_code") {
+        if (technologyId === "clan_rules" || technologyId === "census" || technologyId === "counting" || technologyId === "calendar" || technologyId === "currency" || technologyId === "writing" || technologyId === "diplomacy" || technologyId === "imperial_code" || technologyId === "migration_code") {
             return "制度";
         }
 

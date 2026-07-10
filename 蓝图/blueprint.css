@@ -576,6 +576,10 @@ a {
     cursor: help;
 }
 
+.research-row {
+    grid-template-columns: minmax(120px, 0.9fr) minmax(86px, 0.55fr) minmax(180px, 1.3fr) minmax(128px, 0.8fr) auto;
+}
+
 .building-main {
     display: flex;
     align-items: baseline;
@@ -584,9 +588,14 @@ a {
 }
 
 .building-main span,
+.research-line,
 .building-cost,
 .building-availability {
     color: var(--muted);
+}
+
+.research-line {
+    overflow-wrap: anywhere;
 }
 
 .building-cost {
