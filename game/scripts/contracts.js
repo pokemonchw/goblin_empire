@@ -256,6 +256,14 @@
      */
 
     /**
+     * @typedef {Object} CalendarState
+     * @property {number} elapsedDays - 已经过的完整游戏日，非负整数天。
+     * @property {number} dayProgressSeconds - 当前游戏日已推进秒数，非负浮点秒。
+     * @property {boolean} isCalendarUnlocked - 是否已经研究历法；true 表示日志使用哥布林历纪年。
+     * @property {number|null} calendarEpochDay - 历法解锁时的完整游戏日；未解锁时为 null。
+     */
+
+    /**
      * @typedef {Object} GameState
      * @property {number} version - 存档版本整数。
      * @property {boolean} isPaused - 是否暂停；true 表示模拟不推进。
@@ -274,6 +282,7 @@
      * @property {Object.<string, boolean>} pacts - 深渊契约选择字典；key 为契约 ID，value 表示是否启用。
      * @property {ExpeditionState|null} activeExpedition - 当前远征状态；没有远征时为 null。
      * @property {{runMode: "undecided"|"normal"|"challenge", activeChallengeId: string|null, completedById: Object.<string, boolean>}} challenges - 挑战状态；runMode 为本局模式选择，activeChallengeId 为当前挑战 ID，completedById 为永久完成标记。
+     * @property {CalendarState} calendar - 日期运行时状态；保存季节日序、历法解锁状态和纪元日。
      * @property {CaptiveState[]} captives - 俘虏运行时状态数组。
      * @property {{legacy: number, perks: string[]}} prestige - 威望状态；legacy 为非负数量，perks 为已购天赋 ID。
      * @property {Object.<string, number>} statistics - 统计字典；key 为统计 ID，value 为累计数值。
@@ -301,6 +310,7 @@
      * @property {Object.<string, boolean>} pacts - 深渊契约选择字典。
      * @property {ExpeditionState|null} activeExpedition - 当前远征存档状态；没有时为 null。
      * @property {{runMode: "undecided"|"normal"|"challenge", activeChallengeId: string|null, completedById: Object.<string, boolean>}} challenges - 挑战存档状态；runMode 为新局入口选择结果。
+     * @property {CalendarState} calendar - 日期存档状态；保存季节日序、历法解锁状态和纪元日。
      * @property {CaptiveState[]} captives - 俘虏存档数组。
      * @property {{legacy: number, perks: string[]}} prestige - 威望存档状态。
      * @property {Object.<string, number>} statistics - 统计存档字典。

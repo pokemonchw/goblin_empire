@@ -72,6 +72,9 @@
 
         technologyState.isResearched = true;
         game.unlocks.applyUnlockBundle(state, technologyDefinition.unlocks);
+        if (technologyId === "calendar") {
+            game.calendar.unlockCalendar(state);
+        }
         game.simulation.addLog(state, "important", game.text.TEXT_REGISTRY.logs.researchedPrefix + technologyDefinition.name + "。");
         return true;
     }

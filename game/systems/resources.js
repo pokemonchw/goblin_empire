@@ -6,6 +6,9 @@
  * @returns {void} 无返回值。
  */
 (function (game) {
+    // number 支付误差容差：价格指数和库存浮点运算允许的资源数量误差。
+    var RESOURCE_PAYMENT_EPSILON = 0.000001;
+
     /**
      * 取得资源定义。
      *
@@ -131,6 +134,24 @@
     }
 
     /**
+     * 计算支付缺口，并把浮点运算产生的极小差额视为 0。
+     *
+     * @param {number} currentAmount - 当前库存数量，非负资源数量。
+     * @param {number} requiredAmount - 需要支付的数量，非负资源数量。
+     * @returns {number} 实际缺口数量，非负资源数量；小于容差时返回 0。
+     */
+    function getPriceMissingAmount(currentAmount, requiredAmount) {
+        // number 原始缺口数量：价格减去库存后的有符号资源差额。
+        var rawMissingAmount = requiredAmount - currentAmount;
+
+        if (rawMissingAmount <= RESOURCE_PAYMENT_EPSILON) {
+            return 0;
+        }
+
+        return rawMissingAmount;
+    }
+
+    /**
      * 判断资源是否足够支付价格。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -146,7 +167,10 @@
             // ResourceState 资源状态：用于读取当前库存。
             var resourceState = state.resourcesById[priceEntry.resource];
 
-            if (!resourceState || resourceState.value < priceEntry.amount) {
+            // number 当前资源数量：缺失资源按 0 处理。
+            var currentAmount = resourceState ? resourceState.value : 0;
+
+            if (getPriceMissingAmount(currentAmount, priceEntry.amount) > 0) {
                 return false;
             }
         }
@@ -179,8 +203,11 @@
             // number 当前资源数量：缺失资源按 0 处理。
             var currentAmount = resourceState ? resourceState.value : 0;
 
-            if (currentAmount < priceEntry.amount) {
-                missingTexts.push((resourceDefinition ? resourceDefinition.name : priceEntry.resource) + " -" + (priceEntry.amount - currentAmount).toFixed(0));
+            // number 当前资源缺口：非负资源数量，极小浮点差额视为 0。
+            var missingAmount = getPriceMissingAmount(currentAmount, priceEntry.amount);
+
+            if (missingAmount > 0) {
+                missingTexts.push((resourceDefinition ? resourceDefinition.name : priceEntry.resource) + " -" + missingAmount.toFixed(0));
             }
         }
 
@@ -218,8 +245,8 @@
             // number 当前资源数量：缺失资源按 0 处理。
             var currentAmount = resourceState ? resourceState.value : 0;
 
-            // number 当前资源缺口：非负资源数量。
-            var missingAmount = Math.max(0, priceEntry.amount - currentAmount);
+            // number 当前资源缺口：非负资源数量，极小浮点差额视为 0。
+            var missingAmount = getPriceMissingAmount(currentAmount, priceEntry.amount);
 
             if (missingAmount <= 0) {
                 continue;
@@ -233,8 +260,8 @@
             // ResourceDefinition|null 资源定义：用于判断容量是否会阻止资源达到价格。
             var resourceDefinition = getResourceDefinition(priceEntry.resource);
 
-            // boolean 容量是否足够：容量资源目标价格超过上限时不可达。
-            var hasCapacity = Boolean(resourceState && (!resourceDefinition || !resourceDefinition.isCapacityLimited || resourceState.maxValue >= priceEntry.amount));
+            // boolean 容量是否足够：容量资源目标价格超过上限时不可达，贴近上限时视为足够。
+            var hasCapacity = Boolean(resourceState && (!resourceDefinition || !resourceDefinition.isCapacityLimited || resourceState.maxValue + RESOURCE_PAYMENT_EPSILON >= priceEntry.amount));
 
             // boolean 当前缺口是否可达：需要容量足够且有正积累速度。
             var isReachable = Boolean(hasCapacity && perSecond > 0);
@@ -339,7 +366,13 @@
             // Price 当前价格项：用于扣除对应资源。
             var priceEntry = price[priceIndex];
 
-            state.resourcesById[priceEntry.resource].value -= priceEntry.amount;
+            // ResourceState 资源状态：用于写回扣款后的库存。
+            var resourceState = state.resourcesById[priceEntry.resource];
+
+            // number 扣款后库存：允许贴近 0 的负数归零，避免显示 -0。
+            var remainingAmount = resourceState.value - priceEntry.amount;
+
+            resourceState.value = Math.abs(remainingAmount) <= RESOURCE_PAYMENT_EPSILON ? 0 : remainingAmount;
         }
 
         return true;

@@ -8,8 +8,8 @@
 
 - [x] 本 TODO 的完成态以当前 `game/` 真实实现为准，而不是早期策划草案为准。
   - [x] 静态 ID、定义、价格和解锁以 `game/data/ids.js` 与 `game/data/definitions.js` 为准。
-  - [x] 状态字段和存档版本以 `game/scripts/contracts.js`、`game/state/save.js` 和 `SAVE_VERSION = 3` 为准。
-  - [x] 公式以 `game/systems/*.js` 为准；当前没有季节系统、法令槽位、伐根场或独立“祭司”职业。
+  - [x] 状态字段和存档版本以 `game/scripts/contracts.js`、`game/state/save.js` 和 `SAVE_VERSION = 4` 为准。
+  - [x] 公式以 `game/systems/*.js` 为准；当前已有日期季节循环，但没有法令槽位、伐根场或独立“祭司”职业。
   - [x] 蓝图和策划案中的展示文案必须使用当前实现名称：古代遗迹、窝棚搭建、巫医、兽栏、深渊测绘、迁徙法典。
 
 ### 0.1 项目骨架

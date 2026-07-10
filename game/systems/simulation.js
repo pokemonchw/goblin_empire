@@ -18,10 +18,16 @@
         // number 当前毫秒时间戳：用于日志排序和唯一 ID。
         var nowTimestamp = Date.now();
 
+        // string 日期前缀：按历法解锁状态生成日志日期。
+        var datePrefix = game.calendar.formatLogDatePrefix(state);
+
+        // string 日期分隔符：未研究历法前使用紧凑季节格式，研究后使用哥布林历格式。
+        var dateSeparator = game.calendar.formatLogSeparator(state);
+
         state.logs.push({
             id: "log-" + nowTimestamp + "-" + state.logs.length,
             level: level,
-            text: text,
+            text: datePrefix + dateSeparator + text,
             timestamp: nowTimestamp
         });
 
@@ -65,6 +71,7 @@
         // number 秒数差：真实时间差换算成模拟 delta，非负浮点秒。
         var deltaSeconds = Math.max(0, (nowTimestamp - state.lastActiveTimestamp) / 1000);
 
+        game.calendar.updateCalendar(state, deltaSeconds);
         game.jobs.updateJobs(state, deltaSeconds);
         game.production.updateProduction(state, deltaSeconds);
         game.crafting.updateAutoCrafting(state, deltaSeconds);

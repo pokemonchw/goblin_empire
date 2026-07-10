@@ -98,6 +98,7 @@
                 activeChallengeId: state.challenges ? state.challenges.activeChallengeId : null,
                 completedById: state.challenges ? Object.assign({}, state.challenges.completedById) : {}
             },
+            calendar: Object.assign({}, state.calendar || game.calendar.createInitialCalendar()),
             captives: state.captives.slice(),
             prestige: {
                 legacy: state.prestige.legacy,
@@ -184,6 +185,13 @@
             migratedSaveData.challenges.runMode = inferRunModeFromLegacySave(migratedSaveData);
         }
 
+        if (sourceVersion < 4) {
+            // v3 旧 shape：没有日期系统，日志也没有季节或历法前缀。
+            // v4 新 shape：补齐 calendar，用于春夏秋冬循环和历法解锁纪元。
+            // 迁移原因：历法研究需要持久化解锁日，避免读档后哥布林历年份重置。
+            migratedSaveData.calendar = game.calendar.createInitialCalendar();
+        }
+
         migratedSaveData.version = game.definitions.SAVE_VERSION;
         return migratedSaveData;
     }
@@ -209,9 +217,12 @@
         restoredState.pacts = saveData.pacts || {};
         restoredState.activeExpedition = saveData.activeExpedition || null;
         restoredState.challenges = normalizeSavedChallenges(saveData.challenges);
+        restoredState.calendar = game.calendar.normalizeCalendarState(saveData.calendar);
         restoredState.captives = Array.isArray(saveData.captives) ? saveData.captives : [];
         restoredState.prestige = saveData.prestige || { legacy: 0, perks: [] };
         restoredState.statistics = saveData.statistics || {};
+        // Object[] 日志数组：日志不进入存档，读档后清空新建状态的默认日志，避免显示错误日期。
+        restoredState.logs = [];
         restoredState.tabsUnlockedById = saveData.tabsUnlockedById || restoredState.tabsUnlockedById;
         restoredState.upgradesUnlockedById = saveData.upgradesUnlockedById || restoredState.upgradesUnlockedById;
         restoredState.craftsUnlockedById = saveData.craftsUnlockedById || restoredState.craftsUnlockedById;

@@ -178,7 +178,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 3;
+    var SAVE_VERSION = 4;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -1534,6 +1534,7 @@
                 technologies: [
                     "census",
                     "counting",
+                    "calendar",
                     "engineering",
                     "currency",
                     "writing",
@@ -1573,6 +1574,19 @@
                     "ledger"
                 ]
             },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "calendar",
+            name: game.text.TEXT_REGISTRY.technologies.calendar.name,
+            description: game.text.TEXT_REGISTRY.technologies.calendar.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 160),
+                game.pricing.createPrice("ledger", 3)
+            ],
+            unlocks: {},
             unlock: {
                 isDefault: false
             }

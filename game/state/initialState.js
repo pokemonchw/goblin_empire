@@ -156,6 +156,9 @@
         // number 当前毫秒时间戳：作为新存档的模拟推进起点。
         var nowTimestamp = Date.now();
 
+        // CalendarState 初始日期状态：新局从春第 1 日开始，未解锁历法。
+        var initialCalendar = game.calendar.createInitialCalendar();
+
         return {
             version: game.definitions.SAVE_VERSION,
             isPaused: false,
@@ -178,6 +181,7 @@
                 activeChallengeId: null,
                 completedById: {}
             },
+            calendar: initialCalendar,
             captives: [],
             prestige: {
                 legacy: 0,
@@ -189,7 +193,7 @@
                 {
                     id: "log-initial",
                     level: "important",
-                    text: game.text.TEXT_REGISTRY.logs.initial,
+                    text: game.calendar.formatLogDatePrefix({ calendar: initialCalendar }) + game.calendar.formatLogSeparator({ calendar: initialCalendar }) + game.text.TEXT_REGISTRY.logs.initial,
                     timestamp: nowTimestamp
                 }
             ]

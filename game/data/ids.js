@@ -119,6 +119,7 @@
         "clan_rules",
         "census",
         "counting",
+        "calendar",
         "engineering",
         "currency",
         "writing",

@@ -599,6 +599,10 @@
             name: "计数",
             description: "让哥布林能数到比手指更多的东西。"
         },
+        calendar: {
+            name: "历法",
+            description: "把春夏秋冬刻成哥布林自己的纪年，从研究完成当天算作哥布林历第一年。"
+        },
         engineering: {
             name: "工程",
             description: "把棚子、仓港和机械当成可重复建造的结构。"

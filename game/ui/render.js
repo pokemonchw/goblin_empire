@@ -304,7 +304,7 @@
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.housing, freeHousing + " / " + housingMax));
         statusListElement.appendChild(createDefinitionRow("服从度", obedienceState ? obedienceState.value.toFixed(0) + " / " + obedienceState.maxValue.toFixed(0) : "未解锁"));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.crowding, Math.round(crowdingRatio * 100) + "%"));
-        statusListElement.appendChild(createDefinitionRow("时间", state.tabsUnlockedById.empire ? "帝国历已解锁" : "未解锁"));
+        statusListElement.appendChild(createDefinitionRow("时间", game.calendar.formatCurrentDate(state)));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.tickRate, game.definitions.TICKS_PER_SECOND + " tick/秒"));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.status, state.isPaused ? game.text.TEXT_REGISTRY.status.paused : game.text.TEXT_REGISTRY.status.running));
     }
@@ -1343,7 +1343,7 @@
             return "矿业";
         }
 
-        if (technologyId === "clan_rules" || technologyId === "counting" || technologyId === "currency" || technologyId === "writing" || technologyId === "diplomacy" || technologyId === "imperial_code" || technologyId === "migration_code") {
+        if (technologyId === "clan_rules" || technologyId === "counting" || technologyId === "calendar" || technologyId === "currency" || technologyId === "writing" || technologyId === "diplomacy" || technologyId === "imperial_code" || technologyId === "migration_code") {
             return "制度";
         }
 
