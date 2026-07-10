@@ -388,15 +388,13 @@
     }
 
     /**
-     * 推进职业产出和技能经验。
+     * 应用职业产出和技能经验。
      *
      * @param {GameState} state - 当前游戏状态对象，会被直接修改。
      * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点数。
      * @returns {void} 无返回值。
      */
-    function updateJobs(state, deltaSeconds) {
-        resetResourceRates(state);
-
+    function applyJobProduction(state, deltaSeconds) {
         // number 循环索引：遍历哥布林数组的整数下标。
         for (var goblinIndex = 0; goblinIndex < state.goblins.length; goblinIndex += 1) {
             // Goblin 当前哥布林对象：用于计算职业产出。
@@ -416,6 +414,18 @@
             applyJobOutput(state, goblin, jobDefinition, deltaSeconds);
             gainJobSkillXp(goblin, jobDefinition, deltaSeconds);
         }
+    }
+
+    /**
+     * 推进职业产出和技能经验。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会被直接修改。
+     * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点数。
+     * @returns {void} 无返回值。
+     */
+    function updateJobs(state, deltaSeconds) {
+        resetResourceRates(state);
+        applyJobProduction(state, deltaSeconds);
     }
 
     /**
@@ -639,6 +649,7 @@
         }
 
         if (jobDefinition.baseOutput.rottenWood) {
+            ratioBonus += getOwnedEffectTotal(state, "rottenWoodOutputRatio");
             ratioBonus += state.statistics.woodcuttingToolRatio || 0;
         }
 
@@ -752,6 +763,8 @@
         assignMax: assignMax,
         applyJobPreset: applyJobPreset,
         previewJobPreset: previewJobPreset,
+        resetResourceRates: resetResourceRates,
+        applyJobProduction: applyJobProduction,
         updateJobs: updateJobs,
         calculateAttributeModifier: calculateAttributeModifier,
         calculateSkillModifier: calculateSkillModifier,

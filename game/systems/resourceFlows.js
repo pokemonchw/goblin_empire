@@ -151,6 +151,7 @@
      */
     function appendBuildingFlowEntries(state, flowEntries) {
         appendPerTickBuildingEntry(state, flowEntries, "fungus_bed", "fungusPerTick", "fungus");
+        appendPerTickBuildingEntry(state, flowEntries, "rotten_grove", "rottenWoodPerTick", "rottenWood");
         appendPerTickBuildingEntry(state, flowEntries, "shallow_mine", "coalSlagPerTick", "coalSlag");
         appendPerTickBuildingEntry(state, flowEntries, "rubble_yard", "coalSlagPerTick", "coalSlag");
         appendPerSecondBuildingEntry(state, flowEntries, "beast_pen", "leatherPerSecond", "leather");
@@ -163,6 +164,7 @@
         appendPerSecondBuildingEntry(state, flowEntries, "tar_well", "tarPerSecond", "tar");
         appendPerSecondBuildingEntry(state, flowEntries, "abyss_gate", "abyssEchoPerSecond", "abyssEcho");
         appendPerSecondBuildingEntry(state, flowEntries, "sacrifice_pit", "abyssEchoPerSecond", "abyssEcho");
+        appendCharcoalKilnEntries(state, flowEntries);
         appendCrudeFurnaceEntries(state, flowEntries);
         appendDeepFurnaceEntries(state, flowEntries);
         appendRuneMachineEntries(state, flowEntries);
@@ -201,6 +203,10 @@
             var ritualEffects = game.rituals.getRitualEffects(state);
 
             perSecond *= 1 + (ritualEffects.fungusOutputRatio || 0);
+        }
+
+        if (resourceId === "rottenWood") {
+            perSecond *= 1 + getOwnedBuildingEffectTotal(state, "rottenWoodOutputRatio") + (state.statistics.woodcuttingToolRatio || 0);
         }
 
         pushFlowEntry(flowEntries, resourceId, "output", perSecond, buildingDefinition.name, "建筑自动产出");
@@ -278,6 +284,37 @@
         pushFlowEntry(flowEntries, "rubble", "consumption", buildingDefinition.effects.crudeFurnaceRubbleCostPerSecond * buildingState.active, buildingDefinition.name, "熔炼炉料");
         pushFlowEntry(flowEntries, "ironOre", "output", buildingDefinition.effects.crudeFurnaceIronOrePerSecond * outputMultiplier * buildingState.active, buildingDefinition.name, "熔炼产出");
         pushFlowEntry(flowEntries, "ironPlate", "output", buildingDefinition.effects.crudeFurnaceIronPlatePerSecond * outputMultiplier * buildingState.active, buildingDefinition.name, "熔炼产出");
+    }
+
+    /**
+     * 追加闷炭窑转换流量。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {ResourceFlowEntry[]} flowEntries - 流量条目数组，会追加闷炭窑产消耗。
+     * @returns {void} 无返回值。
+     */
+    function appendCharcoalKilnEntries(state, flowEntries) {
+        // BuildingDefinition|null 建筑定义：用于读取闷炭窑效果。
+        var buildingDefinition = game.buildings.getBuildingDefinition("charcoal_kiln");
+
+        // BuildingState 建筑状态：用于读取启用数量。
+        var buildingState = state.buildingsById.charcoal_kiln;
+
+        if (!buildingDefinition || !buildingState || buildingState.active <= 0) {
+            return;
+        }
+
+        if (!game.resources.canAfford(state, [
+            {
+                resource: "rottenWood",
+                amount: buildingDefinition.effects.charcoalKilnWoodCostPerSecond * buildingState.active
+            }
+        ])) {
+            return;
+        }
+
+        pushFlowEntry(flowEntries, "rottenWood", "consumption", buildingDefinition.effects.charcoalKilnWoodCostPerSecond * buildingState.active, buildingDefinition.name, "闷炭燃料");
+        pushFlowEntry(flowEntries, "coalSlag", "output", buildingDefinition.effects.charcoalKilnCoalSlagPerSecond * buildingState.active, buildingDefinition.name, "闷炭产出");
     }
 
     /**
@@ -444,6 +481,35 @@
     }
 
     /**
+     * 统计已拥有建筑的指定效果总和。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} effectId - 建筑效果 ID。
+     * @returns {number} 效果总和，非负或有符号浮点数，取决于效果定义。
+     */
+    function getOwnedBuildingEffectTotal(state, effectId) {
+        // number 效果总和：按建筑拥有数量累加。
+        var effectTotal = 0;
+
+        // number 循环索引：遍历建筑定义数组的整数下标。
+        for (var buildingIndex = 0; buildingIndex < game.definitions.BUILDING_DEFINITIONS.length; buildingIndex += 1) {
+            // BuildingDefinition 当前建筑定义：用于读取指定效果。
+            var buildingDefinition = game.definitions.BUILDING_DEFINITIONS[buildingIndex];
+
+            // BuildingState 当前建筑状态：用于读取拥有数量。
+            var buildingState = state.buildingsById[buildingDefinition.id];
+
+            if (!buildingState || !buildingDefinition.effects[effectId]) {
+                continue;
+            }
+
+            effectTotal += buildingDefinition.effects[effectId] * buildingState.owned;
+        }
+
+        return effectTotal;
+    }
+
+    /**
      * 追加流量条目。
      *
      * @param {ResourceFlowEntry[]} flowEntries - 流量条目数组，会被追加。
@@ -578,6 +644,7 @@
         }
 
         if (resourceId === "rottenWood") {
+            bonusEntries.push({ label: "晾木架", value: formatPercentRatio(getOwnedBuildingEffectTotal(state, "rottenWoodOutputRatio")) });
             bonusEntries.push({ label: "锯齿斧", value: formatPercentRatio(state.statistics.woodcuttingToolRatio || 0) });
         }
 
@@ -674,7 +741,10 @@
         }
 
         if (resourceId === "fungus" && state.statistics.pendingStarvationConsequence) {
-            buffTexts.push("断粮后果待处理");
+            // number 断粮累计天数：用于提示距离下一次死亡结算的进度。
+            var starvationDays = game.calendar.calculateDaysFromSeconds(state.statistics.starvationSeconds || 0);
+
+            buffTexts.push("断粮累计 " + starvationDays.toFixed(1) + " / " + game.definitions.POPULATION_CONSTANTS.starvationCheckDays + " 天");
         }
 
         if (resourceState && resourceState.value >= resourceState.maxValue) {

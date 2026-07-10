@@ -194,31 +194,31 @@
                 }
 
                 game.resources.applyManualAction(currentState, targetElement.dataset.actionId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.normalRunMode) {
                 game.challengesSystem.selectNormalModeForNewRun(currentState);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.challengeId) {
                 game.challengesSystem.selectChallengeForNewRun(currentState, targetElement.dataset.challengeId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.buildingId) {
                 game.buildings.buyBuilding(currentState, targetElement.dataset.buildingId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.jobId && targetElement.dataset.jobAction) {
                 applyJobButtonAction(currentState, targetElement.dataset.jobId, targetElement.dataset.jobAction);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
@@ -228,55 +228,55 @@
                 } else {
                     game.jobs.applyJobPreset(currentState, targetElement.dataset.jobPreset);
                 }
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.technologyId) {
                 game.technology.researchTechnology(currentState, targetElement.dataset.technologyId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.researchFilter) {
                 game.runtime.researchFilter = targetElement.dataset.researchFilter;
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.researchSort) {
                 game.runtime.researchSort = targetElement.dataset.researchSort;
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.goblinId && targetElement.dataset.goblinAction) {
                 applyGoblinButtonAction(currentState, targetElement.dataset.goblinId, targetElement.dataset.goblinAction);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.recipeId && targetElement.dataset.craftCount) {
                 applyCraftButtonAction(currentState, targetElement.dataset.recipeId, targetElement.dataset.craftCount);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.autoCraftRecipeId) {
                 game.crafting.selectAutoCraftRecipe(currentState, targetElement.dataset.autoCraftRecipeId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.captiveId && targetElement.dataset.captiveDisposition) {
                 game.captivesSystem.applyDisposition(currentState, targetElement.dataset.captiveId, targetElement.dataset.captiveDisposition);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.tradeFactionId) {
                 game.diplomacy.executeTrade(currentState, targetElement.dataset.tradeFactionId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
@@ -284,19 +284,19 @@
                 if (confirmRaidAction(currentState, targetElement.dataset.raidTargetId)) {
                     game.raids.executeRaid(currentState, targetElement.dataset.raidTargetId);
                 }
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.policyId) {
                 game.policiesSystem.selectPolicy(currentState, targetElement.dataset.policyId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.ritualUpgradeId) {
                 game.rituals.buyRitualUpgrade(currentState, targetElement.dataset.ritualUpgradeId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
@@ -304,13 +304,13 @@
                 if (confirmSacrificeAction(currentState, targetElement.dataset.sacrificeId)) {
                     game.rituals.executeSacrifice(currentState, targetElement.dataset.sacrificeId);
                 }
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.pactId) {
                 game.pacts.togglePact(currentState, targetElement.dataset.pactId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
@@ -318,21 +318,21 @@
                 if (confirmExpeditionAction(currentState, targetElement.dataset.expeditionRouteId)) {
                     game.expeditions.startExpedition(currentState, targetElement.dataset.expeditionRouteId);
                 }
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.empireMigration) {
                 if (window.confirm("确认迁徙帝国？当前普通资源、建筑、人口和科技会被清除。")) {
                     game.prestigeSystem.executeMigration(currentState, true);
-                    game.render.renderApp(currentState);
+                    renderAfterStateChange(currentState);
                 }
                 return;
             }
 
             if (targetElement.dataset.prestigePerkId) {
                 game.prestigeSystem.purchasePrestigePerk(currentState, targetElement.dataset.prestigePerkId);
-                game.render.renderApp(currentState);
+                renderAfterStateChange(currentState);
             }
         });
 
@@ -355,6 +355,17 @@
             game.runtime.censusFilters[targetElement.dataset.censusFilterKey] = targetElement.value;
             game.render.renderApp(game.runtime.state);
         });
+    }
+
+    /**
+     * 在玩家操作后统一检查灭亡并刷新界面。
+     *
+     * @param {GameState} state - 当前游戏状态对象，灭亡时会回到初始状态。
+     * @returns {void} 无返回值。
+     */
+    function renderAfterStateChange(state) {
+        game.simulation.resolveExtinctionIfNeeded(state);
+        game.render.renderApp(state);
     }
 
     /**

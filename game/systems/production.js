@@ -15,6 +15,7 @@
      */
     function updateProduction(state, deltaSeconds) {
         applyFlatBuildingProduction(state, deltaSeconds);
+        applyCharcoalKilnProduction(state, deltaSeconds);
         applyCrudeFurnaceProduction(state, deltaSeconds);
         applyDeepFurnaceProduction(state, deltaSeconds);
         applyRuneMachineProduction(state, deltaSeconds);
@@ -31,6 +32,7 @@
      */
     function applyFlatBuildingProduction(state, deltaSeconds) {
         applyPerTickEffect(state, "fungus_bed", "fungusPerTick", "fungus", deltaSeconds);
+        applyPerTickEffect(state, "rotten_grove", "rottenWoodPerTick", "rottenWood", deltaSeconds);
         applyPerTickEffect(state, "shallow_mine", "coalSlagPerTick", "coalSlag", deltaSeconds);
         applyPerTickEffect(state, "rubble_yard", "coalSlagPerTick", "coalSlag", deltaSeconds);
     }
@@ -93,8 +95,81 @@
             perSecond *= 1 + (ritualEffects.fungusOutputRatio || 0);
         }
 
+        if (resourceId === "rottenWood") {
+            perSecond *= 1 + getOwnedBuildingEffectTotal(state, "rottenWoodOutputRatio") + (state.statistics.woodcuttingToolRatio || 0);
+        }
+
         game.resources.addResource(state, resourceId, perSecond * deltaSeconds);
         state.resourcesById[resourceId].perSecond += perSecond;
+    }
+
+    /**
+     * 应用闷炭窑资源转换。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会消耗朽木并产出煤渣。
+     * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点数。
+     * @returns {void} 无返回值。
+     */
+    function applyCharcoalKilnProduction(state, deltaSeconds) {
+        // BuildingDefinition|null 闷炭窑定义：用于读取朽木消耗和煤渣产出。
+        var kilnDefinition = game.buildings.getBuildingDefinition("charcoal_kiln");
+
+        // BuildingState 闷炭窑状态：用于读取启用数量。
+        var kilnState = state.buildingsById.charcoal_kiln;
+
+        if (!kilnDefinition || !kilnState || kilnState.active <= 0) {
+            return;
+        }
+
+        // number 朽木消耗：本次模拟需要支付的资源数量。
+        var rottenWoodCost = kilnDefinition.effects.charcoalKilnWoodCostPerSecond * kilnState.active * deltaSeconds;
+
+        if (!game.resources.canAfford(state, [
+            {
+                resource: "rottenWood",
+                amount: rottenWoodCost
+            }
+        ])) {
+            return;
+        }
+
+        state.resourcesById.rottenWood.value -= rottenWoodCost;
+        state.resourcesById.rottenWood.perSecond -= kilnDefinition.effects.charcoalKilnWoodCostPerSecond * kilnState.active;
+
+        // number 煤渣每秒产出：闷炭窑把朽木稳定转为熔炉燃料。
+        var coalSlagPerSecond = kilnDefinition.effects.charcoalKilnCoalSlagPerSecond * kilnState.active;
+
+        game.resources.addResource(state, "coalSlag", coalSlagPerSecond * deltaSeconds);
+        state.resourcesById.coalSlag.perSecond += coalSlagPerSecond;
+    }
+
+    /**
+     * 统计已拥有建筑的指定效果总和。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} effectId - 建筑效果 ID。
+     * @returns {number} 效果总和，非负或有符号浮点数，取决于效果定义。
+     */
+    function getOwnedBuildingEffectTotal(state, effectId) {
+        // number 效果总和：按建筑拥有数量累加。
+        var effectTotal = 0;
+
+        // number 循环索引：遍历建筑定义数组的整数下标。
+        for (var buildingIndex = 0; buildingIndex < game.definitions.BUILDING_DEFINITIONS.length; buildingIndex += 1) {
+            // BuildingDefinition 当前建筑定义：用于读取指定效果。
+            var buildingDefinition = game.definitions.BUILDING_DEFINITIONS[buildingIndex];
+
+            // BuildingState 当前建筑状态：用于读取拥有数量。
+            var buildingState = state.buildingsById[buildingDefinition.id];
+
+            if (!buildingState || !buildingDefinition.effects[effectId]) {
+                continue;
+            }
+
+            effectTotal += buildingDefinition.effects[effectId] * buildingState.owned;
+        }
+
+        return effectTotal;
     }
 
     /**

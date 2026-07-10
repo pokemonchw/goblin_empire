@@ -68,7 +68,9 @@
     // string[] 建筑稳定 ID 列表：覆盖版本一到终局的主要建筑入口。
     var BUILDING_IDS = [
         "fungus_bed",
+        "rotten_grove",
         "spore_trench",
+        "drying_rack",
         "drip_channel",
         "mud_hut",
         "cave_room",
@@ -79,6 +81,7 @@
         "wooden_storehouse",
         "shallow_mine",
         "rubble_yard",
+        "charcoal_kiln",
         "artisan_shed",
         "crude_furnace",
         "beast_pen",
@@ -108,11 +111,14 @@
     // string[] 科技稳定 ID 列表：覆盖设计文档中的阶段性科技。
     var TECHNOLOGY_IDS = [
         "marks",
+        "deadwood_cultivation",
         "foraging",
         "digging",
         "hut_building",
+        "woodcraft",
         "mining",
         "metallurgy",
+        "charcoal_burning",
         "beast_pen",
         "crossbow",
         "crude_tools",

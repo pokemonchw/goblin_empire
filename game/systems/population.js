@@ -293,13 +293,26 @@
         // number 菌菇消耗：本次模拟需要扣除的菌菇数量。
         var fungusCost = fungusCostPerSecond * deltaSeconds;
 
+        // boolean 是否断粮：本次口粮消耗超过当前菌菇库存，true 表示需要累计断粮惩罚时间。
+        var isStarving = fungusCost > fungusState.value;
+
         fungusState.value = Math.max(0, fungusState.value - fungusCost);
         fungusState.perSecond -= fungusCostPerSecond;
 
-        if (fungusState.value <= 0 && !state.statistics.hasWarnedFoodShortage) {
+        if (isStarving && !state.statistics.hasWarnedFoodShortage) {
             state.statistics.hasWarnedFoodShortage = 1;
             game.simulation.addLog(state, "warning", game.text.TEXT_REGISTRY.logs.foodWarning);
             prepareStarvationConsequence(state);
+        }
+
+        if (isStarving) {
+            updateStarvationConsequence(state, deltaSeconds);
+        } else {
+            clearStarvationConsequence(state);
+        }
+
+        if (!isStarving && state.statistics.hasWarnedFoodShortage) {
+            state.statistics.hasWarnedFoodShortage = 0;
         }
     }
 
@@ -335,6 +348,128 @@
         state.statistics.pendingStarvationConsequence = 1;
     }
 
+    /**
+     * 推进断粮后果计时并在每满三天时随机杀死部分人口。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会累计断粮秒数并标记具体哥布林死亡。
+     * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点秒。
+     * @returns {void} 无返回值。
+     */
+    function updateStarvationConsequence(state, deltaSeconds) {
+        prepareStarvationConsequence(state);
+
+        // number 断粮累计秒数：保存连续断粮时长，单位为模拟秒。
+        var starvationSeconds = (state.statistics.starvationSeconds || 0) + Math.max(0, deltaSeconds);
+
+        // number 触发间隔秒数：每 3 个游戏日触发一次死亡结算，单位为模拟秒。
+        var starvationCheckSeconds = game.calendar.getSecondsPerDay() * game.definitions.POPULATION_CONSTANTS.starvationCheckDays;
+
+        while (starvationSeconds >= starvationCheckSeconds && countAliveGoblins(state) > 0) {
+            starvationSeconds -= starvationCheckSeconds;
+            applyStarvationDeaths(state);
+        }
+
+        state.statistics.starvationSeconds = starvationSeconds;
+    }
+
+    /**
+     * 清理断粮后果计时。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会清除断粮待处理标记和累计秒数。
+     * @returns {void} 无返回值。
+     */
+    function clearStarvationConsequence(state) {
+        state.statistics.pendingStarvationConsequence = 0;
+        state.statistics.starvationSeconds = 0;
+    }
+
+    /**
+     * 随机杀死当前存活人口的 10%，至少 1 个。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会把被选中的哥布林标记为死亡。
+     * @returns {Goblin[]} 本次断粮死亡的哥布林对象数组。
+     */
+    function applyStarvationDeaths(state) {
+        // Goblin[] 存活哥布林列表：作为随机死亡候选池。
+        var aliveGoblins = getAliveGoblins(state);
+
+        if (aliveGoblins.length <= 0) {
+            return [];
+        }
+
+        // number 死亡数量：当前存活人口的 10% 向上取整，至少 1 个。
+        var deathCount = Math.max(1, Math.ceil(aliveGoblins.length * game.definitions.POPULATION_CONSTANTS.starvationDeathRatio));
+
+        // Goblin[] 死亡哥布林列表：用于写入日志和统计。
+        var deadGoblins = [];
+
+        // number 死亡循环索引：控制随机抽取次数的非负整数。
+        for (var deathIndex = 0; deathIndex < deathCount && aliveGoblins.length > 0; deathIndex += 1) {
+            // number 随机候选下标：从剩余存活候选池中抽取。
+            var randomIndex = Math.floor(Math.random() * aliveGoblins.length);
+
+            // Goblin 死亡哥布林：本次断粮选中的具体对象。
+            var deadGoblin = aliveGoblins.splice(randomIndex, 1)[0];
+
+            deadGoblin.isAlive = false;
+            deadGoblin.jobId = null;
+            deadGoblin.wounds.push("starvation");
+            deadGoblins.push(deadGoblin);
+        }
+
+        state.statistics.totalStarvationDeaths = (state.statistics.totalStarvationDeaths || 0) + deadGoblins.length;
+
+        if (deadGoblins.length > 0) {
+            game.simulation.addLog(state, "important", "断粮持续三天，" + formatGoblinNames(deadGoblins) + " 饿死了。");
+        }
+
+        return deadGoblins;
+    }
+
+    /**
+     * 取得当前所有存活哥布林对象。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {Goblin[]} 存活哥布林对象数组。
+     */
+    function getAliveGoblins(state) {
+        // Goblin[] 存活哥布林列表：用于断粮死亡随机候选池。
+        var aliveGoblins = [];
+
+        // number 循环索引：遍历哥布林数组的整数下标。
+        for (var goblinIndex = 0; goblinIndex < state.goblins.length; goblinIndex += 1) {
+            // Goblin 当前哥布林对象：用于判断是否可被断粮杀死。
+            var goblin = state.goblins[goblinIndex];
+
+            if (goblin.isAlive) {
+                aliveGoblins.push(goblin);
+            }
+        }
+
+        return aliveGoblins;
+    }
+
+    /**
+     * 格式化哥布林姓名列表。
+     *
+     * @param {Goblin[]} goblins - 哥布林对象数组。
+     * @returns {string} 中文姓名列表文本。
+     */
+    function formatGoblinNames(goblins) {
+        // string[] 姓名文本数组：用于断粮死亡日志。
+        var nameTexts = [];
+
+        // number 循环索引：遍历哥布林数组的整数下标。
+        for (var goblinIndex = 0; goblinIndex < goblins.length; goblinIndex += 1) {
+            // Goblin 当前哥布林对象：读取显示姓名。
+            var goblin = goblins[goblinIndex];
+
+            nameTexts.push(goblin.name + "（" + goblin.nickname + "）");
+        }
+
+        return nameTexts.join("、");
+    }
+
     // Object 人口模块命名空间：提供从状态派生人口和住房统计的函数。
     game.population = {
         countAliveGoblins: countAliveGoblins,
@@ -346,6 +481,8 @@
         calculateFungusConsumptionPerSecond: calculateFungusConsumptionPerSecond,
         createGoblin: createGoblin,
         updatePopulation: updatePopulation,
-        prepareStarvationConsequence: prepareStarvationConsequence
+        prepareStarvationConsequence: prepareStarvationConsequence,
+        updateStarvationConsequence: updateStarvationConsequence,
+        applyStarvationDeaths: applyStarvationDeaths
     };
 })(window.GoblinEmpire);

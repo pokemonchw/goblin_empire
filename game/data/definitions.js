@@ -175,15 +175,24 @@
      * @property {Object.<string, number>} rewardEffects - 完成奖励效果字典；key 为效果 ID。
      */
 
+    /**
+     * @typedef {Object} PopulationConstants
+     * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏的菌菇口粮消耗，单位为菌菇/秒。
+     * @property {number} starvationCheckDays - 断粮死亡检查间隔，单位为游戏日，正整数。
+     * @property {number} starvationDeathRatio - 每次断粮死亡比例，范围为 0-1。
+     */
+
     // number 当前应用版本：写入新存档的整数版本来源。
     var SAVE_VERSION = 8;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
 
-    // PopulationConstants 人口常量：控制存活哥布林和俘虏的菌菇消耗；无加成下 5 个菌菇床养活 1 个口粮口数。
+    // PopulationConstants 人口常量：控制存活哥布林和俘虏的菌菇消耗，以及断粮死亡节奏。
     var POPULATION_CONSTANTS = {
-        fungusConsumptionPerGoblinSecond: 3.125
+        fungusConsumptionPerGoblinSecond: 3.125,
+        starvationCheckDays: 3,
+        starvationDeathRatio: 0.1
     };
 
     // TabDefinition[] 标签页定义列表：控制主界面可见标签页和默认顺序。
@@ -629,6 +638,22 @@
             }
         },
         {
+            id: "rotten_grove",
+            name: game.text.TEXT_REGISTRY.buildings.rotten_grove.name,
+            description: game.text.TEXT_REGISTRY.buildings.rotten_grove.description,
+            basePrice: [
+                game.pricing.createPrice("fungus", 60),
+                game.pricing.createPrice("rubble", 20)
+            ],
+            priceRatio: 1.14,
+            effects: {
+                rottenWoodPerTick: 0.06
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
             id: "mud_hut",
             name: game.text.TEXT_REGISTRY.buildings.mud_hut.name,
             description: game.text.TEXT_REGISTRY.buildings.mud_hut.description,
@@ -658,6 +683,23 @@
             priceRatio: 1.15,
             effects: {
                 foodConsumptionReductionRatio: 0.005
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "drying_rack",
+            name: game.text.TEXT_REGISTRY.buildings.drying_rack.name,
+            description: game.text.TEXT_REGISTRY.buildings.drying_rack.description,
+            basePrice: [
+                game.pricing.createPrice("rottenWood", 120),
+                game.pricing.createPrice("rubble", 80)
+            ],
+            priceRatio: 1.15,
+            effects: {
+                rottenWoodMax: 120,
+                rottenWoodOutputRatio: 0.08
             },
             unlock: {
                 isDefault: false
@@ -875,6 +917,24 @@
             effects: {
                 rubbleOutputRatio: 0.35,
                 coalSlagPerTick: 0.015
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "charcoal_kiln",
+            name: game.text.TEXT_REGISTRY.buildings.charcoal_kiln.name,
+            description: game.text.TEXT_REGISTRY.buildings.charcoal_kiln.description,
+            basePrice: [
+                game.pricing.createPrice("rottenWood", 180),
+                game.pricing.createPrice("rubble", 120),
+                game.pricing.createPrice("coalSlag", 15)
+            ],
+            priceRatio: 1.15,
+            effects: {
+                charcoalKilnWoodCostPerSecond: 0.03,
+                charcoalKilnCoalSlagPerSecond: 0.012
             },
             unlock: {
                 isDefault: false
@@ -1324,6 +1384,7 @@
             ],
             unlocks: {
                 technologies: [
+                    "deadwood_cultivation",
                     "foraging",
                     "digging",
                     "hut_building",
@@ -1332,6 +1393,26 @@
             },
             unlock: {
                 isDefault: true
+            }
+        },
+        {
+            id: "deadwood_cultivation",
+            name: game.text.TEXT_REGISTRY.technologies.deadwood_cultivation.name,
+            description: game.text.TEXT_REGISTRY.technologies.deadwood_cultivation.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 18),
+                game.pricing.createPrice("rottenWood", 20)
+            ],
+            unlocks: {
+                buildings: [
+                    "rotten_grove"
+                ],
+                technologies: [
+                    "woodcraft"
+                ]
+            },
+            unlock: {
+                isDefault: false
             }
         },
         {
@@ -1382,6 +1463,26 @@
                     "mud_hut",
                     "cave_room",
                     "wooden_storehouse"
+                ],
+                technologies: [
+                    "woodcraft"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "woodcraft",
+            name: game.text.TEXT_REGISTRY.technologies.woodcraft.name,
+            description: game.text.TEXT_REGISTRY.technologies.woodcraft.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 60),
+                game.pricing.createPrice("rottenWood", 120)
+            ],
+            unlocks: {
+                buildings: [
+                    "drying_rack"
                 ]
             },
             unlock: {
@@ -1434,6 +1535,27 @@
                 ],
                 jobs: [
                     "smelter"
+                ],
+                technologies: [
+                    "charcoal_burning"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "charcoal_burning",
+            name: game.text.TEXT_REGISTRY.technologies.charcoal_burning.name,
+            description: game.text.TEXT_REGISTRY.technologies.charcoal_burning.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 100),
+                game.pricing.createPrice("rottenWood", 160),
+                game.pricing.createPrice("coalSlag", 10)
+            ],
+            unlocks: {
+                buildings: [
+                    "charcoal_kiln"
                 ]
             },
             unlock: {

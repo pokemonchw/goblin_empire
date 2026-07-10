@@ -67,6 +67,7 @@
         noLocalSave: "没有可加载的本地存档。",
         loaded: "存档已加载。",
         reset: "存档已重置，新的地穴从头开始。",
+        extinct: "最后的俘虏和哥布林都死光了，旧地穴崩溃，游戏回到初始界面。",
         imported: "导入存档已载入。",
         builtPrefix: "建造完成："
         ,
@@ -147,8 +148,10 @@
     // Object.<string, string> 建筑效果文案字典：key 为效果 ID，value 为中文标签。
     var EFFECT_TEXT = {
         fungusPerTick: "菌菇基础产出/tick",
+        rottenWoodPerTick: "朽木基础产出/tick",
         foodConsumptionReductionRatio: "菌菇消耗减免",
         fungusOutputRatio: "菌菇产出倍率",
+        rottenWoodOutputRatio: "朽木产出倍率",
         housingMax: "人口上限",
         laborMax: "劳力上限",
         crudeKnowledgeMax: "粗识上限",
@@ -161,6 +164,8 @@
         ironPlateMax: "铁片上限",
         rubbleOutputRatio: "碎石产出倍率",
         coalSlagPerTick: "煤渣基础产出/tick",
+        charcoalKilnWoodCostPerSecond: "闷炭朽木消耗/秒",
+        charcoalKilnCoalSlagPerSecond: "闷炭煤渣/秒",
         crudeFurnaceIronOrePerSecond: "铁矿熔炼/秒",
         crudeFurnaceIronPlatePerSecond: "铁片熔炼/秒",
         crudeFurnaceWoodCostPerSecond: "朽木消耗/秒",
@@ -408,6 +413,10 @@
             name: "菌菇床",
             description: "铺开潮湿菌毯，让地穴开始稳定冒出能吃的东西。"
         },
+        rotten_grove: {
+            name: "腐木圃",
+            description: "把拾来的朽木半埋进湿泥和菌丝里，缓慢长出可用的腐枝。"
+        },
         mud_hut: {
             name: "窝棚",
             description: "歪斜但能住的泥木棚屋，提高人口上限和劳力上限。"
@@ -423,6 +432,10 @@
         spore_trench: {
             name: "孢子沟",
             description: "把菌菇孢子引到浅沟里，减少哥布林吃掉的菌菇。"
+        },
+        drying_rack: {
+            name: "晾木架",
+            description: "用碎石垫高湿木，让捡柴工更容易分拣还能用的朽木。"
         },
         drip_channel: {
             name: "滴水渠",
@@ -459,6 +472,10 @@
         rubble_yard: {
             name: "碎石场",
             description: "把搬来的碎石集中筛拣，提高碎石和煤渣产出。"
+        },
+        charcoal_kiln: {
+            name: "闷炭窑",
+            description: "把多余朽木封进泥窑慢烧，换取更稳定的煤渣燃料。"
         },
         beast_pen: {
             name: "兽栏",
@@ -556,6 +573,10 @@
             name: "记号",
             description: "学会用刻痕记录潮湿、饥饿和下一次采菌。"
         },
+        deadwood_cultivation: {
+            name: "朽木栽培",
+            description: "把朽木当成可培育材料，而不是只靠地穴边缘碰运气。"
+        },
         foraging: {
             name: "采菌",
             description: "把随手采菌变成更稳定的菌菇管理。"
@@ -568,6 +589,10 @@
             name: "窝棚搭建",
             description: "让窝棚不再完全靠运气站住。"
         },
+        woodcraft: {
+            name: "木架工艺",
+            description: "学会晾晒、捆扎和堆放朽木，让木料链能支撑后续建筑。"
+        },
         mining: {
             name: "采矿",
             description: "把搬碎石推进到真正的浅层采矿。"
@@ -575,6 +600,10 @@
         metallurgy: {
             name: "冶金",
             description: "让哥布林学会维持炉火和分拣金属。"
+        },
+        charcoal_burning: {
+            name: "闷炭术",
+            description: "用泥窑控制朽木慢烧，把不稳的燃料转成可用煤渣。"
         },
         beast_pen: {
             name: "兽栏",
