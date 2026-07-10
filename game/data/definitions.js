@@ -25,7 +25,7 @@
 
     /**
      * @typedef {Object} PopulationConstants
-     * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林菌菇消耗，单位为菌菇/秒。
+     * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏菌菇消耗，单位为菌菇/秒。
      */
 
     /**
@@ -181,9 +181,9 @@
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
 
-    // PopulationConstants 人口常量：控制存活哥布林的菌菇消耗。
+    // PopulationConstants 人口常量：控制存活哥布林和俘虏的菌菇消耗；无加成下 5 个菌菇床养活 1 个口粮口数。
     var POPULATION_CONSTANTS = {
-        fungusConsumptionPerGoblinSecond: 0.03
+        fungusConsumptionPerGoblinSecond: 3.125
     };
 
     // TabDefinition[] 标签页定义列表：控制主界面可见标签页和默认顺序。
