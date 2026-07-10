@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>研究界面蓝图</title>
+    <link rel="stylesheet" href="blueprint.css">
+</head>
+<body>
+    <!-- 研究页：表现六条科技线、成本、解锁包和已研究状态。 -->
+    <header class="global-topbar" aria-label="全局工具栏">
+        <div class="brand-mark">
+            <strong>哥布林帝国</strong>
+            <span>蓝图版 · 本地存档槽</span>
+        </div>
+        <nav class="topbar-actions" aria-label="时间控制、存档与项目信息">
+            <button class="topbar-button pause-toggle" type="button" aria-pressed="false">暂停</button>
+            <button class="topbar-button" type="button">保存游戏</button>
+            <button class="topbar-button" type="button">加载存档</button>
+            <button class="topbar-button" type="button">重置存档</button>
+            <a class="topbar-link" href="index.html#author-info">作者信息</a>
+            <a class="topbar-link" href="https://github.com/pokemonchw/goblin_empire" target="_blank" rel="noreferrer">GitHub 地址</a>
+            <a class="topbar-link important" href="https://ifdian.net/a/byayoi" target="_blank" rel="noreferrer">捐款</a>
+        </nav>
+    </header>
+    <div class="shell">
+        <aside class="left-rail">
+            <div class="section">
+                <h2>研究资源</h2>
+                <div class="resource-row"><strong>粗识</strong><span>420 / 500</span><span class="positive">+0.35/s</span></div>
+                <div class="resource-row"><strong>账册</strong><span>隐藏</span><span>书写</span></div>
+                <div class="resource-row"><strong>魔晶</strong><span>隐藏</span><span>深矿</span></div>
+            </div>
+            <div class="section">
+                <h2>科技线路</h2>
+                <div class="compact-row"><strong>生存</strong><span>2/4</span></div>
+                <div class="compact-row"><strong>矿业</strong><span>0/5</span></div>
+                <div class="compact-row"><strong>制度</strong><span>0/6</span></div>
+                <div class="compact-row"><strong>军工</strong><span>0/4</span></div>
+                <div class="compact-row"><strong>符文</strong><span>0/3</span></div>
+                <div class="compact-row"><strong>深渊</strong><span>0/3</span></div>
+            </div>
+        </aside>
+        <main class="workspace">
+            <div class="topline">
+                <div class="title-block">
+                    <h1>研究</h1>
+                    <p>涂鸦墙后解锁，科技主要负责打开系统、建筑、职业、配方、政策和升级。</p>
+                </div>
+                <a class="tab" href="index.html">总览</a>
+            </div>
+            <nav class="tabs">
+                <a class="tab" href="01-cavern.html">地穴</a>
+                <a class="tab" href="02-clan.html">氏族</a>
+                <a class="tab active" href="03-research.html">研究</a>
+                <a class="tab" href="04-workshop.html">工坊</a>
+                <a class="tab" href="05-diplomacy.html">外交</a>
+                <a class="tab" href="06-ritual.html">祭祀</a>
+                <a class="tab" href="07-empire.html">帝国</a>
+                <a class="tab" href="08-abyss.html">深渊</a>
+            </nav>
+            <section class="section">
+                <h2>筛选与政策入口</h2>
+                <div class="control-row">
+                    <button class="btn">全部</button>
+                    <button class="btn">可研究</button>
+                    <button class="btn">接近解锁</button>
+                    <button class="btn disabled">隐藏已完成</button>
+                    <select class="select-box"><option>按线路排序</option><option>按成本排序</option></select>
+                </div>
+            </section>
+            <section class="section">
+                <h2>早期科技卡片</h2>
+                <div class="button-list">
+                    <div class="action affordable">
+                        <div><div class="action-title">记号 <span>生存</span><span>已研究</span></div><p>成本：粗识 10。解锁：采菌、挖掘、窝棚搭建、采矿。</p></div>
+                        <button class="btn" disabled>完成</button>
+                    </div>
+                    <div class="action affordable">
+                        <div><div class="action-title">采菌 <span>生存</span><span>可研究</span></div><p>成本：粗识 25。解锁：储物坑、采菌工、孢子沟。</p></div>
+                        <button class="btn">研究</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">弓弩 <span>军工</span><span>缺 铁片</span></div><p>成本：粗识 90，铁片 5。解锁：抢掠兵、训练坑、兵器坊、俘虏入口。</p><p>缺少：铁片 -5。可用倒计时：不可用。</p></div>
+                        <button class="btn" disabled>缺资源</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">采矿 <span>矿业</span><span>接近解锁</span></div><p>成本：粗识 50。解锁：煤渣、铁矿、浅矿井、工匠棚、粗熔炉和矿工。</p><p>缺少：粗识 -30。可用倒计时：00:01:26。</p></div>
+                        <button class="btn" disabled>缺资源</button>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>科技树线框</h2>
+                <div class="flow">
+                    <div class="flow-node"><strong>记号</strong><span>时间、采菌</span></div>
+                    <div class="flow-node"><strong>采菌</strong><span>储物坑、采菌工</span></div>
+                    <div class="flow-node"><strong>采矿</strong><span>浅矿井、工坊</span></div>
+                    <div class="flow-node"><strong>冶金</strong><span>粗熔炉、铁片</span></div>
+                    <div class="flow-node"><strong>氏族规矩</strong><span>酋长厅、政策</span></div>
+                    <div class="flow-node"><strong>货币</strong><span>黑市、外交</span></div>
+                    <div class="flow-node"><strong>祭祀</strong><span>祖灵祭坛</span></div>
+                    <div class="flow-node"><strong>机械</strong><span>工程师、自动制作</span></div>
+                    <div class="flow-node"><strong>符文学</strong><span>符文板、符文匠</span></div>
+                    <div class="flow-node"><strong>深渊测绘</strong><span>深渊门、远征</span></div>
+                </div>
+            </section>
+        </main>
+        <aside class="right-rail">
+            <div class="section">
+                <h2>解锁包预览</h2>
+                <table class="table">
+                    <tbody>
+                        <tr><th>资源</th><td>煤渣、铁矿、金币、魔晶按科技逐步出现</td></tr>
+                        <tr><th>建筑</th><td>浅矿井、粗熔炉、黑市、祖灵祭坛、深渊门</td></tr>
+                        <tr><th>职业</th><td>矿工、熔炼工、抢掠兵、工程师、符文匠</td></tr>
+                        <tr><th>政策</th><td>贸易路线、掠夺传统、深挖、稳固等互斥选项</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="section">
+                <h2>研究日志</h2>
+                <div class="log-list">
+                    <div class="log important">哥布林开始用划痕记录采集、挖掘和窝棚规矩。</div>
+                    <div class="log">新的科技接近可研究：采矿。</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>

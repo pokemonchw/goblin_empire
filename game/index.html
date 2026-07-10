@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>哥布林帝国</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="brand-block">
+                <h1>哥布林帝国</h1>
+                <span id="run-status" class="run-status">运行中</span>
+            </div>
+            <nav class="toolbar" aria-label="全局工具栏">
+                <button id="pause-toggle" type="button">暂停</button>
+                <button id="save-game" type="button">保存</button>
+                <button id="load-game" type="button">加载</button>
+                <button id="reset-save" type="button">重置</button>
+                <button id="export-save" type="button">导出</button>
+                <button id="import-save" type="button">导入</button>
+                <a href="https://github.com/pokemonchw/goblin_empire" target="_blank" rel="noreferrer">GitHub</a>
+                <a href="https://ifdian.net/a/byayoi" target="_blank" rel="noreferrer">捐款</a>
+                <span>作者：Lulika</span>
+            </nav>
+        </header>
+
+        <main class="layout">
+            <aside class="panel sidebar-left" aria-label="资源与状态">
+                <section>
+                    <h2>资源</h2>
+                    <div id="resource-list" class="resource-list"></div>
+                </section>
+                <section>
+                    <h2>重要状态</h2>
+                    <dl id="status-list" class="status-list"></dl>
+                </section>
+            </aside>
+
+            <section class="panel center-stage" aria-label="管理标签页">
+                <div id="tab-list" class="tab-list" role="tablist"></div>
+                <div id="tab-content" class="tab-content"></div>
+            </section>
+
+            <aside class="panel sidebar-right" aria-label="日志与事件">
+                <section>
+                    <h2>日志</h2>
+                    <label class="filter-row">
+                        <input id="show-normal-logs" type="checkbox" checked>
+                        普通
+                    </label>
+                    <label class="filter-row">
+                        <input id="show-important-logs" type="checkbox" checked>
+                        重要
+                    </label>
+                    <label class="filter-row">
+                        <input id="show-warning-logs" type="checkbox" checked>
+                        警告
+                    </label>
+                    <ol id="log-list" class="log-list"></ol>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <script src="scripts/contracts.js"></script>
+    <script src="data/ids.js"></script>
+    <script src="data/text.js"></script>
+    <script src="systems/pricing.js"></script>
+    <script src="data/definitions.js"></script>
+    <script src="state/initialState.js"></script>
+    <script src="state/save.js"></script>
+    <script src="systems/simulation.js"></script>
+    <script src="systems/unlocks.js"></script>
+    <script src="systems/policies.js"></script>
+    <script src="systems/pacts.js"></script>
+    <script src="systems/resources.js"></script>
+    <script src="systems/buildings.js"></script>
+    <script src="systems/population.js"></script>
+    <script src="systems/jobs.js"></script>
+    <script src="systems/technology.js"></script>
+    <script src="systems/production.js"></script>
+    <script src="systems/crafting.js"></script>
+    <script src="systems/events.js"></script>
+    <script src="systems/captives.js"></script>
+    <script src="systems/diplomacy.js"></script>
+    <script src="systems/raids.js"></script>
+    <script src="systems/rituals.js"></script>
+    <script src="systems/expeditions.js"></script>
+    <script src="systems/prestige.js"></script>
+    <script src="systems/challenges.js"></script>
+    <script src="systems/resourceFlows.js"></script>
+    <script src="ui/render.js"></script>
+    <script src="ui/events.js"></script>
+    <script src="scripts/main.js"></script>
+</body>
+</html>

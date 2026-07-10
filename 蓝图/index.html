@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>哥布林帝国界面蓝图总览</title>
+    <link rel="stylesheet" href="blueprint.css">
+</head>
+<body>
+    <!-- 总览页：汇总所有系统入口、解锁关系和全局三栏框架。 -->
+    <header class="global-topbar" aria-label="全局工具栏">
+        <div class="brand-mark">
+            <strong>哥布林帝国</strong>
+            <span>蓝图版 · 本地存档槽</span>
+        </div>
+        <nav class="topbar-actions" aria-label="时间控制、存档与项目信息">
+            <button class="topbar-button pause-toggle" type="button" aria-pressed="false">暂停</button>
+            <button class="topbar-button" type="button">保存游戏</button>
+            <button class="topbar-button" type="button">加载存档</button>
+            <button class="topbar-button" type="button">重置存档</button>
+            <a class="topbar-link" href="#author-info">作者信息</a>
+            <a class="topbar-link" href="https://github.com/pokemonchw/goblin_empire" target="_blank" rel="noreferrer">GitHub 地址</a>
+            <a class="topbar-link important" href="https://ifdian.net/a/byayoi" target="_blank" rel="noreferrer">捐款</a>
+        </nav>
+    </header>
+    <div class="shell">
+        <aside class="left-rail">
+            <div class="section">
+                <h2>资源栏蓝图</h2>
+                <div class="resource-group">
+                    <h3>基础</h3>
+                    <div class="resource-row has-tooltip"><strong>菌菇</strong><span>184 / 500</span><span class="positive">+1.8/s</span><div class="resource-tooltip" role="tooltip"><h4>菌菇流量明细</h4><dl><div><dt>总产出速度</dt><dd>+2.4/秒</dd></div><div><dt>产出明细</dt><dd>菌菇床 +0.6，采菌工 +1.8</dd></div><div><dt>加成</dt><dd>滴水渠 +3%，菌潮 +50%</dd></div><div><dt>总消耗</dt><dd>-0.6/秒</dd></div><div><dt>消耗明细</dt><dd>人口口粮 -0.6</dd></div><div><dt>buff 明细</dt><dd>菌潮剩余 42 秒</dd></div><div><dt>最终产出</dt><dd>+1.8/秒</dd></div><div><dt>库存爆仓时间</dt><dd>约 2 分 56 秒</dd></div></dl></div></div>
+                    <div class="resource-row"><strong>朽木</strong><span>72 / 300</span><span class="positive">+0.6/s</span></div>
+                    <div class="resource-row"><strong>碎石</strong><span>95 / 350</span><span class="positive">+0.4/s</span></div>
+                    <div class="resource-row"><strong>粗识</strong><span>38 / 250</span><span class="positive">+0.2/s</span></div>
+                </div>
+                <div class="resource-group">
+                    <h3>工业</h3>
+                    <div class="resource-row"><strong>煤渣</strong><span>0 / 60</span><span>0/s</span></div>
+                    <div class="resource-row"><strong>铁矿</strong><span>0 / 50</span><span>0/s</span></div>
+                    <div class="resource-row"><strong>铁片</strong><span>0 / 20</span><span>制作</span></div>
+                </div>
+                <div class="resource-group">
+                    <h3>长线</h3>
+                    <div class="resource-row"><strong>祖灵回响</strong><span>隐藏</span><span class="mystic">祭祀</span></div>
+                    <div class="resource-row"><strong>帝国遗产</strong><span>隐藏</span><span class="prestige">重置</span></div>
+                </div>
+            </div>
+            <div class="section">
+                <h2>状态栏</h2>
+                <div class="status-row"><strong>哥布林</strong><span>4 / 8</span></div>
+                <div class="status-row"><strong>空闲个体</strong><span>1</span></div>
+                <div class="status-row"><strong>服从度</strong><span class="warning">92%</span></div>
+                <div class="status-row"><strong>拥挤度</strong><span>50%</span></div>
+                <div class="status-row"><strong>军力</strong><span>0 / 0</span></div>
+                <div class="status-row"><strong>tick 频率</strong><span>5 tick/秒</span></div>
+                <div class="status-row"><strong>运行状态</strong><span class="positive">运行中</span></div>
+            </div>
+        </aside>
+
+        <main class="workspace">
+            <div class="topline">
+                <div class="title-block">
+                    <h1>哥布林帝国界面蓝图总览</h1>
+                    <p>基于策划案 02-05，覆盖地穴、氏族、研究、工坊、外交、祭祀、帝国、深渊八个主界面。</p>
+                </div>
+                <a class="tab active" href="index.html">总览</a>
+            </div>
+
+            <nav class="tabs" aria-label="界面蓝图导航">
+                <a class="tab" href="01-cavern.html">地穴</a>
+                <a class="tab" href="02-clan.html">氏族</a>
+                <a class="tab" href="03-research.html">研究</a>
+                <a class="tab" href="04-workshop.html">工坊</a>
+                <a class="tab" href="05-diplomacy.html">外交</a>
+                <a class="tab" href="06-ritual.html">祭祀</a>
+                <a class="tab" href="07-empire.html">帝国</a>
+                <a class="tab" href="08-abyss.html">深渊</a>
+            </nav>
+
+            <section class="section">
+                <h2>主界面骨架</h2>
+                <div class="grid-3">
+                    <div class="system-card">
+                        <h3>左侧资源与状态</h3>
+                        <p>按基础、加工、稀有、神秘、威望分组；显示当前值、容量、每秒变化、容量满提示。</p>
+                    </div>
+                    <div class="system-card">
+                        <h3>中部标签页工作区</h3>
+                        <p>按钮列表显示成本、效果、可购买状态、缺口、接近解锁提示，以及按当前资源速度估算的可用倒计时。</p>
+                    </div>
+                    <div class="system-card">
+                        <h3>右侧日志与过滤</h3>
+                        <p>记录建造、研究、贸易、事故、解锁、重置；支持等级过滤和隐藏已完成。</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>暂停状态蓝图</h2>
+                <div class="grid-3">
+                    <div class="system-card">
+                        <h3>运行中</h3>
+                        <p>顶栏按钮显示“暂停”，点击后冻结主循环，并把运行状态写入存档。</p>
+                    </div>
+                    <div class="system-card">
+                        <h3>已暂停</h3>
+                        <p>顶栏按钮显示“继续”，生产、消耗、自动化、事件和离线累计停止。</p>
+                    </div>
+                    <div class="system-card">
+                        <h3>允许操作</h3>
+                        <p>暂停时可保存、加载、导出、导入、重置存档和切换界面；购买、制作、分配、掠夺等状态变更置灰。</p>
+                    </div>
+                    <div class="system-card">
+                        <h3>重置存档</h3>
+                        <p>顶栏按钮二次确认后清空本地存档并从新地穴开始；不发放帝国遗产，也不执行威望迁徙。</p>
+                    </div>
+                </div>
+                <div class="tool-row" aria-label="暂停状态按钮示例">
+                    <button class="topbar-button pause-toggle" type="button" aria-pressed="false">暂停</button>
+                    <button class="topbar-button pause-toggle" type="button" aria-pressed="true">继续</button>
+                    <button class="topbar-button" type="button">重置存档</button>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>新局模式入口</h2>
+                <div class="grid-2">
+                    <div class="system-card">
+                        <h3>地穴控制台</h3>
+                        <p>游戏未开始时保留唯一的地穴说明卡，提示当前运行状态和启动前说明，不显示地穴剖面、采集或建筑列表。</p>
+                    </div>
+                    <div class="system-card">
+                        <h3>新局模式</h3>
+                        <p>同一卡片内提供“开始正常模式”和永冬地穴、无贸易帝国等挑战按钮；选择后才进入标准地穴可玩界面。</p>
+                        <button class="topbar-button" type="button">开始正常模式</button>
+                        <button class="topbar-button" type="button">永冬地穴</button>
+                        <button class="topbar-button" type="button">无贸易帝国</button>
+                    </div>
+                </div>
+                <p>选择任一模式开局后，地穴正文不再显示“新局模式”卡片；已有普通进度的旧存档也不能重新落回只显示挑战入口的状态。</p>
+            </section>
+
+            <section class="section">
+                <h2>系统解锁链</h2>
+                <div class="flow">
+                    <div class="flow-node"><strong>地穴求生</strong><span>手动采集、菌菇床、窝棚、储物坑</span></div>
+                    <div class="flow-node"><strong>氏族分工</strong><span>个体哥布林、人口普查、职业、服从、拥挤、预设</span></div>
+                    <div class="flow-node"><strong>研究推进</strong><span>涂鸦墙、科技树、政策入口</span></div>
+                    <div class="flow-node"><strong>矿业工坊</strong><span>采矿、冶金、配方、升级、自动制作</span></div>
+                    <div class="flow-node"><strong>外交扩张</strong><span>黑市、贸易、关系、俘虏处置；军力解锁后显示独立掠夺行动</span></div>
+                    <div class="flow-node"><strong>祖灵祭祀</strong><span>祭坛、巫医、献祭、祖灵升级</span></div>
+                    <div class="flow-node"><strong>帝国治理</strong><span>酋长厅、政策、统计、成就、挑战入口</span></div>
+                    <div class="flow-node"><strong>黑铁工业</strong><span>钢锭、齿轮、黑铁、符文机房</span></div>
+                    <div class="flow-node"><strong>深渊远征</strong><span>深渊门、契约、遗物、重置准备</span></div>
+                    <div class="flow-node"><strong>长期循环</strong><span>帝国遗产、威望天赋、挑战模式</span></div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>所有系统覆盖矩阵</h2>
+                <table class="table">
+                    <thead>
+                        <tr><th>系统</th><th>蓝图位置</th><th>关键控件</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>资源、容量、每秒变化</td><td>所有页面左栏</td><td>分组、容量条、正负产出色彩</td></tr>
+                        <tr><td>建筑购买和接近解锁</td><td>地穴、帝国、深渊</td><td>可买、缺资源、灰态提示、价格倍率、可用倒计时/不可用</td></tr>
+                        <tr><td>个体哥布林、职业、服从、拥挤</td><td>氏族</td><td>人口普查、筛选、固定职业、领袖、批量预设</td></tr>
+                        <tr><td>科技树和政策入口</td><td>研究</td><td>线路筛选、成本、解锁包、已研究状态、缺口倒计时</td></tr>
+                        <tr><td>配方和工坊升级</td><td>工坊</td><td>制作 1/10/100/全部、收益倍率、自动制作槽、缺口倒计时</td></tr>
+                        <tr><td>贸易、军力解锁后的掠夺、俘虏</td><td>外交</td><td>关系、成功率、苗床/改造/食物预览、风险、缺口倒计时；掠夺不混入研究卡片</td></tr>
+                        <tr><td>祭祀和深渊契约</td><td>祭祀、深渊</td><td>祖灵升级、献祭、契约收益和代价、不可达提示</td></tr>
+                        <tr><td>威望、统计、挑战</td><td>帝国、深渊</td><td>遗产预估、天赋购买、挑战规则和奖励、不可达提示</td></tr>
+                        <tr><td>暂停/继续、重置存档</td><td>所有页面顶栏和状态栏</td><td>全局时间门控、暂停状态保存、暂停时禁用主动状态变更、二次确认后清空本地存档</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="section" id="author-info">
+                <h2>作者与项目入口</h2>
+                <div class="grid-3">
+                    <div class="system-card">
+                        <h3>作者信息</h3>
+                        <p>作者：Lulika。顶栏保留作者页入口，正式实现时可连接版本、鸣谢和联系方式。</p>
+                    </div>
+                    <div class="system-card">
+                        <h3>GitHub 地址</h3>
+                        <p>地址：https://github.com/pokemonchw/goblin_empire。</p>
+                    </div>
+                    <div class="system-card" id="donation-info">
+                        <h3>捐款入口</h3>
+                        <p>捐款地址：https://ifdian.net/a/byayoi。</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <aside class="right-rail">
+            <div class="section">
+                <h2>日志蓝图</h2>
+                <div class="log-list">
+                    <div class="log">建造完成：菌菇床提高菌菇基础产出。</div>
+                    <div class="log important">首次解锁：涂鸦墙让研究标签页可见。</div>
+                    <div class="log alert">警告：菌菇不足，人口增长暂停；不会创建新哥布林对象。</div>
+                    <div class="log important">时间控制：游戏已暂停，生产、事件和离线累计停止。</div>
+                </div>
+            </div>
+            <div class="section">
+                <h2>过滤与自动化</h2>
+                <div class="control-row">
+                    <button class="btn">普通</button>
+                    <button class="btn">重要</button>
+                    <button class="btn">警告</button>
+                    <button class="btn disabled">隐藏完成</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>

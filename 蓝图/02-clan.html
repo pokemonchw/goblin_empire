@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>氏族界面蓝图</title>
+    <link rel="stylesheet" href="blueprint.css">
+</head>
+<body>
+    <!-- 氏族页：展示个体哥布林、职业分配、服从与拥挤压力，是资源生产倍率的管理入口。 -->
+    <header class="global-topbar" aria-label="全局工具栏">
+        <div class="brand-mark">
+            <strong>哥布林帝国</strong>
+            <span>蓝图版 · 本地存档槽</span>
+        </div>
+        <nav class="topbar-actions" aria-label="时间控制、存档与项目信息">
+            <button class="topbar-button pause-toggle" type="button" aria-pressed="false">暂停</button>
+            <button class="topbar-button" type="button">保存游戏</button>
+            <button class="topbar-button" type="button">加载存档</button>
+            <button class="topbar-button" type="button">重置存档</button>
+            <a class="topbar-link" href="index.html#author-info">作者信息</a>
+            <a class="topbar-link" href="https://github.com/pokemonchw/goblin_empire" target="_blank" rel="noreferrer">GitHub 地址</a>
+            <a class="topbar-link important" href="https://ifdian.net/a/byayoi" target="_blank" rel="noreferrer">捐款</a>
+        </nav>
+    </header>
+    <div class="shell">
+        <aside class="left-rail">
+            <div class="section">
+                <h2>人口状态</h2>
+                <div class="status-row"><strong>哥布林</strong><span>6 / 8</span></div>
+                <div class="status-row"><strong>空闲</strong><span>2</span></div>
+                <div class="status-row"><strong>固定职业</strong><span>1</span></div>
+                <div class="status-row"><strong>伤病</strong><span class="warning">1</span></div>
+                <div class="status-row"><strong>劳力</strong><span>54 / 150</span></div>
+                <div class="status-row"><strong>服从度</strong><span class="warning">87%</span></div>
+                <div class="bar warn"><span style="width: 87%"></span></div>
+                <div class="status-row"><strong>拥挤度</strong><span>75%</span></div>
+                <div class="bar bad"><span style="width: 75%"></span></div>
+            </div>
+        </aside>
+        <main class="workspace">
+            <div class="topline">
+                <div class="title-block">
+                    <h1>氏族</h1>
+                    <p>窝棚后解锁，负责人口普查、个体哥布林、职业分配、服从度、拥挤度和职业预设。</p>
+                </div>
+                <a class="tab" href="index.html">总览</a>
+            </div>
+            <nav class="tabs">
+                <a class="tab" href="01-cavern.html">地穴</a>
+                <a class="tab active" href="02-clan.html">氏族</a>
+                <a class="tab" href="03-research.html">研究</a>
+                <a class="tab" href="04-workshop.html">工坊</a>
+                <a class="tab" href="05-diplomacy.html">外交</a>
+                <a class="tab" href="06-ritual.html">祭祀</a>
+                <a class="tab" href="07-empire.html">帝国</a>
+                <a class="tab" href="08-abyss.html">深渊</a>
+            </nav>
+            <section class="section">
+                <h2>职业预设</h2>
+                <div class="tool-row">
+                    <button class="btn">生存</button>
+                    <button class="btn">采矿</button>
+                    <button class="btn">研究</button>
+                    <button class="btn disabled">战争</button>
+                    <button class="btn disabled">祭祀</button>
+                    <button class="btn">全部撤下</button>
+                </div>
+            </section>
+            <section class="section">
+                <h2>人口普查</h2>
+                <div class="tool-row">
+                    <select class="select-box" aria-label="职业筛选">
+                        <option>全部职业</option>
+                        <option>空闲</option>
+                        <option>采菌工</option>
+                        <option>捡柴工</option>
+                        <option>涂鸦学徒</option>
+                    </select>
+                    <select class="select-box" aria-label="特质筛选">
+                        <option>全部特质</option>
+                        <option>强壮</option>
+                        <option>灵巧</option>
+                        <option>狡猾</option>
+                        <option>魔血</option>
+                    </select>
+                    <select class="select-box" aria-label="状态筛选">
+                        <option>全部状态</option>
+                        <option>固定职业</option>
+                        <option>伤病</option>
+                        <option>领袖候选</option>
+                    </select>
+                </div>
+                <div class="goblin-list">
+                    <div class="goblin-row leader">
+                        <div>
+                            <strong>嘎鲁·黑耳</strong>
+                            <span>领袖，17 岁，强壮 / 顺从</span>
+                        </div>
+                        <div class="goblin-stats">
+                            <span>强壮 8</span><span>意志 7</span><span>采矿 熟手 43%</span>
+                        </div>
+                        <div class="tool-row">
+                            <button class="btn">撤下</button>
+                            <button class="btn">固定</button>
+                            <button class="btn disabled">领袖</button>
+                        </div>
+                    </div>
+                    <div class="goblin-row">
+                        <div>
+                            <strong>泥爪</strong>
+                            <span>采菌工，9 岁，感知敏锐</span>
+                        </div>
+                        <div class="goblin-stats">
+                            <span>感知 9</span><span>采菌 老练 12%</span><span>捡柴 生手 64%</span>
+                        </div>
+                        <div class="tool-row">
+                            <button class="btn">撤下</button>
+                            <button class="btn">固定</button>
+                            <button class="btn">设为领袖</button>
+                        </div>
+                    </div>
+                    <div class="goblin-row wounded">
+                        <div>
+                            <strong>歪牙</strong>
+                            <span>空闲，13 岁，贪婪 / 轻伤</span>
+                        </div>
+                        <div class="goblin-stats">
+                            <span>狡诈 8</span><span>抢掠 生手 71%</span><span>伤病 -20%</span>
+                        </div>
+                        <div class="tool-row">
+                            <button class="btn">分配</button>
+                            <button class="btn">固定</button>
+                            <button class="btn">设为领袖</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>职业分配汇总</h2>
+                <table class="table">
+                    <thead>
+                        <tr><th>职业</th><th>已分配</th><th>推荐个体规则</th><th>产出/效果</th><th>操作</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>捡柴工</td><td>2</td><td>woodcutting + dexterity</td><td>朽木 +0.018/tick，按个体技能修正</td><td><button class="btn">-</button> <button class="btn">+</button> <button class="btn">最大</button></td></tr>
+                        <tr><td>采菌工</td><td>1</td><td>foraging + perception</td><td>菌菇 +1/tick，按个体技能修正</td><td><button class="btn">-</button> <button class="btn">+</button> <button class="btn">最大</button></td></tr>
+                        <tr><td>涂鸦学徒</td><td>1</td><td>scribing + will</td><td>粗识 +0.035/tick，按个体技能修正</td><td><button class="btn">-</button> <button class="btn">+</button> <button class="btn">最大</button></td></tr>
+                        <tr><td>矿工</td><td>0</td><td>mining + strength</td><td>采矿后解锁，碎石 +0.05/tick</td><td><button class="btn" disabled>-</button> <button class="btn disabled">未解锁</button></td></tr>
+                        <tr><td>监工</td><td>0</td><td>overseeing + will</td><td>酋长厅后解锁，服从 +，事故率 -</td><td><button class="btn disabled">未解锁</button></td></tr>
+                    </tbody>
+                </table>
+                <p class="note">汇总人数由存活哥布林对象的 jobId 统计，批量按钮会选择最匹配且未固定的个体。</p>
+            </section>
+            <section class="section">
+                <h2>人口与纪律计算提示</h2>
+                <div class="grid-2">
+                    <pre class="formula">population = countAlive(goblins)
+freeHousingRatio = max(0, (maxPopulation - population) / maxPopulation)
+foodSafetyModifier = 菌菇 &lt;= 0 ? 0 : 1</pre>
+                    <pre class="formula">goblinJobOutput = base * attributeModifier * skillModifier
+obedienceModifier = clamp(0.75, 1.25, 1 + (obedience - 100) / 400)
+accidentChance = baseAccidentChance * obedienceRisk</pre>
+                </div>
+            </section>
+            <section class="section">
+                <h2>压力反馈卡片</h2>
+                <div class="grid-3">
+                    <div class="card"><h3>菌菇安全</h3><p>当前消耗 -0.24/s，低于产出时显示绿色；断粮时停止自然增长。</p></div>
+                    <div class="card"><h3>拥挤</h3><p>超过 80% 时提示建造窝棚、洞室或选择战利品分配政策。</p></div>
+                    <div class="card"><h3>服从</h3><p>低服从降低全局产出并提高矿塌、熔炉爆燃等事件概率。</p></div>
+                </div>
+            </section>
+        </main>
+        <aside class="right-rail">
+            <div class="section">
+                <h2>氏族日志</h2>
+                <div class="log-list">
+                    <div class="log">新哥布林“泥爪”从窝棚里探出头。</div>
+                    <div class="log important">职业预设“研究”已将嘎鲁·黑耳分配给涂鸦学徒。</div>
+                    <div class="log alert">歪牙在矿塌中受伤，采矿和抢掠效率暂时降低。</div>
+                </div>
+            </div>
+            <div class="section">
+                <h2>解锁入口</h2>
+                <div class="compact-row"><strong>抢掠兵</strong><span>弓弩</span></div>
+                <div class="compact-row"><strong>熔炼工</strong><span>冶金</span></div>
+                <div class="compact-row"><strong>工程师</strong><span>机械</span></div>
+                <div class="compact-row"><strong>符文匠</strong><span>符文学</span></div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>工坊界面蓝图</title>
+    <link rel="stylesheet" href="blueprint.css">
+</head>
+<body>
+    <!-- 工坊页：表现加工配方、工坊升级和工程师自动制作控制。 -->
+    <header class="global-topbar" aria-label="全局工具栏">
+        <div class="brand-mark">
+            <strong>哥布林帝国</strong>
+            <span>蓝图版 · 本地存档槽</span>
+        </div>
+        <nav class="topbar-actions" aria-label="时间控制、存档与项目信息">
+            <button class="topbar-button pause-toggle" type="button" aria-pressed="false">暂停</button>
+            <button class="topbar-button" type="button">保存游戏</button>
+            <button class="topbar-button" type="button">加载存档</button>
+            <button class="topbar-button" type="button">重置存档</button>
+            <a class="topbar-link" href="index.html#author-info">作者信息</a>
+            <a class="topbar-link" href="https://github.com/pokemonchw/goblin_empire" target="_blank" rel="noreferrer">GitHub 地址</a>
+            <a class="topbar-link important" href="https://ifdian.net/a/byayoi" target="_blank" rel="noreferrer">捐款</a>
+        </nav>
+    </header>
+    <div class="shell">
+        <aside class="left-rail">
+            <div class="section">
+                <h2>加工资源</h2>
+                <div class="resource-row"><strong>木梁</strong><span>3 / 25</span><span>制作</span></div>
+                <div class="resource-row"><strong>石板</strong><span>1 / 25</span><span>制作</span></div>
+                <div class="resource-row"><strong>铁片</strong><span>0 / 20</span><span>制作</span></div>
+                <div class="resource-row"><strong>钢锭</strong><span>隐藏</span><span>机械/钢铁</span></div>
+                <div class="resource-row"><strong>齿轮</strong><span>隐藏</span><span>机械</span></div>
+                <div class="resource-row"><strong>符文板</strong><span>隐藏</span><span>符文学</span></div>
+            </div>
+        </aside>
+        <main class="workspace">
+            <div class="topline">
+                <div class="title-block">
+                    <h1>工坊</h1>
+                    <p>采矿并建造工匠棚后解锁，负责手工制作、升级购买和后期自动制作。</p>
+                </div>
+                <a class="tab" href="index.html">总览</a>
+            </div>
+            <nav class="tabs">
+                <a class="tab" href="01-cavern.html">地穴</a>
+                <a class="tab" href="02-clan.html">氏族</a>
+                <a class="tab" href="03-research.html">研究</a>
+                <a class="tab active" href="04-workshop.html">工坊</a>
+                <a class="tab" href="05-diplomacy.html">外交</a>
+                <a class="tab" href="06-ritual.html">祭祀</a>
+                <a class="tab" href="07-empire.html">帝国</a>
+                <a class="tab" href="08-abyss.html">深渊</a>
+            </nav>
+            <section class="section">
+                <h2>制作倍率与批量</h2>
+                <div class="control-row">
+                    <button class="btn">制作 1</button>
+                    <button class="btn">制作 10</button>
+                    <button class="btn">制作 100</button>
+                    <button class="btn">制作全部</button>
+                    <span class="tag">当前收益 x1.00</span>
+                    <span class="tag">工程师 0</span>
+                </div>
+            </section>
+            <section class="section">
+                <h2>手工配方</h2>
+                <div class="button-list">
+                    <div class="action affordable">
+                        <div><div class="action-title">制作木梁 <span>朽木 x175</span></div><p>用于木架仓、工坊、账房、黑市和酋长厅。</p></div>
+                        <button class="btn">制作</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">制作石板 <span>碎石 x250</span><span>缺 90</span></div><p>用于仓储、矿井、祭坛和符文板前置。</p><p>缺少：碎石 -90。可用倒计时：不可用。</p></div>
+                        <button class="btn" disabled>缺资源</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">制作铁片 <span>铁矿 x125</span><span>冶金</span></div><p>用于工具、兵器、仓储和工业升级。</p><p>可用倒计时：不可用。</p></div>
+                        <button class="btn" disabled>未解锁</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">制作钢锭 <span>铁片 x20 + 煤渣 x30</span></div><p>工业、要塞和机械建筑的核心材料。</p><p>可用倒计时：不可用。</p></div>
+                        <button class="btn" disabled>未解锁</button>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>工坊升级</h2>
+                <div class="grid-2">
+                    <div class="card"><h3>粗糙镐</h3><p>成本：碎石 100，朽木 50。效果：矿工产出 +10%。</p><p>缺少：碎石 -40。可用倒计时：不可用。</p></div>
+                    <div class="card"><h3>加固背篓</h3><p>成本：朽木 200，皮革 25。效果：仓储容量 +10%。</p><p>缺少：皮革 -25。可用倒计时：不可用。</p></div>
+                    <div class="card"><h3>鼓风炉</h3><p>成本：煤渣 100，铁片 50。效果：粗熔炉铁产出 +20%。</p><p>缺少：铁片 -50。可用倒计时：不可用。</p></div>
+                    <div class="card"><h3>自动滑槽</h3><p>成本：齿轮 25，钢锭 100。效果：工程师自动制作速度 +25%。</p><p>可用倒计时：不可用。</p></div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>自动制作槽</h2>
+                <table class="table">
+                    <thead><tr><th>槽位</th><th>配方</th><th>阈值</th><th>状态</th></tr></thead>
+                    <tbody>
+                        <tr><td>1</td><td>木梁</td><td>朽木 &gt; 70%</td><td><button class="btn disabled">工程师不足</button></td></tr>
+                        <tr><td>2</td><td>石板</td><td>碎石 &gt; 80%</td><td><button class="btn disabled">机械后解锁</button></td></tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+        <aside class="right-rail">
+            <div class="section">
+                <h2>制作收益公式</h2>
+                <pre class="formula">craftedAmount = requestedAmount * (1 + craftRatio + tierCraftRatio + leaderCraftRatio)</pre>
+            </div>
+            <div class="section">
+                <h2>工坊日志</h2>
+                <div class="log-list">
+                    <div class="log">工匠把朽木绑成粗糙木梁。</div>
+                    <div class="log important">新升级接近可购买：粗糙镐。</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>

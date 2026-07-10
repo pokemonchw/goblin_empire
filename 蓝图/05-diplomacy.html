@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>外交界面蓝图</title>
+    <link rel="stylesheet" href="blueprint.css">
+</head>
+<body>
+    <!-- 外交页：表现贸易、关系、军力解锁后的独立掠夺行动和俘虏处置，所有风险必须在按钮旁可见。 -->
+    <header class="global-topbar" aria-label="全局工具栏">
+        <div class="brand-mark">
+            <strong>哥布林帝国</strong>
+            <span>蓝图版 · 本地存档槽</span>
+        </div>
+        <nav class="topbar-actions" aria-label="时间控制、存档与项目信息">
+            <button class="topbar-button pause-toggle" type="button" aria-pressed="false">暂停</button>
+            <button class="topbar-button" type="button">保存游戏</button>
+            <button class="topbar-button" type="button">加载存档</button>
+            <button class="topbar-button" type="button">重置存档</button>
+            <a class="topbar-link" href="index.html#author-info">作者信息</a>
+            <a class="topbar-link" href="https://github.com/pokemonchw/goblin_empire" target="_blank" rel="noreferrer">GitHub 地址</a>
+            <a class="topbar-link important" href="https://ifdian.net/a/byayoi" target="_blank" rel="noreferrer">捐款</a>
+        </nav>
+    </header>
+    <div class="shell">
+        <aside class="left-rail">
+            <div class="section">
+                <h2>外交资源</h2>
+                <div class="resource-row"><strong>金币</strong><span>18 / 50</span><span class="positive">+0.02/s</span></div>
+                <div class="resource-row"><strong>战利品</strong><span>6 / 100</span><span>掠夺</span></div>
+                <div class="resource-row"><strong>军力</strong><span>42 / 100</span><span class="positive">+0.2/s</span></div>
+                <div class="resource-row"><strong>劳力</strong><span>130 / 225</span><span class="positive">+0.1/s</span></div>
+            </div>
+            <div class="section">
+                <h2>关系摘要</h2>
+                <div class="compact-row"><strong>鼠人商队</strong><span class="positive">+0.25</span></div>
+                <div class="compact-row"><strong>灰矮人矿盟</strong><span class="negative">-0.10</span></div>
+                <div class="compact-row"><strong>地精黑市</strong><span class="positive">+0.15</span></div>
+                <div class="compact-row"><strong>亡灵领主</strong><span class="negative">-0.25</span></div>
+            </div>
+        </aside>
+        <main class="workspace">
+            <div class="topline">
+                <div class="title-block">
+                    <h1>外交</h1>
+                    <p>研究货币并建造黑市后解锁，覆盖贸易、关系和俘虏管理；军力资源解锁后追加独立掠夺行动卡片。</p>
+                </div>
+                <a class="tab" href="index.html">总览</a>
+            </div>
+            <nav class="tabs">
+                <a class="tab" href="01-cavern.html">地穴</a>
+                <a class="tab" href="02-clan.html">氏族</a>
+                <a class="tab" href="03-research.html">研究</a>
+                <a class="tab" href="04-workshop.html">工坊</a>
+                <a class="tab active" href="05-diplomacy.html">外交</a>
+                <a class="tab" href="06-ritual.html">祭祀</a>
+                <a class="tab" href="07-empire.html">帝国</a>
+                <a class="tab" href="08-abyss.html">深渊</a>
+            </nav>
+            <section class="section">
+                <h2>贸易对象</h2>
+                <table class="table">
+                    <thead><tr><th>对象</th><th>收购</th><th>出售</th><th>特点</th><th>操作</th></tr></thead>
+                    <tbody>
+                        <tr><td>鼠人商队</td><td>菌菇 50</td><td>金币 5 ±25%</td><td>早期金币来源，关系 +2</td><td><button class="btn">贸易</button></td></tr>
+                        <tr><td>灰矮人矿盟</td><td>铁矿 20</td><td>金币 8 ±20%</td><td>矿业贸易对象，关系 +2</td><td><button class="btn">贸易</button></td></tr>
+                        <tr><td>地精黑市</td><td>战利品 5</td><td>金币 12 ±45%</td><td>缺少：战利品 -1；可用倒计时：不可用</td><td><button class="btn disabled">货物不足</button></td></tr>
+                    </tbody>
+                </table>
+            </section>
+            <section class="section">
+                <h2>掠夺行动（军力解锁后显示）</h2>
+                <p class="note">该区块位于外交页，但不属于研究卡片；只有军力资源已显示时才出现在运行时界面。</p>
+                <div class="button-list">
+                    <div class="action danger">
+                        <div><div class="action-title">菌菇农洞 <span>成功率 82%</span><span>低风险</span></div><p>消耗：劳力 20，军力 10。收益：菌菇 120、战利品 3。风险：鼠人商队关系 -8。</p></div>
+                        <button class="btn">掠夺</button>
+                    </div>
+                    <div class="action danger">
+                        <div><div class="action-title">商队营地 <span>成功率 58%</span><span>中风险</span></div><p>消耗：劳力 35，军力 25。收益：金币 20、战利品 8，可能获得商队账房或工匠俘虏。</p></div>
+                        <button class="btn">掠夺</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">地表村落 <span>地表学后解锁</span></div><p>消耗：劳力 60，军力 55。收益：菌菇 200、皮革 20、战利品 18。</p><p>可用倒计时：不可用。</p></div>
+                        <button class="btn" disabled>未解锁</button>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>俘虏列表与处置</h2>
+                <table class="table">
+                    <thead><tr><th>俘虏</th><th>质量</th><th>来源</th><th>苗床收益</th><th>改造/食物收益</th><th>风险</th><th>处置</th></tr></thead>
+                    <tbody>
+                        <tr><td>村民劳工</td><td>普通</td><td>菌菇农洞</td><td>基础哥布林、采集倾向</td><td>劳力预览 / 普通食物</td><td>逃脱低，报复低</td><td><button class="btn">苗床</button> <button class="btn">改造</button> <button class="btn">食物</button></td></tr>
+                        <tr><td>商队账房</td><td>熟练</td><td>商队营地</td><td>精明哥布林、贸易倾向</td><td>账册倍率 / 低食物</td><td>逃脱中，黑市涨价</td><td><button class="btn">苗床</button> <button class="btn">改造</button> <button class="btn">食物</button></td></tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+        <aside class="right-rail">
+            <div class="section">
+                <h2>风险公式</h2>
+                <pre class="formula">成功率 = clamp(5%, 95%, 50% + 军力优势 / 100)
+伤亡率 = clamp(5%, 50%, 25% - 军力优势 / 300 - 伤亡减免)</pre>
+            </div>
+            <div class="section">
+                <h2>外交日志</h2>
+                <div class="log-list">
+                    <div class="log">鼠人商队接受了菌菇换金币的交易。</div>
+                    <div class="log alert">灰矮人矿盟因掠夺哨站而降低关系。</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>

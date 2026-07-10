@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>地穴界面蓝图</title>
+    <link rel="stylesheet" href="blueprint.css">
+</head>
+<body>
+    <!-- 地穴页：未开始时只显示启动卡片；开始后承载早期手动采集、基础建筑、资源概览和接近解锁提示。 -->
+    <header class="global-topbar" aria-label="全局工具栏">
+        <div class="brand-mark">
+            <strong>哥布林帝国</strong>
+            <span>蓝图版 · 本地存档槽</span>
+        </div>
+        <nav class="topbar-actions" aria-label="时间控制、存档与项目信息">
+            <button class="topbar-button pause-toggle" type="button" aria-pressed="false">暂停</button>
+            <button class="topbar-button" type="button">保存游戏</button>
+            <button class="topbar-button" type="button">加载存档</button>
+            <button class="topbar-button" type="button">重置存档</button>
+            <a class="topbar-link" href="index.html#author-info">作者信息</a>
+            <a class="topbar-link" href="https://github.com/pokemonchw/goblin_empire" target="_blank" rel="noreferrer">GitHub 地址</a>
+            <a class="topbar-link important" href="https://ifdian.net/a/byayoi" target="_blank" rel="noreferrer">捐款</a>
+        </nav>
+    </header>
+    <div class="shell">
+        <aside class="left-rail">
+            <div class="section">
+                <h2>资源</h2>
+                <div class="resource-row"><strong>菌菇</strong><span>9 / 100</span><span class="positive">+0.0/s</span></div>
+                <div class="resource-row"><strong>朽木</strong><span>4 / 100</span><span>0/s</span></div>
+                <div class="resource-row"><strong>碎石</strong><span>11 / 100</span><span>0/s</span></div>
+                <div class="resource-row"><strong>粗识</strong><span>隐藏</span><span>涂鸦墙</span></div>
+            </div>
+            <div class="section">
+                <h2>状态</h2>
+                <div class="status-row"><strong>哥布林</strong><span>0 / 0</span></div>
+                <div class="status-row"><strong>服从度</strong><span>100%</span></div>
+                <div class="status-row"><strong>拥挤度</strong><span>0%</span></div>
+                <div class="status-row"><strong>时间</strong><span>未解锁</span></div>
+            </div>
+        </aside>
+        <main class="workspace">
+            <div class="topline">
+                <div class="title-block">
+                    <h1>地穴</h1>
+                    <p>默认界面，未开始时只显示地穴控制台与新局模式；开始后负责采集、建造、生存容量和早期解锁。</p>
+                </div>
+                <a class="tab" href="index.html">总览</a>
+            </div>
+            <nav class="tabs">
+                <a class="tab active" href="01-cavern.html">地穴</a>
+                <a class="tab" href="02-clan.html">氏族</a>
+                <a class="tab" href="03-research.html">研究</a>
+                <a class="tab" href="04-workshop.html">工坊</a>
+                <a class="tab" href="05-diplomacy.html">外交</a>
+                <a class="tab" href="06-ritual.html">祭祀</a>
+                <a class="tab" href="07-empire.html">帝国</a>
+                <a class="tab" href="08-abyss.html">深渊</a>
+            </nav>
+            <section class="section">
+                <h2>未开始界面</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>地穴控制台</h3>
+                        <p>显示启动前说明和运行状态提示；此时不出现地穴剖面、手动采集或基础建筑行列表。</p>
+                    </div>
+                    <div class="card">
+                        <h3>新局模式</h3>
+                        <p>同一卡片内提供“开始正常模式”和挑战按钮。玩家选择后写入本局模式，并移除此卡片，再展开下面的正式地穴循环。</p>
+                        <button class="btn">开始正常模式</button>
+                        <button class="btn">永冬地穴</button>
+                        <button class="btn">无贸易帝国</button>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>手动采集区</h2>
+                <div class="grid-3">
+                    <div class="action affordable">
+                        <div><div class="action-title">采菌 <span>+1 菌菇</span></div><p>早期食物按钮，菌菇首次获得后资源永久显示。</p></div>
+                        <button class="btn">采集</button>
+                    </div>
+                    <div class="action affordable">
+                        <div><div class="action-title">捡朽木 <span>+1 朽木</span></div><p>窝棚、涂鸦墙和工坊的基础材料。</p></div>
+                        <button class="btn">拾取</button>
+                    </div>
+                    <div class="action affordable">
+                        <div><div class="action-title">搬碎石 <span>+1 碎石</span></div><p>储物坑、祭坛、矿井和冶金设施的材料。</p></div>
+                        <button class="btn">搬运</button>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>基础建筑行列表</h2>
+                <div class="building-list">
+                    <div class="building-row affordable">
+                        <div class="building-main"><strong>菌菇床</strong><span>拥有 0</span></div>
+                        <div class="building-cost">所需：菌菇 10</div>
+                        <div class="building-availability">可用倒计时：可用</div>
+                        <button class="btn">建造</button>
+                        <div class="building-tooltip" role="tooltip"><strong>菌菇床</strong><span>建筑介绍：铺满潮湿菌丝的低矮木架，稳定提供早期食物。</span><span>建筑成本：菌菇 10。</span><span>建筑效果：菌菇基础产出 +0.125/tick。</span><span>价格倍率：x1.12。</span></div>
+                    </div>
+                    <div class="building-row locked">
+                        <div class="building-main"><strong>窝棚</strong><span>拥有 0</span></div>
+                        <div class="building-cost">所需：朽木 5 <span class="building-missing">缺失：朽木 -1</span></div>
+                        <div class="building-availability">可用倒计时：不可用</div>
+                        <button class="btn" disabled>缺资源</button>
+                        <div class="building-tooltip" role="tooltip"><strong>窝棚</strong><span>建筑介绍：用朽木和泥块搭出的睡窝，缓解早期人口压力。</span><span>建筑成本：朽木 5。</span><span>建筑效果：人口上限 +2，劳力上限 +75，解锁氏族页。</span><span>价格倍率：x2.50。</span></div>
+                    </div>
+                    <div class="building-row locked">
+                        <div class="building-main"><strong>储物坑</strong><span>拥有 0</span></div>
+                        <div class="building-cost">所需：菌菇 20，碎石 25</div>
+                        <div class="building-availability">可用倒计时：不可用</div>
+                        <button class="btn" disabled>未解锁</button>
+                        <div class="building-tooltip" role="tooltip"><strong>储物坑</strong><span>建筑介绍：挖开并用碎石加固的坑洞，用来堆放基础物资。</span><span>建筑成本：菌菇 20，碎石 25。</span><span>建筑效果：菌菇、朽木、碎石、煤渣和铁矿容量提升。</span><span>价格倍率：x1.75。</span></div>
+                    </div>
+                    <div class="building-row locked">
+                        <div class="building-main"><strong>涂鸦墙</strong><span>拥有 0</span></div>
+                        <div class="building-cost">所需：朽木 25 <span class="building-missing">缺失：朽木 -21</span></div>
+                        <div class="building-availability">可用倒计时：不可用</div>
+                        <button class="btn" disabled>缺资源</button>
+                        <div class="building-tooltip" role="tooltip"><strong>涂鸦墙</strong><span>建筑介绍：哥布林把符号刻在墙上，粗糙地保存经验。</span><span>建筑成本：朽木 25。</span><span>建筑效果：粗识上限 +250，粗识产出 +10%。</span><span>价格倍率：x1.15。</span></div>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>早期界面状态规则</h2>
+                <div class="grid-2">
+                    <div class="card"><h3>隐藏规则</h3><p>资源为 0 且未解锁时不显示；接近建筑基础成本的 unlockRatio 后显示灰态按钮。</p></div>
+                    <div class="card"><h3>容量提示</h3><p>容量满时左栏资源行高亮，建筑卡显示推荐的容量建筑或科技。</p></div>
+                    <div class="card"><h3>食物压力</h3><p>菌菇归零时人口增长暂停，并在右侧日志给出警告，不直接重罚早期玩家。</p></div>
+                    <div class="card"><h3>阶段目标</h3><p>引导玩家建立菌菇床、窝棚、储物坑、涂鸦墙，进入职业和研究循环。</p></div>
+                </div>
+            </section>
+        </main>
+        <aside class="right-rail">
+            <div class="section">
+                <h2>事件日志</h2>
+                <div class="log-list">
+                    <div class="log">你从潮湿岩缝里抠出一把菌菇。</div>
+                    <div class="log important">新的建筑接近可建造：窝棚。</div>
+                    <div class="log alert">菌菇容量快满了，建造储物坑可以扩大储备。</div>
+                </div>
+            </div>
+            <div class="section">
+                <h2>地穴剖面视觉蓝图</h2>
+                <div class="wireframe">
+                    <div class="mini-map">
+                        <div class="accent wide"></div><div></div><div class="tall"></div><div></div>
+                        <div></div><div class="wide"></div><div></div><div class="accent"></div>
+                        <div class="danger"></div><div></div><div class="wide"></div><div></div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>

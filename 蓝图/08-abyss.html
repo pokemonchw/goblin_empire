@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>深渊界面蓝图</title>
+    <link rel="stylesheet" href="blueprint.css">
+</head>
+<body>
+    <!-- 深渊页：承载远征、契约、遗物、威望天赋、挑战和最终重置确认。 -->
+    <header class="global-topbar" aria-label="全局工具栏">
+        <div class="brand-mark">
+            <strong>哥布林帝国</strong>
+            <span>蓝图版 · 本地存档槽</span>
+        </div>
+        <nav class="topbar-actions" aria-label="时间控制、存档与项目信息">
+            <button class="topbar-button pause-toggle" type="button" aria-pressed="false">暂停</button>
+            <button class="topbar-button" type="button">保存游戏</button>
+            <button class="topbar-button" type="button">加载存档</button>
+            <button class="topbar-button" type="button">重置存档</button>
+            <a class="topbar-link" href="index.html#author-info">作者信息</a>
+            <a class="topbar-link" href="https://github.com/pokemonchw/goblin_empire" target="_blank" rel="noreferrer">GitHub 地址</a>
+            <a class="topbar-link important" href="https://ifdian.net/a/byayoi" target="_blank" rel="noreferrer">捐款</a>
+        </nav>
+    </header>
+    <div class="shell">
+        <aside class="left-rail">
+            <div class="section">
+                <h2>深渊资源</h2>
+                <div class="resource-row"><strong>魔晶</strong><span>5,420 / 8,000</span><span class="positive">+1.2/s</span></div>
+                <div class="resource-row"><strong>深渊回响</strong><span>84 / 500</span><span class="positive">+0.03/s</span></div>
+                <div class="resource-row"><strong>遗物</strong><span>3 / 10</span><span>远征</span></div>
+                <div class="resource-row"><strong>帝国遗产</strong><span class="prestige">0</span><span>重置</span></div>
+                <div class="resource-row"><strong>裂隙碎片</strong><span>隐藏</span><span>挑战</span></div>
+            </div>
+            <div class="section">
+                <h2>远征状态</h2>
+                <div class="status-row"><strong>深渊门</strong><span>1</span></div>
+                <div class="status-row"><strong>远征队</strong><span>空闲</span></div>
+                <div class="status-row"><strong>腐化</strong><span class="warning">12%</span></div>
+                <div class="status-row"><strong>事故风险</strong><span class="warning">高</span></div>
+            </div>
+        </aside>
+        <main class="workspace">
+            <div class="topline">
+                <div class="title-block">
+                    <h1>深渊</h1>
+                    <p>深渊门后解锁，连接后期远征、强力契约、威望重置和挑战模式。</p>
+                </div>
+                <a class="tab" href="index.html">总览</a>
+            </div>
+            <nav class="tabs">
+                <a class="tab" href="01-cavern.html">地穴</a>
+                <a class="tab" href="02-clan.html">氏族</a>
+                <a class="tab" href="03-research.html">研究</a>
+                <a class="tab" href="04-workshop.html">工坊</a>
+                <a class="tab" href="05-diplomacy.html">外交</a>
+                <a class="tab" href="06-ritual.html">祭祀</a>
+                <a class="tab" href="07-empire.html">帝国</a>
+                <a class="tab active" href="08-abyss.html">深渊</a>
+            </nav>
+            <section class="section">
+                <h2>深渊远征</h2>
+                <div class="button-list">
+                    <div class="action danger">
+                        <div><div class="action-title">裂隙边缘侦察 <span>45 秒 · 难度 35</span></div><p>可能获得深渊回响和魔晶；失败伤亡基础概率 12%。</p></div>
+                        <button class="btn">派遣</button>
+                    </div>
+                    <div class="action danger">
+                        <div><div class="action-title">古代废矿搜索 <span>60 秒 · 难度 55</span></div><p>可能获得遗物和深渊回响；失败伤亡基础概率 18%。</p></div>
+                        <button class="btn">派遣</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">裂隙核心远征 <span>75 秒 · 难度 75</span></div><p>产出裂隙碎片和魔晶，是裂隙工程后的挑战前置目标。</p><p>可用倒计时：不可用。</p></div>
+                        <button class="btn" disabled>未解锁</button>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>深渊契约</h2>
+                <div class="grid-2">
+                    <div class="card"><h3>饥饿契约</h3><p>人口增长 +20%；代价：菌菇消耗 +10%。</p><button class="btn">签订</button></div>
+                    <div class="card"><h3>黑炉契约</h3><p>工业产出 +15%；代价：事件风险 +15%。</p><button class="btn">签订</button></div>
+                    <div class="card"><h3>裂隙契约</h3><p>魔晶产出 +20%；代价：服从每秒 -0.01。</p><button class="btn">签订</button></div>
+                    <div class="card"><h3>战争契约</h3><p>掠夺军力 +20%，战利品 +25%；代价：贸易收益 -15%，事件风险 +5%。</p><button class="btn">签订</button></div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>威望天赋与挑战</h2>
+                <div class="grid-2">
+                    <div class="card"><h3>地穴控制台</h3><p>迁徙后未初始化时只保留启动前说明卡，不显示地穴剖面、采集或建筑操作。</p></div>
+                    <div class="card"><h3>新局模式</h3><p>同一卡片内提供“开始正常模式”和挑战按钮；选择后写入本局模式，移除此卡片，并展开正式地穴界面。</p><button class="btn">开始正常模式</button><button class="btn">选择挑战</button></div>
+                </div>
+                <table class="table">
+                    <thead><tr><th>类型</th><th>条目</th><th>成本/规则</th><th>奖励</th></tr></thead>
+                    <tbody>
+                        <tr><td>天赋</td><td>地穴工程学</td><td>缺少：帝国遗产 -5；可用倒计时：不可用</td><td>建筑价格 -1%</td></tr>
+                        <tr><td>天赋</td><td>深渊适应</td><td>缺少：帝国遗产 -250；可用倒计时：不可用</td><td>契约代价 -5%</td></tr>
+                        <tr><td>挑战</td><td>永冬地穴</td><td>菌菇产出长期 -50%</td><td>食物建筑永久 +5%</td></tr>
+                        <tr><td>挑战</td><td>无贸易帝国</td><td>禁止普通贸易，只能掠夺</td><td>掠夺收益永久 +5%</td></tr>
+                    </tbody>
+                </table>
+            </section>
+            <section class="section">
+                <h2>帝国迁徙确认</h2>
+                <div class="action danger">
+                    <div>
+                        <div class="action-title">迁徙到更深处 <span>预计获得 21 帝国遗产</span></div>
+                        <p>失去普通资源、建筑、当前人口和当前科技；保留帝国遗产、威望天赋、部分成就和挑战完成标记。</p>
+                    </div>
+                    <button class="btn">打开确认框</button>
+                </div>
+            </section>
+        </main>
+        <aside class="right-rail">
+            <div class="section">
+                <h2>重置保留清单</h2>
+                <div class="compact-row"><strong>帝国遗产</strong><span class="positive">保留</span></div>
+                <div class="compact-row"><strong>威望天赋</strong><span class="positive">保留</span></div>
+                <div class="compact-row"><strong>挑战完成</strong><span class="positive">保留</span></div>
+                <div class="compact-row"><strong>普通建筑</strong><span class="negative">清空</span></div>
+                <div class="compact-row"><strong>当前科技</strong><span class="negative">清空</span></div>
+            </div>
+            <div class="section">
+                <h2>深渊日志</h2>
+                <div class="log-list">
+                    <div class="log important">深渊门开启，新的长线循环出现。</div>
+                    <div class="log alert">黑炉契约提高了工业产出和事件风险。</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>

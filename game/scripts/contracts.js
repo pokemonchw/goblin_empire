@@ -1,0 +1,311 @@
+/* 公共数据契约：集中声明运行时、存档和静态定义的基础形状。 */
+/**
+ * 初始化公共契约命名空间。
+ *
+ * @param {Window} globalObject - 浏览器全局对象，用于挂载 GoblinEmpire 命名空间。
+ * @returns {void} 无返回值。
+ */
+(function (globalObject) {
+    /**
+     * @typedef {string} ResourceId
+     * 稳定资源 ID；必须为 ASCII，作为存档键和定义引用。
+     */
+
+    /**
+     * @typedef {string} BuildingId
+     * 稳定建筑 ID；必须为 ASCII，作为存档键和定义引用。
+     */
+
+    /**
+     * @typedef {string} TechnologyId
+     * 稳定科技 ID；必须为 ASCII，作为存档键和定义引用。
+     */
+
+    /**
+     * @typedef {string} JobId
+     * 稳定职业 ID；必须为 ASCII，作为哥布林 jobId 和定义引用。
+     */
+
+    /**
+     * @typedef {Object} Price
+     * @property {ResourceId} resource - 资源稳定 ID，必须对应 ResourceDefinition.id。
+     * @property {number} amount - 价格数量，非负资源数量。
+     */
+
+    /**
+     * @typedef {Object} ResourceWaitEntry
+     * @property {ResourceId} resource - 资源稳定 ID，必须对应 ResourceDefinition.id。
+     * @property {number} missingAmount - 当前缺口数量，非负资源数量。
+     * @property {number} perSecond - 当前每秒积累速度，有符号浮点数。
+     * @property {number} seconds - 补齐该资源所需秒数，非负浮点数；不可达时为 Infinity。
+     * @property {boolean} isReachable - 是否能按当前速度和容量补齐；true 表示该资源可等待获得。
+     */
+
+    /**
+     * @typedef {Object} PriceWaitInfo
+     * @property {boolean} isAffordable - 当前是否已经可支付；true 表示无需等待。
+     * @property {boolean} isAvailable - 缺口是否能按当前资源速度补齐；false 表示至少一项资源不可达。
+     * @property {number} seconds - 整体可用倒计时秒数，非负浮点数；不可达时为 Infinity。
+     * @property {ResourceWaitEntry[]} entries - 每项缺口资源的等待明细。
+     */
+
+    /**
+     * @typedef {Object} ResourceFlowEntry
+     * @property {ResourceId} resource - 流量影响的资源稳定 ID。
+     * @property {"output"|"consumption"} kind - 流量类型；output 为持续产出，consumption 为持续消耗。
+     * @property {number} amount - 每秒资源数量，非负浮点数。
+     * @property {string} source - 来源中文名称，例如建筑、职业、人口口粮或自动制作配方。
+     * @property {string} detail - 来源明细中文说明，用于资源悬浮框。
+     */
+
+    /**
+     * @typedef {Object} ResourceBonusEntry
+     * @property {string} label - 加成来源中文名称。
+     * @property {string} value - 加成值显示文本，例如 +5% 或 x1.10。
+     */
+
+    /**
+     * @typedef {Object} ResourceFlowSummary
+     * @property {ResourceId} resourceId - 当前分析的资源稳定 ID。
+     * @property {ResourceFlowEntry[]} outputEntries - 当前资源持续产出明细数组。
+     * @property {ResourceFlowEntry[]} consumptionEntries - 当前资源持续消耗明细数组。
+     * @property {ResourceBonusEntry[]} bonusEntries - 当前资源持续流量加成明细数组。
+     * @property {string[]} buffTexts - 当前资源相关 buff 和状态提示文本数组。
+     * @property {number} totalOutputPerSecond - 总产出速度，单位资源/秒，非负浮点数。
+     * @property {number} totalConsumptionPerSecond - 总消耗速度，单位资源/秒，非负浮点数。
+     * @property {number} finalPerSecond - 最终产出速度，单位资源/秒，有符号浮点数。
+     * @property {string} timeToFullText - 库存爆仓时间中文文本。
+     */
+
+    /**
+     * @typedef {Object} UnlockBundle
+     * @property {string[]=} tabs - 要解锁的标签页 ID 数组。
+     * @property {ResourceId[]=} resources - 要解锁的资源 ID 数组。
+     * @property {BuildingId[]=} buildings - 要解锁的建筑 ID 数组。
+     * @property {JobId[]=} jobs - 要解锁的职业 ID 数组。
+     * @property {TechnologyId[]=} technologies - 要解锁的科技 ID 数组。
+     * @property {string[]=} upgrades - 要解锁的工坊升级 ID 数组。
+     * @property {string[]=} crafts - 要解锁的配方 ID 数组。
+     * @property {string[]=} policies - 要解锁的政策 ID 数组。
+     * @property {boolean=} isDefault - 是否默认解锁；true 表示新存档立即可见。
+     */
+
+    /**
+     * @typedef {Object} ResourceDefinition
+     * @property {ResourceId} id - 资源稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {"basic"|"crafted"|"rare"|"mystic"|"prestige"} category - 资源显示分组。
+     * @property {number} defaultMaxValue - 默认容量上限，非负资源数量。
+     * @property {boolean} isVisibleAtStart - 新存档是否立即显示。
+     * @property {boolean} isCapacityLimited - 是否受到容量上限限制。
+     * @property {string} description - 中文说明，用于界面和后续提示。
+     */
+
+    /**
+     * @typedef {Object} ResourceState
+     * @property {ResourceId} id - 资源稳定 ID，必须对应 ResourceDefinition.id。
+     * @property {number} value - 当前资源数量，非负浮点数。
+     * @property {number} maxValue - 当前资源容量上限，非负浮点数。
+     * @property {boolean} isVisible - 是否已经显示；true 表示初始可见或玩家见过。
+     * @property {number} perSecond - 每秒变化量，有符号浮点数。
+     */
+
+    /**
+     * @typedef {Object.<string, ResourceState>} ResourceStateById
+     * key: ResourceId 资源稳定 ID。
+     * value: ResourceState 资源运行时状态。
+     */
+
+    /**
+     * @typedef {Object} BuildingDefinition
+     * @property {BuildingId} id - 建筑稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} description - 中文功能描述。
+     * @property {Price[]} basePrice - 基础价格数组；amount 为非负资源数量。
+     * @property {number} priceRatio - 价格增长倍率，大于等于 1。
+     * @property {Object.<string, number>} effects - 建筑效果字典；key 为效果 ID，value 为数值。
+     * @property {UnlockBundle} unlock - 显示该建筑所需的解锁条件或默认解锁标记。
+     */
+
+    /**
+     * @typedef {Object} BuildingState
+     * @property {BuildingId} id - 建筑稳定 ID，必须对应 BuildingDefinition.id。
+     * @property {number} owned - 已拥有数量，非负整数。
+     * @property {number} active - 当前启用数量，非负整数且不大于 owned。
+     * @property {boolean} isUnlocked - 是否已解锁显示。
+     */
+
+    /**
+     * @typedef {Object} TechnologyDefinition
+     * @property {TechnologyId} id - 科技稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} description - 中文功能描述。
+     * @property {Price[]} price - 研究价格数组；amount 为非负资源数量。
+     * @property {UnlockBundle} unlocks - 研究完成后立即应用的解锁包。
+     * @property {UnlockBundle} unlock - 显示该科技所需的解锁条件或默认解锁标记。
+     */
+
+    /**
+     * @typedef {Object} TechnologyState
+     * @property {TechnologyId} id - 科技稳定 ID，必须对应 TechnologyDefinition.id。
+     * @property {boolean} isUnlocked - 是否已解锁显示。
+     * @property {boolean} isResearched - 是否已研究完成。
+     */
+
+    /**
+     * @typedef {Object} JobDefinition
+     * @property {JobId} id - 职业稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} skillId - 主要技能 ID，ASCII 字符串。
+     * @property {Object.<string, number>} attributeWeights - 属性权重字典；key 为属性 ID，value 为权重。
+     * @property {Object.<string, number>} baseOutput - 基础产出字典；key 为资源 ID，value 为每 tick 资源量。
+     * @property {UnlockBundle} unlock - 显示该职业所需的解锁条件或默认解锁标记。
+     */
+
+    /**
+     * @typedef {Object} Goblin
+     * @property {string} id - 哥布林稳定 ID。
+     * @property {string} name - 中文姓名。
+     * @property {string=} nickname - 绰号或氏族名，可省略。
+     * @property {number} age - 年龄，非负整数。
+     * @property {"natural"|"captive_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 来源 ID。
+     * @property {JobId=} jobId - 当前职业 ID；省略表示空闲。
+     * @property {Object.<string, number>} attributes - 六项属性字典；key 为属性 ID，value 为 1-10 整数。
+     * @property {string[]} traits - 特质 ID 数组。
+     * @property {Object.<string, number>} skills - 技能经验字典；key 为技能 ID，value 为非负经验值。
+     * @property {string[]} wounds - 伤病 ID 数组。
+     * @property {boolean} isLeader - 是否为当前领袖。
+     * @property {boolean} isPinned - 是否固定职业。
+     * @property {boolean} isAlive - 是否存活。
+     */
+
+    /**
+     * @typedef {Object} GoblinNamePool
+     * @property {string[]} givenNames - 中文名池数组。
+     * @property {string[]} nicknames - 中文绰号池数组。
+     * @property {string[]} clanNames - 中文氏族名池数组。
+     */
+
+    /**
+     * @typedef {Object} FactionDefinition
+     * @property {string} id - 阵营稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} description - 中文说明。
+     * @property {UnlockBundle} unlock - 显示该阵营所需的解锁条件。
+     */
+
+    /**
+     * @typedef {Object} RaidTargetDefinition
+     * @property {string} id - 掠夺目标稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} description - 中文说明。
+     * @property {Price[]} cost - 发起掠夺的资源成本数组。
+     * @property {UnlockBundle} unlock - 显示该目标所需的解锁条件。
+     */
+
+    /**
+     * @typedef {Object} CaptiveState
+     * @property {string} id - 俘虏稳定 ID。
+     * @property {"laborer"|"warrior"|"magic_talent"|"artisan"|"accountant"|"noble"|"undead"} type - 俘虏类型 ID。
+     * @property {"common"|"skilled"|"elite"|"legendary"} quality - 俘虏质量 ID。
+     * @property {string} source - 来源 ID 或事件名。
+     * @property {"basic"|"strong"|"magic"|"craft"|"trade"|"obedient"|"corrupt"} traitHint - 繁衍或改造倾向 ID。
+     * @property {number} turnsHeld - 持有回合数，非负整数。
+     * @property {"bed"|"modify"|"food"=} disposition - 当前处置 ID，可省略。
+     */
+
+    /**
+     * @typedef {Object} PolicyDefinition
+     * @property {string} id - 政策稳定 ID。
+     * @property {string} groupId - 政策组稳定 ID，同组政策互斥。
+     * @property {string} groupName - 政策组中文显示名。
+     * @property {string} name - 中文显示名。
+     * @property {string} description - 中文说明。
+     * @property {string} effectSummary - 收益中文说明。
+     * @property {string} costSummary - 代价中文说明。
+     * @property {Object.<string, number>} effects - 政策效果字典；key 为效果 ID，value 为加成比例或数值。
+     * @property {UnlockBundle} unlock - 显示该政策所需的解锁条件。
+     */
+
+    /**
+     * @typedef {Object} PrestigePerkDefinition
+     * @property {string} id - 威望天赋稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} description - 中文说明。
+     * @property {Price[]} price - 威望价格数组。
+     * @property {UnlockBundle} unlock - 显示该天赋所需的解锁条件。
+     */
+
+    /**
+     * @typedef {Object} PactDefinition
+     * @property {string} id - 深渊契约稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} description - 中文说明。
+     * @property {string} effectSummary - 收益中文说明。
+     * @property {string} costSummary - 代价中文说明。
+     * @property {Object.<string, number>} effects - 契约效果字典；key 为效果 ID，value 为加成比例或每秒数值。
+     */
+
+    /**
+     * @typedef {Object} ExpeditionState
+     * @property {string} id - 远征运行 ID。
+     * @property {string} routeId - 远征路线 ID。
+     * @property {string[]} memberIds - 成员哥布林 ID 数组。
+     * @property {number} remainingSeconds - 剩余时间，非负秒数。
+     * @property {boolean} isResolved - 是否已结算；true 表示不会再次结算。
+     */
+
+    /**
+     * @typedef {Object} GameState
+     * @property {number} version - 存档版本整数。
+     * @property {boolean} isPaused - 是否暂停；true 表示模拟不推进。
+     * @property {number} lastActiveTimestamp - 最后一次允许模拟推进的 Unix 毫秒时间戳。
+     * @property {ResourceStateById} resourcesById - 资源运行时状态字典。
+     * @property {Object.<string, BuildingState>} buildingsById - 建筑运行时状态字典。
+     * @property {Object.<string, TechnologyState>} technologiesById - 科技运行时状态字典。
+     * @property {Object.<string, boolean>} jobsUnlockedById - 职业解锁字典；key 为 JobId，value 表示是否解锁。
+     * @property {Object.<string, boolean>} tabsUnlockedById - 标签页解锁字典；key 为标签页 ID，value 表示是否显示。
+     * @property {Object.<string, boolean>} upgradesUnlockedById - 工坊升级解锁字典；key 为升级 ID，value 表示是否解锁。
+     * @property {Object.<string, boolean>} craftsUnlockedById - 配方解锁字典；key 为配方 ID，value 表示是否解锁。
+     * @property {Object.<string, boolean>} policiesUnlockedById - 政策解锁字典；key 为政策 ID，value 表示是否解锁。
+     * @property {Goblin[]} goblins - 哥布林对象数组；人口权威来源。
+     * @property {string=} leaderGoblinId - 当前领袖哥布林 ID，可省略。
+     * @property {Object.<string, string>} policies - 政策选择字典；key 为政策组 ID，value 为政策 ID。
+     * @property {Object.<string, boolean>} pacts - 深渊契约选择字典；key 为契约 ID，value 表示是否启用。
+     * @property {ExpeditionState|null} activeExpedition - 当前远征状态；没有远征时为 null。
+     * @property {{runMode: "undecided"|"normal"|"challenge", activeChallengeId: string|null, completedById: Object.<string, boolean>}} challenges - 挑战状态；runMode 为本局模式选择，activeChallengeId 为当前挑战 ID，completedById 为永久完成标记。
+     * @property {CaptiveState[]} captives - 俘虏运行时状态数组。
+     * @property {{legacy: number, perks: string[]}} prestige - 威望状态；legacy 为非负数量，perks 为已购天赋 ID。
+     * @property {Object.<string, number>} statistics - 统计字典；key 为统计 ID，value 为累计数值。
+     * @property {string} activeTabId - 当前标签页 ID。
+     * @property {{id: string, level: "normal"|"important"|"warning", text: string, timestamp: number}[]} logs - 日志数组。
+     */
+
+    /**
+     * @typedef {Object} SaveData
+     * @property {number} version - 存档版本整数。
+     * @property {number} timestamp - 保存时 Unix 毫秒时间戳。
+     * @property {boolean} isPaused - 是否暂停。
+     * @property {number} lastActiveTimestamp - 最后一次允许模拟推进的 Unix 毫秒时间戳。
+     * @property {{id: string, value: number, isVisible: boolean}[]} resources - 资源存档数组，不含静态定义副本。
+     * @property {{id: string, owned: number, active: number, isUnlocked: boolean}[]} buildings - 建筑存档数组，不含静态定义副本。
+     * @property {{id: string, isResearched: boolean, isUnlocked: boolean}[]} technologies - 科技存档数组。
+     * @property {{id: string, isUnlocked: boolean}[]} jobs - 职业解锁存档数组。
+     * @property {Object.<string, boolean>} tabsUnlockedById - 标签页解锁存档字典；key 为标签页 ID。
+     * @property {Object.<string, boolean>} upgradesUnlockedById - 工坊升级解锁存档字典；key 为升级 ID。
+     * @property {Object.<string, boolean>} craftsUnlockedById - 配方解锁存档字典；key 为配方 ID。
+     * @property {Object.<string, boolean>} policiesUnlockedById - 政策解锁存档字典；key 为政策 ID。
+     * @property {Goblin[]} goblins - 哥布林对象存档数组。
+     * @property {string=} leaderGoblinId - 当前领袖哥布林 ID，可省略。
+     * @property {Object.<string, string>} policies - 政策选择字典。
+     * @property {Object.<string, boolean>} pacts - 深渊契约选择字典。
+     * @property {ExpeditionState|null} activeExpedition - 当前远征存档状态；没有时为 null。
+     * @property {{runMode: "undecided"|"normal"|"challenge", activeChallengeId: string|null, completedById: Object.<string, boolean>}} challenges - 挑战存档状态；runMode 为新局入口选择结果。
+     * @property {CaptiveState[]} captives - 俘虏存档数组。
+     * @property {{legacy: number, perks: string[]}} prestige - 威望存档状态。
+     * @property {Object.<string, number>} statistics - 统计存档字典。
+     */
+
+    // Object 全局命名空间：承载所有哥布林帝国浏览器脚本模块。
+    globalObject.GoblinEmpire = globalObject.GoblinEmpire || {};
+})(window);

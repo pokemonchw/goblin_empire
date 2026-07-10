@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>祭祀界面蓝图</title>
+    <link rel="stylesheet" href="blueprint.css">
+</head>
+<body>
+    <!-- 祭祀页：覆盖祖灵回响、巫医职业、献祭、祖灵升级和深渊前置风险。 -->
+    <header class="global-topbar" aria-label="全局工具栏">
+        <div class="brand-mark">
+            <strong>哥布林帝国</strong>
+            <span>蓝图版 · 本地存档槽</span>
+        </div>
+        <nav class="topbar-actions" aria-label="时间控制、存档与项目信息">
+            <button class="topbar-button pause-toggle" type="button" aria-pressed="false">暂停</button>
+            <button class="topbar-button" type="button">保存游戏</button>
+            <button class="topbar-button" type="button">加载存档</button>
+            <button class="topbar-button" type="button">重置存档</button>
+            <a class="topbar-link" href="index.html#author-info">作者信息</a>
+            <a class="topbar-link" href="https://github.com/pokemonchw/goblin_empire" target="_blank" rel="noreferrer">GitHub 地址</a>
+            <a class="topbar-link important" href="https://ifdian.net/a/byayoi" target="_blank" rel="noreferrer">捐款</a>
+        </nav>
+    </header>
+    <div class="shell">
+        <aside class="left-rail">
+            <div class="section">
+                <h2>神秘资源</h2>
+                <div class="resource-row"><strong>祖灵回响</strong><span>142 / 500</span><span class="positive">+0.006/s</span></div>
+                <div class="resource-row"><strong>战利品</strong><span>45 / 150</span><span>掠夺</span></div>
+                <div class="resource-row"><strong>骨片</strong><span>110 / 300</span><span>兽栏</span></div>
+                <div class="resource-row"><strong>深渊回响</strong><span>隐藏</span><span>深渊契约</span></div>
+            </div>
+            <div class="section">
+                <h2>祭祀状态</h2>
+                <div class="status-row"><strong>巫医</strong><span>2</span></div>
+                <div class="status-row"><strong>献祭冷却</strong><span>可用</span></div>
+                <div class="status-row"><strong>事故风险</strong><span class="warning">中</span></div>
+            </div>
+        </aside>
+        <main class="workspace">
+            <div class="topline">
+                <div class="title-block">
+                    <h1>祭祀</h1>
+                    <p>祖灵祭坛后解锁，提供单局倍率、战利品消耗出口和深渊契约前置。</p>
+                </div>
+                <a class="tab" href="index.html">总览</a>
+            </div>
+            <nav class="tabs">
+                <a class="tab" href="01-cavern.html">地穴</a>
+                <a class="tab" href="02-clan.html">氏族</a>
+                <a class="tab" href="03-research.html">研究</a>
+                <a class="tab" href="04-workshop.html">工坊</a>
+                <a class="tab" href="05-diplomacy.html">外交</a>
+                <a class="tab active" href="06-ritual.html">祭祀</a>
+                <a class="tab" href="07-empire.html">帝国</a>
+                <a class="tab" href="08-abyss.html">深渊</a>
+            </nav>
+            <section class="section">
+                <h2>献祭操作</h2>
+                <div class="grid-3">
+                    <div class="action affordable">
+                        <div><div class="action-title">战利品献祭 <span>稳定</span></div><p>消耗战利品 10，获得祖灵回响，是最早可用的稳定献祭。</p></div>
+                        <button class="btn">献祭</button>
+                    </div>
+                    <div class="action danger">
+                        <div><div class="action-title">血誓献祭 <span>伤亡风险</span></div><p>消耗战利品 15、骨片 5，获得更高祖灵回响，并可能影响具体哥布林。</p></div>
+                        <button class="btn">预览</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">血月献祭 <span>血月路线</span></div><p>消耗战利品 50、骨片 25，提供高额祖灵回响并承担更高风险。</p><p>可用倒计时：不可用。</p></div>
+                        <button class="btn" disabled>未选择</button>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>祖灵升级</h2>
+                <div class="button-list">
+                    <div class="action affordable">
+                        <div><div class="action-title">祖灵低语 <span>成本 100</span></div><p>粗识产出 +5%，帮助研究线从生存阶段进入制度阶段。</p></div>
+                        <button class="btn">购买</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">骸骨护符 <span>祖灵回响 250 + 骨片 100</span></div><p>事故率 -5%，缓解矿井、熔炉和祭坛风险。</p><p>缺少：祖灵回响 -108。可用倒计时：05:00:00。</p></div>
+                        <button class="btn" disabled>缺回响</button>
+                    </div>
+                    <div class="action locked">
+                        <div><div class="action-title">战鼓回音 <span>祖灵回响 1000 + 战利品 100</span></div><p>掠夺收益 +10%，强化战争路线。</p><p>缺少：祖灵回响 -858，战利品 -55。可用倒计时：不可用。</p></div>
+                        <button class="btn" disabled>缺资源</button>
+                    </div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>祭祀政策对照</h2>
+                <div class="grid-2">
+                    <div class="card"><h3>祖灵崇拜</h3><p>稳定信仰倍率，降低事故，适合贸易和长期生产路线。</p></div>
+                    <div class="card"><h3>血月献祭</h3><p>短期爆发收益，消耗战利品或人口，外交和腐化风险更高。</p></div>
+                </div>
+            </section>
+        </main>
+        <aside class="right-rail">
+            <div class="section">
+                <h2>祭祀建筑</h2>
+                <div class="compact-row"><strong>祖灵祭坛</strong><span>祭祀入口</span></div>
+                <div class="compact-row"><strong>巫医棚</strong><span>粗识与服从</span></div>
+                <div class="compact-row"><strong>献祭坑</strong><span>深渊回响</span></div>
+            </div>
+            <div class="section">
+                <h2>祭祀日志</h2>
+                <div class="log-list">
+                    <div class="log important">祖灵低语让涂鸦学徒的记号更清晰。</div>
+                    <div class="log alert">献祭坑的低语提高了事故风险。</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>
