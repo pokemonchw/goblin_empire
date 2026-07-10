@@ -76,6 +76,7 @@
         game.production.updateProduction(state, deltaSeconds);
         game.crafting.updateAutoCrafting(state, deltaSeconds);
         game.population.updatePopulation(state, deltaSeconds);
+        game.captivesSystem.updateCaptives(state, deltaSeconds);
         game.eventsSystem.updateEvents(state, deltaSeconds);
         game.expeditions.updateExpeditions(state, deltaSeconds);
         game.prestigeSystem.updatePrestigeStatistics(state);

@@ -45,6 +45,7 @@
         freeGoblins: "空闲",
         crowding: "拥挤度",
         tickRate: "模拟节奏",
+        calendarRate: "历法速度",
         status: "状态"
     };
 
@@ -59,7 +60,7 @@
 
     // Object.<string, string> 日志文案字典：key 为日志 ID，value 为中文日志文本。
     var LOG_TEXT = {
-        initial: "一小撮哥布林在潮湿地穴里醒来。",
+        initial: "一只从哥布林洞穴逃脱的雌性人类在地穴中生下了你。",
         paused: "生产已暂停，地穴时间停止推进。",
         resumed: "地穴重新开始运转。",
         saved: "存档已保存。",
@@ -70,7 +71,7 @@
         builtPrefix: "建造完成："
         ,
         bornPrefix: "新哥布林加入：",
-        foodWarning: "菌菇不足，自然增长已经停止。",
+        foodWarning: "菌菇不足，存活哥布林开始挨饿。",
         researchedPrefix: "研究完成："
         ,
         resourceMissingPrefix: "资源不足：",
@@ -119,7 +120,7 @@
         craftAll: "全部",
         captivesTitle: "俘虏",
         noCaptives: "当前没有俘虏。",
-        captiveBed: "制作苗床",
+        captiveBed: "培育新生",
         captiveModify: "洗脑改造",
         captiveFood: "做成食物",
         policiesTitle: "政策",
@@ -785,7 +786,7 @@
     var PACT_TEXT = {
         hunger_pact: {
             name: "饥饿契约",
-            description: "深渊催生更多哥布林，也让每张嘴更难填饱。"
+            description: "深渊让苗床后代更难填饱，也让每张嘴都索求更多。"
         },
         black_furnace_pact: {
             name: "黑炉契约",
@@ -853,7 +854,7 @@
         },
         surface_village: {
             name: "地表村落",
-            description: "脆弱但会求援的地表村落，可带回农妇、采药女和村中匠人。"
+            description: "脆弱但会求援的地表村落，可带回村姑、采药女和村中匠人。"
         },
         noble_carriage: {
             name: "贵族车队",

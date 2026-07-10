@@ -350,17 +350,17 @@
     }
 
     /**
-     * 追加人口消耗流量。
+     * 追加口粮消耗流量。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @param {ResourceFlowEntry[]} flowEntries - 流量条目数组，会追加人口口粮消耗。
+     * @param {ResourceFlowEntry[]} flowEntries - 流量条目数组，会追加哥布林与俘虏口粮消耗。
      * @returns {void} 无返回值。
      */
     function appendPopulationFlowEntries(state, flowEntries) {
         // number 菌菇消耗速度：人口口粮每秒消耗。
         var fungusConsumptionPerSecond = game.population.calculateFungusConsumptionPerSecond(state);
 
-        pushFlowEntry(flowEntries, "fungus", "consumption", fungusConsumptionPerSecond, "人口口粮", "存活哥布林消耗");
+        pushFlowEntry(flowEntries, "fungus", "consumption", fungusConsumptionPerSecond, "人口口粮", "哥布林与俘虏消耗");
     }
 
     /**

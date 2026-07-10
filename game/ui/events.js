@@ -269,10 +269,8 @@
             }
 
             if (targetElement.dataset.captiveId && targetElement.dataset.captiveDisposition) {
-                if (window.confirm("确认处置该俘虏？此操作会移除俘虏并立即结算收益与风险。")) {
-                    game.captivesSystem.applyDisposition(currentState, targetElement.dataset.captiveId, targetElement.dataset.captiveDisposition);
-                    game.render.renderApp(currentState);
-                }
+                game.captivesSystem.applyDisposition(currentState, targetElement.dataset.captiveId, targetElement.dataset.captiveDisposition);
+                game.render.renderApp(currentState);
                 return;
             }
 
@@ -404,11 +402,19 @@
         // HTMLElement 资源列表容器：使用事件委托处理动态生成的资源行。
         var resourceListElement = document.getElementById("resource-list");
 
+        // HTMLElement 标签页内容容器：使用事件委托处理动态生成的俘虏行。
+        var tabContentElement = document.getElementById("tab-content");
+
         resourceListElement.addEventListener("pointerover", updateResourceTooltipFromPointer);
         resourceListElement.addEventListener("pointermove", updateResourceTooltipFromPointer);
         resourceListElement.addEventListener("pointerout", hideResourceTooltipFromPointer);
         resourceListElement.addEventListener("focusin", updateResourceTooltipFromFocus);
         resourceListElement.addEventListener("focusout", hideResourceTooltipFromFocus);
+        tabContentElement.addEventListener("pointerover", updateResourceTooltipFromPointer);
+        tabContentElement.addEventListener("pointermove", updateResourceTooltipFromPointer);
+        tabContentElement.addEventListener("pointerout", hideResourceTooltipFromPointer);
+        tabContentElement.addEventListener("focusin", updateResourceTooltipFromFocus);
+        tabContentElement.addEventListener("focusout", hideResourceTooltipFromFocus);
         window.addEventListener("scroll", hideAllResourceTooltips, true);
         window.addEventListener("resize", hideAllResourceTooltips);
     }
@@ -612,7 +618,7 @@
             return null;
         }
 
-        return targetElement.closest(".resource-row");
+        return targetElement.closest(".resource-row, .captive-row");
     }
 
     /**

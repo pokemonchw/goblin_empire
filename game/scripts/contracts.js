@@ -168,7 +168,7 @@
      * @property {string} name - 中文姓名。
      * @property {string=} nickname - 绰号或氏族名，可省略。
      * @property {number} age - 年龄，非负整数。
-     * @property {"natural"|"captive_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 来源 ID。
+     * @property {"natural"|"captive_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 来源 ID；natural 仅兼容旧存档，不再由当前规则生成。
      * @property {JobId=} jobId - 当前职业 ID；省略表示空闲。
      * @property {Object.<string, number>} attributes - 六项属性字典；key 为属性 ID，value 为 1-10 整数。
      * @property {string[]} traits - 特质 ID 数组。
@@ -206,12 +206,17 @@
     /**
      * @typedef {Object} CaptiveState
      * @property {string} id - 俘虏稳定 ID。
+     * @property {string} name - 俘虏中文姓名；生成后写入存档，确保每个俘虏可被单独识别。
      * @property {"laborer"|"warrior"|"magic_talent"|"artisan"|"accountant"|"noble"|"undead_captive"|"ascetic"|"herbalist"|"shrine_acolyte"} type - 俘虏类型 ID。
      * @property {"common"|"skilled"|"elite"|"legendary"} quality - 俘虏质量 ID。
      * @property {string} source - 来源 ID 或事件名。
      * @property {"basic"|"strong"|"magic"|"craft"|"trade"|"obedient"|"corrupted"} traitHint - 繁衍或改造倾向 ID。
      * @property {number} turnsHeld - 持有回合数，非负整数。
      * @property {"bed"|"modify"|"food"=} disposition - 当前处置 ID，可省略。
+     * @property {number} brainwashLevel - 洗脑程度，0-100 整数点；数值越高，新生属性越好且孕育失败率越低。
+     * @property {"idle"|"gestating"|"resting"} breedingState - 苗床繁育状态；idle 可操作，gestating 孕育中，resting 休养中。
+     * @property {number} gestationSecondsRemaining - 孕育剩余游戏秒数，非负浮点数。
+     * @property {number} restSecondsRemaining - 休养剩余游戏秒数，非负浮点数。
      */
 
     /**

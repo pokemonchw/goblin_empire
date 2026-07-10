@@ -156,8 +156,8 @@
                 <h2>人口与纪律计算提示</h2>
                 <div class="grid-2">
                     <pre class="formula">population = countAlive(goblins)
-freeHousingRatio = max(0, (maxPopulation - population) / maxPopulation)
-foodSafetyModifier = 菌菇 &lt;= 0 ? 0 : 1</pre>
+fungusConsumers = population + captiveCount
+fungusConsumption = fungusConsumers * 0.03/s * modifiers</pre>
                     <pre class="formula">goblinJobOutput = base * attributeModifier * skillModifier
 obedienceModifier = clamp(0.75, 1.25, 1 + (obedience - 100) / 400)
 accidentChance = baseAccidentChance * obedienceRisk</pre>
@@ -166,7 +166,7 @@ accidentChance = baseAccidentChance * obedienceRisk</pre>
             <section class="section">
                 <h2>压力反馈卡片</h2>
                 <div class="grid-3">
-                    <div class="card"><h3>菌菇安全</h3><p>当前消耗 -0.24/s，低于产出时显示绿色；断粮时停止自然增长。</p></div>
+                    <div class="card"><h3>菌菇安全</h3><p>当前口粮消耗 -0.24/s，包含哥布林和俘虏；断粮时记录口粮告急。</p></div>
                     <div class="card"><h3>拥挤</h3><p>超过 80% 时提示建造窝棚、洞室或选择战利品分配政策。</p></div>
                     <div class="card"><h3>服从</h3><p>低服从降低全局产出并提高矿塌、熔炉爆燃等事件概率。</p></div>
                 </div>

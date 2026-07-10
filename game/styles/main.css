@@ -230,6 +230,54 @@ h3 {
     overflow-wrap: anywhere;
 }
 
+.captive-list {
+    display: grid;
+    gap: 8px;
+}
+
+.captive-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 1.2fr) minmax(76px, 0.5fr) auto;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid rgba(75, 65, 47, 0.8);
+    border-radius: 6px;
+    background: rgba(20, 18, 13, 0.72);
+    padding: 8px;
+}
+
+.captive-summary {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.captive-summary strong,
+.captive-summary span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.captive-summary span,
+.captive-cooldown {
+    color: var(--color-muted);
+}
+
+.captive-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.captive-actions button {
+    white-space: nowrap;
+}
+
+.captive-tooltip {
+    z-index: 30;
+}
+
 .delta-positive {
     color: var(--color-accent);
 }
@@ -502,5 +550,14 @@ h3 {
 
     .building-row button {
         justify-self: start;
+    }
+
+    .captive-row {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .captive-actions {
+        justify-content: flex-start;
     }
 }

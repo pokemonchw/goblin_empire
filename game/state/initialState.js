@@ -148,6 +148,30 @@
     }
 
     /**
+     * 创建新局自带的俘虏列表。
+     *
+     * @returns {CaptiveState[]} 开局俘虏数组；默认包含 1 个普通村姑俘虏。
+     */
+    function createInitialCaptives() {
+        return [
+            {
+                id: "captive_start_laborer",
+                name: "阿苔",
+                type: "laborer",
+                quality: "common",
+                source: "开局",
+                traitHint: "basic",
+                turnsHeld: 0,
+                disposition: undefined,
+                brainwashLevel: 0,
+                breedingState: "idle",
+                gestationSecondsRemaining: 0,
+                restSecondsRemaining: 0
+            }
+        ];
+    }
+
+    /**
      * 创建全新的游戏状态。
      *
      * @returns {GameState} 新存档运行时状态对象。
@@ -182,7 +206,7 @@
                 completedById: {}
             },
             calendar: initialCalendar,
-            captives: [],
+            captives: createInitialCaptives(),
             prestige: {
                 legacy: 0,
                 perks: []

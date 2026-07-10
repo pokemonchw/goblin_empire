@@ -25,9 +25,7 @@
 
     /**
      * @typedef {Object} PopulationConstants
-     * @property {number} baseGrowthPerSecond - 基础人口增长速度，单位为增长进度/秒。
      * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林菌菇消耗，单位为菌菇/秒。
-     * @property {number} growthThreshold - 生成一个哥布林需要的增长进度。
      */
 
     /**
@@ -178,16 +176,14 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 4;
+    var SAVE_VERSION = 8;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
 
-    // PopulationConstants 人口常量：控制早期自然增长和菌菇消耗。
+    // PopulationConstants 人口常量：控制存活哥布林的菌菇消耗。
     var POPULATION_CONSTANTS = {
-        baseGrowthPerSecond: 0.05,
-        fungusConsumptionPerGoblinSecond: 0.03,
-        growthThreshold: 1
+        fungusConsumptionPerGoblinSecond: 0.03
     };
 
     // TabDefinition[] 标签页定义列表：控制主界面可见标签页和默认顺序。
@@ -2250,10 +2246,9 @@
             name: game.text.TEXT_REGISTRY.policies.intimidation.name,
             description: game.text.TEXT_REGISTRY.policies.intimidation.description,
             effectSummary: "服从职业产出 +15%。",
-            costSummary: "人口自然增长 -10%。",
+            costSummary: "事故风险随低服从更明显。",
             effects: {
-                obedienceOutputRatio: 0.15,
-                populationGrowthRatio: -0.1
+                obedienceOutputRatio: 0.15
             },
             unlock: {
                 isDefault: false
@@ -2265,11 +2260,10 @@
             groupName: "统治方式",
             name: game.text.TEXT_REGISTRY.policies.rationing.name,
             description: game.text.TEXT_REGISTRY.policies.rationing.description,
-            effectSummary: "菌菇人口消耗 -10%，人口自然增长 +5%。",
+            effectSummary: "菌菇人口消耗 -10%。",
             costSummary: "战利品收益 -5%。",
             effects: {
                 fungusConsumptionRatio: -0.1,
-                populationGrowthRatio: 0.05,
                 raidLootRatio: -0.05
             },
             unlock: {
@@ -2573,10 +2567,9 @@
             id: "hunger_pact",
             name: game.text.TEXT_REGISTRY.pacts.hunger_pact.name,
             description: game.text.TEXT_REGISTRY.pacts.hunger_pact.description,
-            effectSummary: "人口自然增长 +20%。",
+            effectSummary: "俘虏苗床产出的哥布林更难填饱。",
             costSummary: "菌菇人口消耗 +10%。",
             effects: {
-                populationGrowthRatio: 0.2,
                 fungusConsumptionRatio: 0.1
             }
         },
@@ -3200,7 +3193,7 @@
     var CAPTIVE_TYPE_DEFINITIONS = [
         {
             id: "laborer",
-            name: "农妇",
+            name: "村姑",
             traitHint: "basic",
             attributeBias: {
                 strength: 1,

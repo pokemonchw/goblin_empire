@@ -44,6 +44,22 @@
     }
 
     /**
+     * 统计需要消耗菌菇口粮的总口数。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 食物口数，非负整数；包含存活哥布林和当前关押俘虏。
+     */
+    function countFungusConsumers(state) {
+        // number 存活人口：当前需要完整口粮的哥布林数量，非负整数。
+        var aliveCount = countAliveGoblins(state);
+
+        // number 俘虏数量：当前关押且需要口粮维持的俘虏数量，非负整数。
+        var captiveCount = Array.isArray(state.captives) ? state.captives.length : 0;
+
+        return aliveCount + captiveCount;
+    }
+
+    /**
      * 计算当前住房上限。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -123,7 +139,7 @@
      * 创建哥布林对象。
      *
      * @param {GameState} state - 当前游戏状态对象，会读取并更新 nextGoblinIndex 统计值。
-     * @param {"natural"|"captive_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 哥布林来源 ID。
+     * @param {"captive_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 哥布林来源 ID。
      * @returns {Goblin} 新哥布林对象。
      */
     function createGoblin(state, origin) {
@@ -225,7 +241,7 @@
     }
 
     /**
-     * 推进人口增长、菌菇消耗和派生劳力。
+     * 推进人口派生劳力和口粮菌菇消耗。
      *
      * @param {GameState} state - 当前游戏状态对象，会被直接修改。
      * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点数。
@@ -234,7 +250,6 @@
     function updatePopulation(state, deltaSeconds) {
         updateLaborFromPopulation(state);
         consumeFungusForPopulation(state, deltaSeconds);
-        growPopulation(state, deltaSeconds);
     }
 
     /**
@@ -255,20 +270,20 @@
     }
 
     /**
-     * 按人口消耗菌菇。
+     * 按哥布林与俘虏口数消耗菌菇。
      *
      * @param {GameState} state - 当前游戏状态对象，会被直接修改。
      * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点数。
      * @returns {void} 无返回值。
      */
     function consumeFungusForPopulation(state, deltaSeconds) {
-        // number 存活人口：用于计算本次菌菇消耗。
-        var aliveCount = countAliveGoblins(state);
+        // number 食物口数：用于判断本次是否存在菌菇消耗，包含哥布林和俘虏。
+        var fungusConsumerCount = countFungusConsumers(state);
 
         // ResourceState 菌菇状态：用于扣除人口食物消耗。
         var fungusState = state.resourcesById.fungus;
 
-        if (aliveCount <= 0 || !fungusState) {
+        if (fungusConsumerCount <= 0 || !fungusState) {
             return;
         }
 
@@ -289,14 +304,14 @@
     }
 
     /**
-     * 计算人口菌菇每秒消耗。
+     * 计算哥布林与俘虏菌菇每秒消耗。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @returns {number} 菌菇消耗速度，单位为菌菇/秒，非负浮点数。
      */
     function calculateFungusConsumptionPerSecond(state) {
-        // number 存活人口：用于计算当前食物压力。
-        var aliveCount = countAliveGoblins(state);
+        // number 食物口数：哥布林和俘虏都会消耗同规格菌菇口粮。
+        var fungusConsumerCount = countFungusConsumers(state);
 
         // Object.<string, number> 政策效果字典：读取食物消耗修正。
         var policyEffects = game.policiesSystem ? game.policiesSystem.getPolicyEffects(state) : {};
@@ -307,7 +322,7 @@
         // number 消耗倍率：配给政策可降低消耗，契约可增加消耗，下限为 0。
         var consumptionMultiplier = Math.max(0, 1 + (policyEffects.fungusConsumptionRatio || 0) + (pactEffects.fungusConsumptionRatio || 0));
 
-        return aliveCount * game.definitions.POPULATION_CONSTANTS.fungusConsumptionPerGoblinSecond * consumptionMultiplier;
+        return fungusConsumerCount * game.definitions.POPULATION_CONSTANTS.fungusConsumptionPerGoblinSecond * consumptionMultiplier;
     }
 
     /**
@@ -320,51 +335,10 @@
         state.statistics.pendingStarvationConsequence = 1;
     }
 
-    /**
-     * 按住房和菌菇安全推进自然增长。
-     *
-     * @param {GameState} state - 当前游戏状态对象，会被直接修改。
-     * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点数。
-     * @returns {void} 无返回值。
-     */
-    function growPopulation(state, deltaSeconds) {
-        // number 住房空位：自然增长必须有空位。
-        var freeHousing = calculateFreeHousing(state);
-
-        // ResourceState 菌菇状态：自然增长必须有食物安全。
-        var fungusState = state.resourcesById.fungus;
-
-        if (freeHousing <= 0 || !fungusState || fungusState.value <= 0) {
-            return;
-        }
-
-        // number 增长进度：保存在统计中，不作为人口权威数字。
-        var growthProgress = state.statistics.populationGrowthProgress || 0;
-
-        // Object.<string, number> 政策效果字典：读取自然增长修正。
-        var policyEffects = game.policiesSystem ? game.policiesSystem.getPolicyEffects(state) : {};
-
-        // Object.<string, number> 契约效果字典：读取深渊契约增长修正。
-        var pactEffects = game.pacts ? game.pacts.getPactEffects(state) : {};
-
-        growthProgress += game.definitions.POPULATION_CONSTANTS.baseGrowthPerSecond * Math.max(0, 1 + (policyEffects.populationGrowthRatio || 0) + (pactEffects.populationGrowthRatio || 0)) * deltaSeconds;
-
-        while (growthProgress >= game.definitions.POPULATION_CONSTANTS.growthThreshold && calculateFreeHousing(state) > 0) {
-            growthProgress -= game.definitions.POPULATION_CONSTANTS.growthThreshold;
-
-            // Goblin 新生哥布林：写入对象数组并作为人口权威来源。
-            var newGoblin = createGoblin(state, "natural");
-
-            state.goblins.push(newGoblin);
-            game.simulation.addLog(state, "important", game.text.TEXT_REGISTRY.logs.bornPrefix + newGoblin.name + "。");
-        }
-
-        state.statistics.populationGrowthProgress = growthProgress;
-    }
-
     // Object 人口模块命名空间：提供从状态派生人口和住房统计的函数。
     game.population = {
         countAliveGoblins: countAliveGoblins,
+        countFungusConsumers: countFungusConsumers,
         countIdleGoblins: countIdleGoblins,
         calculateHousingMax: calculateHousingMax,
         calculateFreeHousing: calculateFreeHousing,

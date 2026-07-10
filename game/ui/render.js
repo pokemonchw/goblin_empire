@@ -12,6 +12,17 @@
     // number 上次自动刷新时间：Unix 毫秒时间戳，用于限制自动渲染频率。
     var lastAutoRenderTimestamp = 0;
 
+    // Object.<string, string> 俘虏倾向中文名表：key 为 traitHint 稳定 ID，value 为卡片显示文本。
+    var CAPTIVE_TRAIT_HINT_LABELS = {
+        basic: "基础生存倾向",
+        strong: "强壮战斗倾向",
+        magic: "魔性符文倾向",
+        craft: "工坊制作倾向",
+        trade: "账册贸易倾向",
+        obedient: "服从统御倾向",
+        corrupted: "腐化深渊倾向"
+    };
+
     /**
      * 创建一个文本节点容器。
      *
@@ -25,6 +36,23 @@
 
         element.textContent = textContent;
         return element;
+    }
+
+    /**
+     * 向定义列表追加一行键值明细。
+     *
+     * @param {HTMLElement} listElement - dl 列表元素，会被追加 div/dt/dd 子节点。
+     * @param {string} labelText - 明细标签中文文本。
+     * @param {string} valueText - 明细值中文或数字文本。
+     * @returns {void} 无返回值。
+     */
+    function appendDefinitionDetail(listElement, labelText, valueText) {
+        // HTMLElement 明细行元素：承载一个 dt/dd 键值对。
+        var rowElement = document.createElement("div");
+
+        rowElement.appendChild(createTextElement("dt", labelText));
+        rowElement.appendChild(createTextElement("dd", valueText));
+        listElement.appendChild(rowElement);
     }
 
     /**
@@ -286,7 +314,7 @@
         // number 住房上限：由建筑效果派生的非负整数。
         var housingMax = game.population.calculateHousingMax(state);
 
-        // number 住房空位：用于提示自然增长条件是否出现。
+        // number 住房空位：用于提示苗床繁育后的可用居住空间。
         var freeHousing = game.population.calculateFreeHousing(state);
 
         // number 空闲人口：从哥布林对象 jobId 派生的非负整数。
@@ -306,6 +334,7 @@
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.crowding, Math.round(crowdingRatio * 100) + "%"));
         statusListElement.appendChild(createDefinitionRow("时间", game.calendar.formatCurrentDate(state)));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.tickRate, game.definitions.TICKS_PER_SECOND + " tick/秒"));
+        statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.calendarRate, game.calendar.getSecondsPerDay() + " 秒/天"));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.status, state.isPaused ? game.text.TEXT_REGISTRY.status.paused : game.text.TEXT_REGISTRY.status.running));
     }
 
@@ -889,20 +918,20 @@
             return sectionElement;
         }
 
-        // HTMLElement 网格元素：承载俘虏卡片。
-        var gridElement = document.createElement("div");
+        // HTMLElement 列表元素：承载类似资源列表的俘虏卡片行。
+        var listElement = document.createElement("div");
 
-        gridElement.className = "action-grid";
+        listElement.className = "captive-list";
 
         // number 循环索引：遍历俘虏数组的整数下标。
         for (var captiveIndex = 0; captiveIndex < state.captives.length; captiveIndex += 1) {
-            // CaptiveState 当前俘虏：用于渲染处置预览。
+            // CaptiveState 当前俘虏：用于渲染俘虏卡片行。
             var captive = state.captives[captiveIndex];
 
-            gridElement.appendChild(renderCaptiveCard(state, captive));
+            listElement.appendChild(renderCaptiveCard(state, captive));
         }
 
-        sectionElement.appendChild(gridElement);
+        sectionElement.appendChild(listElement);
         return sectionElement;
     }
 
@@ -914,7 +943,7 @@
      * @returns {HTMLElement} 俘虏卡片元素。
      */
     function renderCaptiveCard(state, captive) {
-        // HTMLElement 卡片元素：承载单个俘虏的处置选项。
+        // HTMLElement 卡片行元素：承载单个俘虏的摘要、倒计时和处置按钮。
         var cardElement = document.createElement("div");
 
         // CaptiveTypeDefinition|null 俘虏类型定义：用于显示中文类型名。
@@ -923,29 +952,65 @@
         // CaptiveQualityDefinition|null 俘虏质量定义：用于显示中文质量名。
         var qualityDefinition = game.captivesSystem.getCaptiveQualityDefinition(captive.quality);
 
-        cardElement.className = "action-card";
-        cardElement.appendChild(createTextElement("h3", (qualityDefinition ? qualityDefinition.name : captive.quality) + " " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type)));
-        cardElement.appendChild(createTextElement("p", "来源：" + captive.source + "，倾向：" + captive.traitHint));
-        appendDispositionPreview(cardElement, state, captive, "bed", game.text.TEXT_REGISTRY.ui.captiveBed);
-        appendDispositionPreview(cardElement, state, captive, "modify", game.text.TEXT_REGISTRY.ui.captiveModify);
-        appendDispositionPreview(cardElement, state, captive, "food", game.text.TEXT_REGISTRY.ui.captiveFood);
+        // string 类型显示名：包含质量和类型，用于行内第一列。
+        var typeLabel = (qualityDefinition ? qualityDefinition.name : captive.quality) + " " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type);
+
+        // string 姓名显示名：旧状态缺失 name 时回退到稳定 ID，便于开发期定位。
+        var captiveName = captive.name || captive.id;
+
+        cardElement.className = "captive-row resource-row";
+        cardElement.tabIndex = 0;
+
+        // HTMLElement 摘要元素：显示俘虏种类和姓名。
+        var summaryElement = document.createElement("div");
+
+        summaryElement.className = "captive-summary";
+        summaryElement.appendChild(createTextElement("strong", typeLabel));
+        summaryElement.appendChild(createTextElement("span", captiveName));
+        cardElement.appendChild(summaryElement);
+
+        // HTMLElement 倒计时元素：显示当前 CD 或可操作状态。
+        var cooldownElement = createTextElement("span", formatCaptiveCooldown(captive));
+
+        cooldownElement.className = "captive-cooldown";
+        cardElement.appendChild(cooldownElement);
+
+        // HTMLElement 操作按钮组：固定显示三个处置入口。
+        var actionsElement = document.createElement("div");
+
+        actionsElement.className = "captive-actions";
+        appendCaptiveActionButton(actionsElement, state, captive, "bed", game.text.TEXT_REGISTRY.ui.captiveBed);
+        appendCaptiveActionButton(actionsElement, state, captive, "modify", game.text.TEXT_REGISTRY.ui.captiveModify);
+        appendCaptiveActionButton(actionsElement, state, captive, "food", game.text.TEXT_REGISTRY.ui.captiveFood);
+        cardElement.appendChild(actionsElement);
+        cardElement.appendChild(renderCaptiveTooltip(captive, captiveTypeDefinition, qualityDefinition));
         return cardElement;
     }
 
     /**
-     * 追加俘虏处置预览和按钮。
+     * 格式化俘虏倾向提示。
      *
-     * @param {HTMLElement} cardElement - 俘虏卡片元素，会被追加内容。
+     * @param {string} traitHintId - 俘虏倾向稳定 ID，例如 basic、trade 或 magic。
+     * @returns {string} 中文倾向显示文本；未知 ID 保留原值便于排查旧存档。
+     */
+    function formatCaptiveTraitHint(traitHintId) {
+        // string 中文倾向名称：从显示名表读取，未命中时回退到稳定 ID。
+        var traitHintLabel = CAPTIVE_TRAIT_HINT_LABELS[traitHintId];
+
+        return traitHintLabel || traitHintId || "未知倾向";
+    }
+
+    /**
+     * 追加俘虏处置按钮。
+     *
+     * @param {HTMLElement} actionsElement - 处置按钮组元素，会被追加按钮。
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {CaptiveState} captive - 俘虏运行时对象。
      * @param {"bed"|"modify"|"food"} dispositionId - 处置方式 ID。
      * @param {string} labelText - 处置按钮中文文本。
      * @returns {void} 无返回值。
      */
-    function appendDispositionPreview(cardElement, state, captive, dispositionId, labelText) {
-        // Object.<string, string|number> 处置预览：包含收益和风险字段。
-        var preview = game.captivesSystem.previewDisposition(captive, dispositionId);
-
+    function appendCaptiveActionButton(actionsElement, state, captive, dispositionId, labelText) {
         // HTMLButtonElement 处置按钮：点击后执行该俘虏处置。
         var buttonElement = document.createElement("button");
 
@@ -953,9 +1018,88 @@
         buttonElement.dataset.captiveId = captive.id;
         buttonElement.dataset.captiveDisposition = dispositionId;
         buttonElement.textContent = labelText;
-        buttonElement.disabled = state.isPaused;
-        cardElement.appendChild(createTextElement("p", labelText + "：" + formatPreview(preview)));
-        cardElement.appendChild(buttonElement);
+        buttonElement.disabled = state.isPaused || !game.captivesSystem.canApplyDisposition(captive, dispositionId);
+        actionsElement.appendChild(buttonElement);
+    }
+
+    /**
+     * 渲染俘虏悬浮框。
+     *
+     * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
+     * @param {CaptiveTypeDefinition|null} captiveTypeDefinition - 俘虏类型定义；缺失时显示类型 ID。
+     * @param {CaptiveQualityDefinition|null} qualityDefinition - 俘虏质量定义；缺失时显示质量 ID。
+     * @returns {HTMLElement} 俘虏悬浮框元素。
+     */
+    function renderCaptiveTooltip(captive, captiveTypeDefinition, qualityDefinition) {
+        // HTMLElement 悬浮框元素：承载俘虏详细信息。
+        var tooltipElement = document.createElement("div");
+
+        // HTMLElement 明细列表：按用户要求显示来源、倾向、洗脑程度和状态。
+        var listElement = document.createElement("dl");
+
+        tooltipElement.className = "resource-tooltip captive-tooltip";
+        tooltipElement.setAttribute("role", "tooltip");
+        tooltipElement.appendChild(createTextElement("h4", captive.name || captive.id));
+        appendDefinitionDetail(listElement, "种类", (qualityDefinition ? qualityDefinition.name : captive.quality) + " " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type));
+        appendDefinitionDetail(listElement, "来源", captive.source || "未知来源");
+        appendDefinitionDetail(listElement, "倾向", formatCaptiveTraitHint(captive.traitHint));
+        appendDefinitionDetail(listElement, "洗脑程度", Math.round(Number(captive.brainwashLevel) || 0) + "%");
+        appendDefinitionDetail(listElement, "状态", formatCaptiveBreedingState(captive));
+        tooltipElement.appendChild(listElement);
+        return tooltipElement;
+    }
+
+    /**
+     * 格式化俘虏卡片行倒计时。
+     *
+     * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
+     * @returns {string} CD 中文文本；空闲时显示可行动。
+     */
+    function formatCaptiveCooldown(captive) {
+        if (captive.breedingState === "gestating") {
+            return "CD " + formatSecondsAsDays(captive.gestationSecondsRemaining) + " 天";
+        }
+
+        if (captive.breedingState === "resting") {
+            return "CD " + formatSecondsAsDays(captive.restSecondsRemaining) + " 天";
+        }
+
+        return "可行动";
+    }
+
+    /**
+     * 格式化俘虏苗床状态。
+     *
+     * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
+     * @returns {string} 中文状态文本。
+     */
+    function formatCaptiveBreedingState(captive) {
+        if (captive.breedingState === "gestating") {
+            return "孕育中，约 " + formatSecondsAsDays(captive.gestationSecondsRemaining) + " 天后结算";
+        }
+
+        if (captive.breedingState === "resting") {
+            return "休养中，约 " + formatSecondsAsDays(captive.restSecondsRemaining) + " 天后可再次培育";
+        }
+
+        if (captive.disposition === "bed") {
+            return "苗床空闲，可再次培育新生";
+        }
+
+        return "待处置";
+    }
+
+    /**
+     * 将游戏秒数换算为天数文本。
+     *
+     * @param {number} secondsRemaining - 剩余游戏秒数，非负浮点数。
+     * @returns {number} 剩余游戏天数，非负整数，至少为 1。
+     */
+    function formatSecondsAsDays(secondsRemaining) {
+        // number 剩余天数：按日期系统的现实秒/游戏日口径换算。
+        var daysRemaining = Math.ceil(game.calendar.calculateDaysFromSeconds(secondsRemaining));
+
+        return Math.max(1, daysRemaining);
     }
 
     /**
@@ -976,10 +1120,86 @@
             // string 当前字段键：用于读取预览值。
             var previewKey = previewKeys[previewIndex];
 
-            previewTexts.push(previewKey + "=" + preview[previewKey]);
+            previewTexts.push(formatPreviewField(previewKey, preview[previewKey]));
         }
 
         return previewTexts.join("，");
+    }
+
+    /**
+     * 格式化单个俘虏处置预览字段。
+     *
+     * @param {string} previewKey - 预览字段键，允许 summary、inheritedTraitChance、escapeRisk、retaliationRisk、failureRisk、fungusGain、obedienceSwing。
+     * @param {string|number} previewValue - 预览字段值；概率字段为 0-1 浮点比例，收益字段为资源数量或描述文本。
+     * @returns {string} 中文字段文本。
+     */
+    function formatPreviewField(previewKey, previewValue) {
+        if (previewKey === "summary") {
+            return String(previewValue);
+        }
+
+        if (previewKey === "inheritedTraitChance") {
+            return "继承倾向概率 " + formatRatioAsPercent(previewValue);
+        }
+
+        if (previewKey === "gestationMonths") {
+            return "孕育 " + previewValue + " 个月";
+        }
+
+        if (previewKey === "restMonths") {
+            return "休养 " + previewValue + " 个月";
+        }
+
+        if (previewKey === "brainwashLevel") {
+            return "洗脑程度 " + previewValue + "%";
+        }
+
+        if (previewKey === "brainwashGain") {
+            return "洗脑提升 " + previewValue;
+        }
+
+        if (previewKey === "attributeBonus") {
+            return "属性加成 +" + previewValue;
+        }
+
+        if (previewKey === "escapeRisk") {
+            return "逃脱风险 " + formatRatioAsPercent(previewValue);
+        }
+
+        if (previewKey === "retaliationRisk") {
+            return "报复风险 " + formatRatioAsPercent(previewValue);
+        }
+
+        if (previewKey === "failureRisk") {
+            return "失败风险 " + formatRatioAsPercent(previewValue);
+        }
+
+        if (previewKey === "fungusGain") {
+            return "菌菇收益 " + previewValue;
+        }
+
+        if (previewKey === "obedienceSwing") {
+            return "服从波动 " + previewValue;
+        }
+
+        return previewKey + " " + previewValue;
+    }
+
+    /**
+     * 将 0-1 比例格式化为百分比文本。
+     *
+     * @param {string|number} ratioValue - 概率或风险比例；number 时按 0-1 浮点比例处理，string 时直接转为文本。
+     * @returns {string} 百分比文本；number 输入返回整数百分比。
+     */
+    function formatRatioAsPercent(ratioValue) {
+        // number 比例数值：概率或风险的 0-1 浮点比例。
+        var numericRatio = Number(ratioValue);
+
+        if (Number.isNaN(numericRatio)) {
+            return String(ratioValue);
+        }
+
+        return Math.round(numericRatio * 100) + "%";
     }
 
     /**
@@ -2018,11 +2238,14 @@
      * @returns {HTMLElement} 人口压力卡片元素。
      */
     function renderPopulationPressureDebug(state) {
-        // HTMLElement 卡片元素：显示人口增长、食物消耗和拥挤度来源。
+        // HTMLElement 卡片元素：显示苗床繁育入口、食物消耗和拥挤度来源。
         var cardElement = document.createElement("div");
 
         // number 存活人口：用于食物消耗和拥挤度。
         var aliveCount = game.population.countAliveGoblins(state);
+
+        // number 食物口数：当前消耗菌菇的哥布林和俘虏总数。
+        var fungusConsumerCount = game.population.countFungusConsumers(state);
 
         // number 住房上限：用于拥挤度来源。
         var housingMax = game.population.calculateHousingMax(state);
@@ -2030,25 +2253,20 @@
         // number 拥挤度比例：来自人口系统。
         var crowdingRatio = game.population.calculateCrowdingRatio(state);
 
-        // Object.<string, number> 政策效果字典：用于人口增长修正说明。
-        var policyEffects = game.policiesSystem ? game.policiesSystem.getPolicyEffects(state) : {};
+        // number 菌菇消耗：当前哥布林和俘虏理论消耗，单位菌菇/秒。
+        var fungusConsumption = game.population.calculateFungusConsumptionPerSecond(state);
 
-        // Object.<string, number> 契约效果字典：用于人口增长和菌菇消耗修正说明。
-        var pactEffects = game.pacts ? game.pacts.getPactEffects(state) : {};
-
-        // number 菌菇消耗：当前人口理论消耗，单位菌菇/秒。
-        var fungusConsumption = aliveCount * game.definitions.POPULATION_CONSTANTS.fungusConsumptionPerGoblinSecond * Math.max(0, 1 + (policyEffects.fungusConsumptionRatio || 0) + (pactEffects.fungusConsumptionRatio || 0));
-
-        // number 人口增长倍率：政策和契约修正后的增长来源。
-        var growthMultiplier = Math.max(0, 1 + (policyEffects.populationGrowthRatio || 0) + (pactEffects.populationGrowthRatio || 0));
+        // number 待处置俘虏数量：苗床繁育的直接入口数量。
+        var captiveCount = state.captives.length;
 
         cardElement.className = "action-card";
         cardElement.appendChild(createTextElement("h3", "人口压力"));
         cardElement.appendChild(createTextElement("p", "人口/住房：" + aliveCount + " / " + housingMax));
+        cardElement.appendChild(createTextElement("p", "口粮口数：" + fungusConsumerCount + "（含俘虏 " + captiveCount + "）"));
         cardElement.appendChild(createTextElement("p", "拥挤度：" + Math.round(crowdingRatio * 100) + "%"));
         cardElement.appendChild(createTextElement("p", "菌菇消耗：" + fungusConsumption.toFixed(2) + "/秒"));
-        cardElement.appendChild(createTextElement("p", "增长倍率：" + growthMultiplier.toFixed(2) + "x"));
-        cardElement.appendChild(createTextElement("p", "增长进度：" + (state.statistics.populationGrowthProgress || 0).toFixed(2) + " / " + game.definitions.POPULATION_CONSTANTS.growthThreshold));
+        cardElement.appendChild(createTextElement("p", "繁育入口：俘虏卡牌培育新生"));
+        cardElement.appendChild(createTextElement("p", "待处置俘虏：" + captiveCount));
         return cardElement;
     }
 
@@ -2165,7 +2383,7 @@
         cardElement.appendChild(createTextElement("p", "早期菌菇压力：" + (aliveCount <= 3 && fungusPerSecond < -0.2 ? "需关注" : "正常")));
         cardElement.appendChild(createTextElement("p", "容量卡死：" + (hasBuildingOwned(state, "storage_pit") || state.resourcesById.fungus.value < state.resourcesById.fungus.maxValue ? "正常" : "需关注")));
         cardElement.appendChild(createTextElement("p", "手工制作决策：" + (hasBuildingOwned(state, "artisan_shed") && game.definitions.CRAFT_RECIPE_DEFINITIONS.length > 0 ? "正常" : "观察中")));
-        cardElement.appendChild(createTextElement("p", "人口增长过快：" + (aliveCount > 0 && idleCount / aliveCount > 0.7 ? "需关注" : "正常")));
+        cardElement.appendChild(createTextElement("p", "苗床繁育节奏：" + (aliveCount > 0 && idleCount / aliveCount > 0.7 ? "需关注" : "正常")));
         cardElement.appendChild(createTextElement("p", "个体曲线：" + (aliveCount > 80 ? "需关注大列表和属性影响" : "正常")));
         return cardElement;
     }
@@ -3112,6 +3330,7 @@
         }
 
         tabContentElement.appendChild(gridElement);
+        tabContentElement.appendChild(renderCaptiveSection(state));
 
         if (isRaidSectionVisible(state)) {
             tabContentElement.appendChild(renderRaidSection(state));

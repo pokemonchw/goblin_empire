@@ -6,8 +6,8 @@
  * @returns {void} 无返回值。
  */
 (function (game) {
-    // number 每个游戏日持续秒数：非负浮点秒，决定日期推进速度。
-    var SECONDS_PER_DAY = 10;
+    // number 每个游戏日持续秒数：非负浮点秒，现实 1 秒推进 1 个游戏日。
+    var SECONDS_PER_DAY = 1;
 
     // number 每个季节天数：非负整数天，春夏秋冬各 90 天。
     var DAYS_PER_SEASON = 90;
@@ -171,6 +171,28 @@
     }
 
     /**
+     * 取得每个游戏日对应的模拟秒数。
+     *
+     * @returns {number} 每个游戏日持续秒数，非负浮点秒。
+     */
+    function getSecondsPerDay() {
+        return SECONDS_PER_DAY;
+    }
+
+    /**
+     * 将模拟秒数换算为游戏天数。
+     *
+     * @param {number} seconds - 模拟推进秒数，非负浮点秒。
+     * @returns {number} 对应游戏天数，非负浮点天。
+     */
+    function calculateDaysFromSeconds(seconds) {
+        // number 安全秒数：过滤非法输入后的非负模拟秒数。
+        var safeSeconds = Math.max(0, Number(seconds) || 0);
+
+        return safeSeconds / SECONDS_PER_DAY;
+    }
+
+    /**
      * 根据全局游戏日计算季节日期。
      *
      * @param {number} elapsedDays - 已经过的完整游戏日，非负整数天。
@@ -246,6 +268,8 @@
         normalizeCalendarState: normalizeCalendarState,
         updateCalendar: updateCalendar,
         unlockCalendar: unlockCalendar,
+        getSecondsPerDay: getSecondsPerDay,
+        calculateDaysFromSeconds: calculateDaysFromSeconds,
         formatLogDatePrefix: formatLogDatePrefix,
         formatLogSeparator: formatLogSeparator,
         formatCurrentDate: formatCurrentDate

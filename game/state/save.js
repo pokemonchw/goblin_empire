@@ -9,6 +9,9 @@
     // string 本地存储键：保存哥布林帝国当前存档文本。
     var STORAGE_KEY = "goblinEmpireSave";
 
+    // number v6 旧日期速度：旧存档中 10 模拟秒等于 1 个游戏日。
+    var LEGACY_SECONDS_PER_DAY = 10;
+
     // string[] 技能 ID 列表：旧存档哥布林会按此补齐十项技能键。
     var GOBLIN_SKILL_IDS = [
         "foraging",
@@ -192,8 +195,98 @@
             migratedSaveData.calendar = game.calendar.createInitialCalendar();
         }
 
+        if (sourceVersion < 5) {
+            // v4 旧 shape：人口会通过 populationGrowthProgress 自然增长，空白新局没有开局俘虏。
+            // v5 新 shape：人口只能通过俘虏苗床等显式入口新增，空白新局补 1 个普通村姑俘虏。
+            // 迁移原因：开局繁育入口改为俘虏处置，旧自然增长进度不再是有效状态。
+            if (migratedSaveData.statistics) {
+                delete migratedSaveData.statistics.populationGrowthProgress;
+            }
+
+            if (!hasLegacySaveProgress(migratedSaveData) && (!Array.isArray(migratedSaveData.captives) || migratedSaveData.captives.length <= 0)) {
+                migratedSaveData.captives = [
+                    {
+                        id: "captive_start_laborer",
+                        name: "阿苔",
+                        type: "laborer",
+                        quality: "common",
+                        source: "开局",
+                        traitHint: "basic",
+                        turnsHeld: 0,
+                        disposition: undefined,
+                        brainwashLevel: 0,
+                        breedingState: "idle",
+                        gestationSecondsRemaining: 0,
+                        restSecondsRemaining: 0
+                    }
+                ];
+            }
+        }
+
+        if (sourceVersion < 6) {
+            // v5 旧 shape：俘虏苗床是即时一次性繁衍，俘虏没有洗脑程度、孕育和休养倒计时。
+            // v6 新 shape：俘虏可重复“培育新生”，并保存洗脑程度、孕育状态和休养状态。
+            // 迁移原因：俘虏卡牌从即时苗床改为按月孕育和按月休养的重复人口入口。
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
+        }
+
+        if (sourceVersion < 7) {
+            // v6 旧 shape：日期和苗床倒计时按 10 秒 1 天保存。
+            // v7 新 shape：现实 1 秒推进 1 个游戏日，按游戏天数等价缩短秒数字段。
+            // 迁移原因：保持旧存档的日内进度和苗床月份语义不变。
+            migrateCalendarAndCaptiveSecondsForOneSecondDays(migratedSaveData);
+        }
+
+        if (sourceVersion < 8) {
+            // v7 旧 shape：俘虏只有类型和质量，没有单独姓名，列表中同类俘虏难以区分。
+            // v8 新 shape：为每个俘虏补齐 name，并在后续新增俘虏时持久化姓名。
+            // 迁移原因：俘虏列表改为逐个管理的卡片行，姓名成为玩家识别单个俘虏的必要状态。
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
+        }
+
         migratedSaveData.version = game.definitions.SAVE_VERSION;
         return migratedSaveData;
+    }
+
+    /**
+     * 将旧日期速度下保存的秒数字段迁移到 1 秒 1 天口径。
+     *
+     * @param {SaveData} saveData - v6 或更早存档对象，会直接修改 calendar 和 captives 字段。
+     * @returns {void} 无返回值。
+     */
+    function migrateCalendarAndCaptiveSecondsForOneSecondDays(saveData) {
+        // number 缩放比例：旧 10 秒/天改为新 1 秒/天，所以剩余秒数除以 10。
+        var secondsScaleRatio = game.calendar.getSecondsPerDay() / LEGACY_SECONDS_PER_DAY;
+
+        if (saveData.calendar) {
+            // number 旧日内进度秒数：旧存档中当前游戏日已推进的模拟秒。
+            var legacyDayProgressSeconds = Math.max(0, Number(saveData.calendar.dayProgressSeconds) || 0);
+
+            saveData.calendar.dayProgressSeconds = legacyDayProgressSeconds * secondsScaleRatio;
+        }
+
+        if (!Array.isArray(saveData.captives)) {
+            return;
+        }
+
+        // number 循环索引：遍历存档俘虏数组的整数下标。
+        for (var captiveIndex = 0; captiveIndex < saveData.captives.length; captiveIndex += 1) {
+            // CaptiveState 当前俘虏对象：用于迁移苗床倒计时秒数。
+            var captive = saveData.captives[captiveIndex];
+
+            if (!captive) {
+                continue;
+            }
+
+            // number 旧孕育剩余秒数：v6 以 10 秒/天保存。
+            var legacyGestationSeconds = Math.max(0, Number(captive.gestationSecondsRemaining) || 0);
+
+            // number 旧休养剩余秒数：v6 以 10 秒/天保存。
+            var legacyRestSeconds = Math.max(0, Number(captive.restSecondsRemaining) || 0);
+
+            captive.gestationSecondsRemaining = legacyGestationSeconds * secondsScaleRatio;
+            captive.restSecondsRemaining = legacyRestSeconds * secondsScaleRatio;
+        }
     }
 
     /**
@@ -218,7 +311,7 @@
         restoredState.activeExpedition = saveData.activeExpedition || null;
         restoredState.challenges = normalizeSavedChallenges(saveData.challenges);
         restoredState.calendar = game.calendar.normalizeCalendarState(saveData.calendar);
-        restoredState.captives = Array.isArray(saveData.captives) ? saveData.captives : [];
+        restoredState.captives = normalizeSavedCaptives(Array.isArray(saveData.captives) ? saveData.captives : []);
         restoredState.prestige = saveData.prestige || { legacy: 0, perks: [] };
         restoredState.statistics = saveData.statistics || {};
         // Object[] 日志数组：日志不进入存档，读档后清空新建状态的默认日志，避免显示错误日期。
@@ -583,6 +676,102 @@
         }
 
         return normalizedGoblins;
+    }
+
+    /**
+     * 规范化存档中的俘虏对象。
+     *
+     * @param {CaptiveState[]} savedCaptives - 存档俘虏数组。
+     * @returns {CaptiveState[]} 规范化后的俘虏数组。
+     */
+    function normalizeSavedCaptives(savedCaptives) {
+        // CaptiveState[] 规范化数组：过滤没有稳定 ID 的无效俘虏。
+        var normalizedCaptives = [];
+
+        // number 循环索引：遍历存档俘虏数组的整数下标。
+        for (var captiveIndex = 0; captiveIndex < savedCaptives.length; captiveIndex += 1) {
+            // CaptiveState 当前俘虏对象：用于补齐苗床繁育状态字段。
+            var captive = savedCaptives[captiveIndex];
+
+            if (!captive || !captive.id) {
+                continue;
+            }
+
+            captive.turnsHeld = Math.max(0, Number(captive.turnsHeld) || 0);
+            captive.name = normalizeCaptiveName(captive, captiveIndex);
+            captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
+            captive.breedingState = normalizeCaptiveBreedingState(captive.breedingState);
+            captive.gestationSecondsRemaining = Math.max(0, Number(captive.gestationSecondsRemaining) || 0);
+            captive.restSecondsRemaining = Math.max(0, Number(captive.restSecondsRemaining) || 0);
+
+            if (captive.breedingState === "gestating" && captive.gestationSecondsRemaining <= 0) {
+                captive.gestationSecondsRemaining = 1;
+            }
+
+            if (captive.breedingState === "resting" && captive.restSecondsRemaining <= 0) {
+                captive.restSecondsRemaining = 1;
+            }
+
+            normalizedCaptives.push(captive);
+        }
+
+        return normalizedCaptives;
+    }
+
+    /**
+     * 规范化俘虏姓名。
+     *
+     * @param {CaptiveState} captive - 俘虏对象，用于读取旧存档中的类型和稳定 ID。
+     * @param {number} captiveIndex - 俘虏数组下标，非负整数；用于旧存档确定性补名。
+     * @returns {string} 俘虏中文姓名。
+     */
+    function normalizeCaptiveName(captive, captiveIndex) {
+        if (typeof captive.name === "string" && captive.name.trim()) {
+            return captive.name.trim();
+        }
+
+        // string[] 旧存档补名池：按稳定 ID 和数组下标确定，避免同一存档每次读档改名。
+        var fallbackNames = [
+            "阿苔",
+            "莉莎",
+            "玛拉",
+            "薇恩",
+            "艾娜",
+            "塔妮",
+            "露芙",
+            "贝芮",
+            "伊柯",
+            "诺拉",
+            "茜尔",
+            "朵琳"
+        ];
+
+        // number 稳定散列值：由俘虏 ID 和类型字符码累加得到，非负整数。
+        var stableHash = captiveIndex;
+
+        // string 散列文本：俘虏稳定 ID 和类型 ID，旧存档一定存在 id，type 缺失时按空串。
+        var hashText = String(captive.id) + String(captive.type || "");
+
+        // number 循环索引：遍历散列文本字符的整数下标。
+        for (var characterIndex = 0; characterIndex < hashText.length; characterIndex += 1) {
+            stableHash += hashText.charCodeAt(characterIndex);
+        }
+
+        return fallbackNames[stableHash % fallbackNames.length];
+    }
+
+    /**
+     * 规范化俘虏繁育状态 ID。
+     *
+     * @param {string|undefined} breedingState - 存档中的繁育状态 ID，可省略。
+     * @returns {"idle"|"gestating"|"resting"} 规范化后的状态 ID。
+     */
+    function normalizeCaptiveBreedingState(breedingState) {
+        if (breedingState === "gestating" || breedingState === "resting") {
+            return breedingState;
+        }
+
+        return "idle";
     }
 
     /**
