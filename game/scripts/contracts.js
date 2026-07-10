@@ -214,7 +214,7 @@
      * @property {number} turnsHeld - 持有回合数，非负整数。
      * @property {"bed"|"modify"|"food"=} disposition - 当前处置 ID，可省略。
      * @property {number} brainwashLevel - 洗脑程度，0-100 整数点；数值越高，新生属性越好且孕育失败率越低。
-     * @property {"idle"|"gestating"|"resting"} breedingState - 苗床繁育状态；idle 可操作，gestating 孕育中，resting 休养中。
+     * @property {"idle"|"gestating"|"resting"} breedingState - 苗床繁育状态；idle 可培育，gestating 孕育中且锁定处置，resting 休养中且只锁定培育。
      * @property {number} gestationSecondsRemaining - 孕育剩余游戏秒数，非负浮点数。
      * @property {number} restSecondsRemaining - 休养剩余游戏秒数，非负浮点数。
      */

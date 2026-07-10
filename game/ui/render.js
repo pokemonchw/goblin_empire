@@ -982,7 +982,7 @@
         appendCaptiveActionButton(actionsElement, state, captive, "modify", game.text.TEXT_REGISTRY.ui.captiveModify);
         appendCaptiveActionButton(actionsElement, state, captive, "food", game.text.TEXT_REGISTRY.ui.captiveFood);
         cardElement.appendChild(actionsElement);
-        cardElement.appendChild(renderCaptiveTooltip(captive, captiveTypeDefinition, qualityDefinition));
+        cardElement.appendChild(renderCaptiveTooltip(state, captive, captiveTypeDefinition, qualityDefinition));
         return cardElement;
     }
 
@@ -1017,24 +1017,51 @@
         buttonElement.dataset.captiveId = captive.id;
         buttonElement.dataset.captiveDisposition = dispositionId;
         buttonElement.textContent = labelText;
-        buttonElement.disabled = state.isPaused || !game.captivesSystem.canApplyDisposition(captive, dispositionId);
+        buttonElement.disabled = state.isPaused || !game.captivesSystem.canApplyDisposition(state, captive, dispositionId);
         actionsElement.appendChild(buttonElement);
     }
 
     /**
      * 渲染俘虏悬浮框。
      *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
      * @param {CaptiveTypeDefinition|null} captiveTypeDefinition - 俘虏类型定义；缺失时显示类型 ID。
      * @param {CaptiveQualityDefinition|null} qualityDefinition - 俘虏质量定义；缺失时显示质量 ID。
      * @returns {HTMLElement} 俘虏悬浮框元素。
      */
-    function renderCaptiveTooltip(captive, captiveTypeDefinition, qualityDefinition) {
+    function renderCaptiveTooltip(state, captive, captiveTypeDefinition, qualityDefinition) {
         // HTMLElement 悬浮框元素：承载俘虏详细信息。
         var tooltipElement = document.createElement("div");
 
-        // HTMLElement 明细列表：按用户要求显示来源、倾向、洗脑程度和状态。
+        // HTMLElement 明细列表：按用户要求显示来源、倾向、洗脑、孕育和风险详情。
         var listElement = document.createElement("dl");
+
+        // Object.<string, string|number> 培育预览：读取孕育成功率、失败率和继承概率。
+        var bedPreview = game.captivesSystem.previewDisposition(captive, "bed");
+
+        // Object.<string, string|number> 洗脑预览：读取固定菌菇消耗、洗脑提升和风险。
+        var modifyPreview = game.captivesSystem.previewDisposition(captive, "modify");
+
+        // number 孕育成功率：0-1 浮点比例，由失败率反推。
+        var breedingSuccessRate = 1 - Number(bedPreview.failureRisk || 0);
+
+        // number 逃跑率：0-1 浮点比例，来自俘虏质量风险。
+        var escapeRate = Number(modifyPreview.escapeRisk || bedPreview.escapeRisk || 0);
+
+        // number 反抗率：0-1 浮点比例，当前沿用质量报复风险作为反抗事件风险。
+        var resistanceRate = Number(modifyPreview.retaliationRisk || bedPreview.retaliationRisk || 0);
+
+        // Price[] 洗脑固定消耗显示价格：用于判断当前菌菇是否足够。
+        var brainwashPrice = [
+            {
+                resource: "fungus",
+                amount: Number(modifyPreview.brainwashCost || 100)
+            }
+        ];
+
+        // boolean 是否可支付洗脑消耗：true 表示当前菌菇库存不少于固定成本。
+        var canPayBrainwash = game.resources.canAfford(state, brainwashPrice);
 
         tooltipElement.className = "resource-tooltip captive-tooltip";
         tooltipElement.setAttribute("role", "tooltip");
@@ -1043,6 +1070,14 @@
         appendDefinitionDetail(listElement, "来源", captive.source || "未知来源");
         appendDefinitionDetail(listElement, "倾向", formatCaptiveTraitHint(captive.traitHint));
         appendDefinitionDetail(listElement, "洗脑程度", Math.round(Number(captive.brainwashLevel) || 0) + "%");
+        appendDefinitionDetail(listElement, "洗脑消耗", "菌菇 " + brainwashPrice[0].amount + (canPayBrainwash ? "" : "（不足）"));
+        appendDefinitionDetail(listElement, "洗脑提升", "+" + modifyPreview.brainwashGain);
+        appendDefinitionDetail(listElement, "孕育成功率", formatRatioAsPercent(breedingSuccessRate));
+        appendDefinitionDetail(listElement, "孕育失败率", formatRatioAsPercent(bedPreview.failureRisk));
+        appendDefinitionDetail(listElement, "逃跑率", formatRatioAsPercent(escapeRate));
+        appendDefinitionDetail(listElement, "反抗率", formatRatioAsPercent(resistanceRate));
+        appendDefinitionDetail(listElement, "继承倾向", formatRatioAsPercent(bedPreview.inheritedTraitChance));
+        appendDefinitionDetail(listElement, "属性加成", "+" + bedPreview.attributeBonus);
         appendDefinitionDetail(listElement, "状态", formatCaptiveBreedingState(captive));
         tooltipElement.appendChild(listElement);
         return tooltipElement;
@@ -1060,7 +1095,7 @@
         }
 
         if (captive.breedingState === "resting") {
-            return "CD " + formatSecondsAsDays(captive.restSecondsRemaining) + " 天";
+            return "休养 " + formatSecondsAsDays(captive.restSecondsRemaining) + " 天";
         }
 
         return "可行动";
@@ -1078,7 +1113,11 @@
         }
 
         if (captive.breedingState === "resting") {
-            return "休养中，约 " + formatSecondsAsDays(captive.restSecondsRemaining) + " 天后可再次培育";
+            return "休养中，约 " + formatSecondsAsDays(captive.restSecondsRemaining) + " 天后解除培育锁定；仍可洗脑改造或做成食物";
+        }
+
+        if (Number(captive.brainwashLevel) <= 0) {
+            return "洗脑程度为 0，需先洗脑改造后才能培育新生";
         }
 
         if (captive.disposition === "bed") {
@@ -1128,7 +1167,7 @@
     /**
      * 格式化单个俘虏处置预览字段。
      *
-     * @param {string} previewKey - 预览字段键，允许 summary、inheritedTraitChance、escapeRisk、retaliationRisk、failureRisk、fungusGain、obedienceSwing。
+     * @param {string} previewKey - 预览字段键，允许 summary、inheritedTraitChance、escapeRisk、retaliationRisk、failureRisk、brainwashCost、fungusGain、obedienceSwing。
      * @param {string|number} previewValue - 预览字段值；概率字段为 0-1 浮点比例，收益字段为资源数量或描述文本。
      * @returns {string} 中文字段文本。
      */
@@ -1155,6 +1194,10 @@
 
         if (previewKey === "brainwashGain") {
             return "洗脑提升 " + previewValue;
+        }
+
+        if (previewKey === "brainwashCost") {
+            return "洗脑消耗 菌菇 " + previewValue;
         }
 
         if (previewKey === "attributeBonus") {

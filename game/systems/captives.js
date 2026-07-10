@@ -12,6 +12,20 @@
     // number 苗床休养时长：一次孕育结束后的一个哥布林历月份，单位模拟秒。
     var CAPTIVE_REST_SECONDS = 30 * game.calendar.getSecondsPerDay();
 
+    // number 培育成功洗脑保留倍率：成功产出新生后保留当前洗脑程度的 50%，0-1 浮点比例。
+    var CAPTIVE_BREEDING_SUCCESS_BRAINWASH_RATIO = 0.5;
+
+    // number 培育失败洗脑保留倍率：失败后只保留当前洗脑程度的 10%，0-1 浮点比例。
+    var CAPTIVE_BREEDING_FAILURE_BRAINWASH_RATIO = 0.1;
+
+    // Price[] 洗脑固定价格：每次洗脑改造固定消耗 100 菌菇。
+    var CAPTIVE_BRAINWASH_PRICE = [
+        {
+            resource: "fungus",
+            amount: 100
+        }
+    ];
+
     // string[] 俘虏名池：生成后写入 CaptiveState.name，避免列表中同类俘虏无法区分。
     var CAPTIVE_NAME_POOL = [
         "阿苔",
@@ -138,7 +152,7 @@
 
         if (dispositionId === "bed") {
             return {
-                summary: "开始一个月孕育，可能生成 1 个带 " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type) + " 倾向的新生",
+                summary: "开始一个月孕育，可能生成 1 个带 " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type) + " 倾向的新生；洗脑为 0 时不可培育，结算后洗脑会衰减",
                 gestationMonths: 1,
                 restMonths: 1,
                 failureRisk: calculateBreedingFailureRisk(captive),
@@ -152,7 +166,8 @@
 
         if (dispositionId === "modify") {
             return {
-                summary: "洗脑程度 +" + calculateBrainwashGain(captive, 0) + "，粗识 +" + Math.round(10 * qualityMultiplier),
+                summary: "消耗 100 菌菇，洗脑程度 +" + calculateBrainwashGain(captive, 0) + "，粗识 +" + Math.round(10 * qualityMultiplier),
+                brainwashCost: 100,
                 brainwashGain: calculateBrainwashGain(captive, 0),
                 brainwashLevel: Math.round(brainwashRatio * 100),
                 escapeRisk: qualityDefinition ? qualityDefinition.escapeRisk : 0.1,
@@ -191,7 +206,7 @@
         // CaptiveState 当前俘虏：用于计算处置结果。
         var captive = state.captives[captiveIndex];
 
-        if (!canApplyDisposition(captive, dispositionId)) {
+        if (!canApplyDisposition(null, captive, dispositionId)) {
             return false;
         }
 
@@ -201,6 +216,10 @@
             startCaptiveGestation(state, captive);
         } else {
             if (dispositionId === "modify") {
+                if (!game.resources.spendResources(state, CAPTIVE_BRAINWASH_PRICE)) {
+                    return false;
+                }
+
                 applyModifyReward(state, captive);
             } else {
                 applyFoodReward(state, captive);
@@ -215,19 +234,28 @@
     /**
      * 判断俘虏当前是否可以执行指定处置。
      *
+     * @param {GameState|null} state - 当前游戏状态对象；传入 null 时只检查俘虏自身状态，不检查资源库存。
      * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
      * @param {"bed"|"modify"|"food"} dispositionId - 处置方式 ID。
      * @returns {boolean} 是否可以执行；true 表示按钮可生效。
      */
-    function canApplyDisposition(captive, dispositionId) {
-        // string 繁育状态：idle 可操作，gestating/resting 会锁定培育和处置。
+    function canApplyDisposition(state, captive, dispositionId) {
+        // string 繁育状态：gestating 锁定所有处置，resting 只锁定再次培育。
         var breedingState = captive.breedingState || "idle";
 
-        if (breedingState !== "idle") {
+        if (breedingState === "gestating") {
             return false;
         }
 
-        return dispositionId === "bed" || dispositionId === "modify" || dispositionId === "food";
+        if (dispositionId === "bed") {
+            return breedingState === "idle" && getCaptiveBrainwashRatio(captive) > 0;
+        }
+
+        if (dispositionId === "modify") {
+            return !state || game.resources.canAfford(state, CAPTIVE_BRAINWASH_PRICE);
+        }
+
+        return dispositionId === "food";
     }
 
     /**
@@ -285,7 +313,7 @@
             if (captive.restSecondsRemaining <= 0) {
                 captive.breedingState = "idle";
                 captive.restSecondsRemaining = 0;
-                game.simulation.addLog(state, "normal", "苗床休养完成，可以再次培育新生。");
+                game.simulation.addLog(state, "normal", "苗床休养完成，洗脑程度足够时可以再次培育新生。");
             }
         }
     }
@@ -306,7 +334,9 @@
 
         if (failureRoll >= failureRisk) {
             breedGoblinFromCaptive(state, captive);
+            applyBreedingBrainwashDecay(captive, CAPTIVE_BREEDING_SUCCESS_BRAINWASH_RATIO);
         } else {
+            applyBreedingBrainwashDecay(captive, CAPTIVE_BREEDING_FAILURE_BRAINWASH_RATIO);
             game.simulation.addLog(state, "warning", "苗床孕育失败，仍需一个月休养。");
         }
 
@@ -427,6 +457,23 @@
      */
     function calculateBrainwashAttributeBonus(captive) {
         return Math.floor(getCaptiveBrainwashRatio(captive) * 4);
+    }
+
+    /**
+     * 应用苗床结算后的洗脑衰减。
+     *
+     * @param {CaptiveState} captive - 俘虏运行时对象，会被直接修改。
+     * @param {number} remainingRatio - 洗脑保留倍率，0-1 浮点比例；成功保留 50%，失败保留 10%。
+     * @returns {void} 无返回值。
+     */
+    function applyBreedingBrainwashDecay(captive, remainingRatio) {
+        // number 当前洗脑程度：结算前的洗脑程度点数，范围 0-100。
+        var currentBrainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
+
+        // number 洗脑保留倍率：防御异常输入，范围 0-1。
+        var safeRemainingRatio = Math.min(1, Math.max(0, remainingRatio));
+
+        captive.brainwashLevel = Math.round(currentBrainwashLevel * safeRemainingRatio);
     }
 
     /**

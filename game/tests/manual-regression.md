@@ -7,7 +7,7 @@
 - 解锁判断：对资源、建筑、科技和标签页分别设置刚低于阈值与达到阈值的状态，调用 `game.unlocks.applyUnlockBundle` 后确认只在达到条件时解锁。
 - 职业产出：创建已解锁职业和具体哥布林，调用 `game.jobs.assignWorker` 与 `game.jobs.updateJobs`，确认资源每秒变化和职业技能经验同步增长。
 - 技能等级：给哥布林写入不同技能经验，确认职业适配和远征评分随技能经验提高。
-- 苗床繁育：创建普通俘虏并调用 `game.captivesSystem.applyDisposition(state, captiveId, "bed")`，确认俘虏进入 `breedingState = "gestating"` 且不会弹确认框；推进一个月后按失败概率结算，成功时生成 1 个 `origin = "captive_bed"` 的新哥布林，随后进入 `resting`；再推进一个月后回到 `idle`，同一俘虏可再次培育；随后调用 `game.population.updatePopulation`，确认不会因空住房和菌菇自动新增人口。
+- 苗床繁育：创建普通俘虏并调用 `game.captivesSystem.applyDisposition(state, captiveId, "bed")`，确认俘虏进入 `breedingState = "gestating"` 且不会弹确认框；推进一个月后按失败概率结算，成功时生成 1 个 `origin = "captive_bed"` 的新哥布林，随后进入 `resting`；休养期间确认 `培育新生` 不可执行，但 `洗脑改造` 和 `做成食物` 可执行；再推进一个月后回到 `idle`，同一俘虏可再次培育；随后调用 `game.population.updatePopulation`，确认不会因空住房和菌菇自动新增人口。
 - 日期速度：调用 `game.calendar.updateCalendar(state, 1)` 后，确认 `state.calendar.elapsedDays` 增加 1；调用 `game.calendar.calculateDaysFromSeconds(30)` 后，确认返回 30。
 - 暂停门控：将 `state.isPaused` 置为 `true` 后调用 `game.simulation.updateGame`，确认返回 `0` 且资源、人口、事件、自动制作和远征不推进。
 - 存档迁移：用 v1 存档文本调用 `game.save.loadFromText`，确认版本迁移到当前 `SAVE_VERSION`，缺失的契约、远征、挑战、威望、日期和开局俘虏字段被补齐。
@@ -22,7 +22,7 @@
 6. 导出、导入：导出存档文本，导入前确认版本和时间戳预览，确认后替换当前状态。
 7. 工坊批量制作：解锁工匠棚和配方后分别制作 `1`、`10`、`100`、`全部`，确认成本和产物正确。
 8. 掠夺成功和失败：准备足够军力后执行低风险和高风险掠夺，确认收益、关系下降、伤病或失败日志。
-9. 俘虏处置：获得俘虏后分别测试培育新生、洗脑改造、做成食物，确认收益、状态变化和风险日志。
+9. 俘虏处置：获得俘虏后分别测试培育新生、洗脑改造、做成食物，确认收益、状态变化和风险日志；俘虏卡片浮窗显示洗脑程度、孕育成功率、孕育失败率、逃跑率、反抗率和洗脑消耗，洗脑改造每次固定扣除 100 菌菇，菌菇不足时按钮置灰或执行失败；俘虏处于休养状态时，洗脑改造和做成食物仍可执行，做成食物会移除该俘虏。
 10. 祭祀升级：购买祖灵升级并执行献祭，确认祖灵回响、风险和具体哥布林影响。
 11. 工程师自动制作：选择自动制作配方，分配工程师，确认自动制作进度和产物增加。
 12. 远征结算：启动普通路线和高风险路线，确认暂停不推进，完成后记录成员、路线、结果和损失。
