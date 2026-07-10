@@ -496,6 +496,17 @@ h3 {
     color: var(--color-muted);
 }
 
+.log-date {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid rgba(75, 65, 47, 0.45);
+    color: var(--color-text);
+    font-weight: 700;
+}
+
 .log-list {
     display: flex;
     flex-direction: column-reverse;

@@ -332,7 +332,6 @@
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.housing, freeHousing + " / " + housingMax));
         statusListElement.appendChild(createDefinitionRow("服从度", obedienceState ? obedienceState.value.toFixed(0) + " / " + obedienceState.maxValue.toFixed(0) : "未解锁"));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.crowding, Math.round(crowdingRatio * 100) + "%"));
-        statusListElement.appendChild(createDefinitionRow("时间", game.calendar.formatCurrentDate(state)));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.tickRate, game.definitions.TICKS_PER_SECOND + " tick/秒"));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.calendarRate, game.calendar.getSecondsPerDay() + " 秒/天"));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.status, state.isPaused ? game.text.TEXT_REGISTRY.status.paused : game.text.TEXT_REGISTRY.status.running));
@@ -4127,6 +4126,9 @@
      * @returns {void} 无返回值。
      */
     function renderLogs(state) {
+        // HTMLElement 时间显示容器：在日志卡片顶部显示当前游戏日期。
+        var logDateElement = document.getElementById("log-date");
+
         // HTMLElement 日志列表容器：承载最近日志。
         var logListElement = document.getElementById("log-list");
 
@@ -4139,6 +4141,7 @@
         // HTMLInputElement 警告日志开关：控制警告日志是否显示。
         var showWarningElement = document.getElementById("show-warning-logs");
 
+        logDateElement.textContent = "时间：" + game.calendar.formatCurrentDate(state);
         logListElement.innerHTML = "";
 
         // number 循环索引：遍历日志数组的整数下标。
