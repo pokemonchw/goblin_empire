@@ -853,19 +853,19 @@
         },
         surface_village: {
             name: "地表村落",
-            description: "脆弱但会求援的地表村落，可带回劳工俘虏。"
+            description: "脆弱但会求援的地表村落，可带回农妇、采药女和村中匠人。"
         },
         noble_carriage: {
             name: "贵族车队",
-            description: "有护卫、有账册、有贵族人质的地表车队。"
+            description: "有护卫、有账册、有贵族小姐和侍祭随行的地表车队。"
         },
         surface_barracks: {
             name: "地表军营",
-            description: "装备齐整的地表驻军，战士俘虏和钢材收益都很诱人。"
+            description: "装备齐整的地表驻军，村卫女兵和钢材收益都很诱人。"
         },
         ancient_ruin: {
             name: "古代遗迹",
-            description: "残留魔晶和符文的危险遗迹，可能带回魔法资质者。"
+            description: "残留魔晶和符文的危险遗迹，可能带回魔法学徒或亡灵修女。"
         }
     };
 

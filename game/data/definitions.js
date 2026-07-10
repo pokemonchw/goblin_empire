@@ -3196,11 +3196,11 @@
         }
     ];
 
-    // CaptiveTypeDefinition[] 俘虏类型定义列表：版本二入口支持三类俘虏。
+    // CaptiveTypeDefinition[] 俘虏类型定义列表：版本三掠夺入口支持十类女性俘虏。
     var CAPTIVE_TYPE_DEFINITIONS = [
         {
             id: "laborer",
-            name: "村民劳工",
+            name: "农妇",
             traitHint: "basic",
             attributeBias: {
                 strength: 1,
@@ -3212,7 +3212,7 @@
         },
         {
             id: "accountant",
-            name: "商队账房",
+            name: "商队女账房",
             traitHint: "trade",
             attributeBias: {
                 cunning: 1,
@@ -3224,7 +3224,7 @@
         },
         {
             id: "artisan",
-            name: "工匠俘虏",
+            name: "工坊女匠",
             traitHint: "craft",
             attributeBias: {
                 dexterity: 1,
@@ -3236,7 +3236,7 @@
         },
         {
             id: "noble",
-            name: "贵族人质",
+            name: "贵族小姐",
             traitHint: "obedient",
             attributeBias: {
                 cunning: 1,
@@ -3249,7 +3249,7 @@
         },
         {
             id: "warrior",
-            name: "战士俘虏",
+            name: "村卫女兵",
             traitHint: "strong",
             attributeBias: {
                 strength: 2,
@@ -3261,7 +3261,7 @@
         },
         {
             id: "magic_talent",
-            name: "魔法资质者",
+            name: "魔法学徒",
             traitHint: "magic",
             attributeBias: {
                 attunement: 2,
@@ -3274,7 +3274,7 @@
         },
         {
             id: "undead_captive",
-            name: "亡灵俘获物",
+            name: "亡灵修女",
             traitHint: "corrupted",
             attributeBias: {
                 attunement: 2,
@@ -3283,6 +3283,45 @@
             skillBias: {
                 ritual: 45,
                 mining: 20
+            }
+        },
+        {
+            id: "ascetic",
+            name: "苦修者",
+            traitHint: "obedient",
+            attributeBias: {
+                will: 2,
+                perception: 1
+            },
+            skillBias: {
+                ritual: 45,
+                hauling: 20
+            }
+        },
+        {
+            id: "herbalist",
+            name: "采药女",
+            traitHint: "basic",
+            attributeBias: {
+                perception: 2,
+                dexterity: 1
+            },
+            skillBias: {
+                foraging: 55,
+                crafting: 15
+            }
+        },
+        {
+            id: "shrine_acolyte",
+            name: "神龛侍祭",
+            traitHint: "magic",
+            attributeBias: {
+                attunement: 1,
+                will: 2
+            },
+            skillBias: {
+                ritual: 55,
+                scribing: 20
             }
         }
     ];
@@ -3464,7 +3503,8 @@
                 loot: 3
             },
             captiveTypes: [
-                "laborer"
+                "laborer",
+                "herbalist"
             ],
             relationPenalty: 8,
             unlock: {
@@ -3510,7 +3550,8 @@
                 loot: 12
             },
             captiveTypes: [
-                "artisan"
+                "artisan",
+                "ascetic"
             ],
             relationPenalty: 15,
             unlock: {
@@ -3534,7 +3575,9 @@
             },
             captiveTypes: [
                 "laborer",
-                "artisan"
+                "artisan",
+                "herbalist",
+                "ascetic"
             ],
             relationPenalty: 20,
             unlock: {
@@ -3558,7 +3601,8 @@
             },
             captiveTypes: [
                 "noble",
-                "accountant"
+                "accountant",
+                "shrine_acolyte"
             ],
             relationPenalty: 30,
             unlock: {
@@ -3582,7 +3626,8 @@
             },
             captiveTypes: [
                 "warrior",
-                "noble"
+                "noble",
+                "ascetic"
             ],
             relationPenalty: 40,
             unlock: {
@@ -3607,7 +3652,8 @@
             captiveTypes: [
                 "magic_talent",
                 "artisan",
-                "undead_captive"
+                "undead_captive",
+                "shrine_acolyte"
             ],
             relationPenalty: 45,
             unlock: {

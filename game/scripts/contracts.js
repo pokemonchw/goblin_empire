@@ -206,10 +206,10 @@
     /**
      * @typedef {Object} CaptiveState
      * @property {string} id - 俘虏稳定 ID。
-     * @property {"laborer"|"warrior"|"magic_talent"|"artisan"|"accountant"|"noble"|"undead"} type - 俘虏类型 ID。
+     * @property {"laborer"|"warrior"|"magic_talent"|"artisan"|"accountant"|"noble"|"undead_captive"|"ascetic"|"herbalist"|"shrine_acolyte"} type - 俘虏类型 ID。
      * @property {"common"|"skilled"|"elite"|"legendary"} quality - 俘虏质量 ID。
      * @property {string} source - 来源 ID 或事件名。
-     * @property {"basic"|"strong"|"magic"|"craft"|"trade"|"obedient"|"corrupt"} traitHint - 繁衍或改造倾向 ID。
+     * @property {"basic"|"strong"|"magic"|"craft"|"trade"|"obedient"|"corrupted"} traitHint - 繁衍或改造倾向 ID。
      * @property {number} turnsHeld - 持有回合数，非负整数。
      * @property {"bed"|"modify"|"food"=} disposition - 当前处置 ID，可省略。
      */

@@ -9,7 +9,7 @@
     /**
      * 创建俘虏运行时对象。
      *
-     * @param {"laborer"|"accountant"|"artisan"|"noble"|"warrior"|"magic_talent"} captiveTypeId - 俘虏类型 ID。
+     * @param {"laborer"|"accountant"|"artisan"|"noble"|"warrior"|"magic_talent"|"undead_captive"|"ascetic"|"herbalist"|"shrine_acolyte"} captiveTypeId - 俘虏类型 ID。
      * @param {"common"|"skilled"|"elite"|"legendary"} qualityId - 俘虏质量 ID。
      * @param {string} source - 来源 ID 或事件名。
      * @returns {CaptiveState} 新俘虏对象。
