@@ -216,6 +216,19 @@
     }
 
     /**
+     * 根据全局游戏日计算完整季节序号。
+     *
+     * @param {number} elapsedDays - 已经过的完整游戏日，非负整数天。
+     * @returns {number} 完整季节序号，非负整数；每经过 90 个游戏日增加 1。
+     */
+    function getSeasonSerial(elapsedDays) {
+        // number 安全游戏日：过滤非法输入后的非负整数天。
+        var safeElapsedDays = Math.max(0, Math.floor(Number(elapsedDays) || 0));
+
+        return Math.floor(safeElapsedDays / DAYS_PER_SEASON);
+    }
+
+    /**
      * 根据历法纪元计算哥布林历日期。
      *
      * @param {CalendarState} calendarState - 日期运行时状态，必须包含 elapsedDays 和 calendarEpochDay。
@@ -271,6 +284,7 @@
         getSecondsPerDay: getSecondsPerDay,
         calculateDaysFromSeconds: calculateDaysFromSeconds,
         getSeasonalDate: getSeasonalDate,
+        getSeasonSerial: getSeasonSerial,
         formatLogDatePrefix: formatLogDatePrefix,
         formatLogSeparator: formatLogSeparator,
         formatCurrentDate: formatCurrentDate

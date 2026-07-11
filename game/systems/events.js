@@ -129,6 +129,10 @@
             return state.buildingsById.abyss_gate && state.buildingsById.abyss_gate.owned > 0;
         }
 
+        if (eventDefinition.conditionId === "current_weather") {
+            return canTriggerWeatherEvent(state, eventDefinition);
+        }
+
         return false;
     }
 
@@ -169,7 +173,7 @@
             eventRiskMultiplier += challengeRuleEffects.eventRiskRatio || 0;
         }
 
-        if (eventDefinition.id === "fungus_bloom") {
+        if (eventDefinition.riskMode === "neutral" || eventDefinition.id === "fungus_bloom") {
             return eventDefinition.baseChancePerCheck;
         }
 
@@ -227,6 +231,11 @@
 
         if (eventId === "abyss_whisper_event") {
             applyAbyssWhisper(state, eventDefinition);
+            return true;
+        }
+
+        if (eventDefinition.conditionId === "current_weather") {
+            applyWeatherEvent(state, eventDefinition);
             return true;
         }
 
@@ -377,6 +386,145 @@
         state.statistics.eventRiskPulseSeconds = 60;
         game.simulation.addLog(state, eventDefinition.logLevel, game.text.TEXT_REGISTRY.logs.eventPrefix + eventDefinition.name + "，裂隙低语带来深渊回响 " + abyssEchoGain.toFixed(1) + "。");
         setCooldown(state, eventDefinition);
+    }
+
+    /**
+     * 应用通用天气事件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会按事件定义增减资源并写入冷却。
+     * @param {EventDefinition} eventDefinition - 事件定义对象；resourceChanges 为一次性资源变化数组。
+     * @returns {void} 无返回值。
+     */
+    function applyWeatherEvent(state, eventDefinition) {
+        // WeatherEventResourceChange[] 资源变化列表：每项记录一个资源的一次性正负变化。
+        var resourceChanges = eventDefinition.resourceChanges || [];
+
+        // number 循环索引：遍历天气事件资源变化数组的整数下标。
+        for (var changeIndex = 0; changeIndex < resourceChanges.length; changeIndex += 1) {
+            // WeatherEventResourceChange 当前资源变化：用于写回事件即时收益或损失。
+            var resourceChange = resourceChanges[changeIndex];
+
+            applyWeatherEventResourceChange(state, resourceChange);
+        }
+
+        game.simulation.addLog(state, eventDefinition.logLevel, game.text.TEXT_REGISTRY.logs.eventPrefix + eventDefinition.name + "，" + (eventDefinition.logText || "地穴天气带来一次短暂波动。"));
+        markWeatherEventTriggeredThisSeason(state);
+        setCooldown(state, eventDefinition);
+    }
+
+    /**
+     * 应用天气事件中的单项资源变化。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会修改指定资源数量。
+     * @param {WeatherEventResourceChange} resourceChange - 资源变化对象；amount 正数为获得，负数为损失。
+     * @returns {void} 无返回值。
+     */
+    function applyWeatherEventResourceChange(state, resourceChange) {
+        // ResourceState|null 资源状态：事件目标资源的运行时库存，缺失时跳过。
+        var resourceState = state.resourcesById[resourceChange.resource] || null;
+
+        if (!resourceState || resourceChange.amount === 0) {
+            return;
+        }
+
+        if (resourceChange.amount > 0) {
+            game.resources.addResource(state, resourceChange.resource, resourceChange.amount);
+            return;
+        }
+
+        // number 损失后资源数量：一次性事件损失不能把库存扣成负数。
+        var nextValue = Math.max(0, resourceState.value + resourceChange.amount);
+
+        resourceState.value = nextValue;
+    }
+
+    /**
+     * 判断当前天气事件是否满足天气和额外建筑条件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {EventDefinition} eventDefinition - 事件定义对象；weatherIds 限制可触发天气。
+     * @returns {boolean} 是否允许触发；true 表示当前天气匹配且额外建筑条件满足。
+     */
+    function canTriggerWeatherEvent(state, eventDefinition) {
+        if (hasWeatherEventTriggeredThisSeason(state)) {
+            return false;
+        }
+
+        // WeatherDefinition 当前天气定义：用于匹配事件允许的天气 ID。
+        var weatherDefinition = game.weather ? game.weather.getCurrentWeatherDefinition(state) : null;
+
+        if (!weatherDefinition || !isWeatherAllowed(eventDefinition, weatherDefinition.id)) {
+            return false;
+        }
+
+        if (eventDefinition.requiredBuildingId) {
+            // BuildingState|null 必需建筑状态：天气事件可要求某个生产系统已经建立。
+            var buildingState = state.buildingsById[eventDefinition.requiredBuildingId] || null;
+
+            return Boolean(buildingState && buildingState.owned > 0);
+        }
+
+        return true;
+    }
+
+    /**
+     * 判断当前季节是否已经触发过任一天气随机事件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否已经触发；true 表示本季不再允许天气事件。
+     */
+    function hasWeatherEventTriggeredThisSeason(state) {
+        // string 当前季节键：按完整季节序号生成，换季后自然变化。
+        var currentSeasonKey = getCurrentSeasonKey(state);
+
+        return state.statistics.lastWeatherEventSeasonKey === currentSeasonKey;
+    }
+
+    /**
+     * 记录当前季节已经触发过天气随机事件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会写入 statistics.lastWeatherEventSeasonKey。
+     * @returns {void} 无返回值。
+     */
+    function markWeatherEventTriggeredThisSeason(state) {
+        state.statistics.lastWeatherEventSeasonKey = getCurrentSeasonKey(state);
+    }
+
+    /**
+     * 取得当前季节键，用于限制天气随机事件每季最多一次。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {string} 当前季节键；格式为 season-完整季节序号。
+     */
+    function getCurrentSeasonKey(state) {
+        // number 已经过的完整游戏日：用于计算跨年份的季节序号。
+        var elapsedDays = state.calendar ? Math.max(0, Math.floor(state.calendar.elapsedDays || 0)) : 0;
+
+        // Object 季节日期：提供当前季节索引，便于与日期系统显示保持一致。
+        var seasonalDate = game.calendar.getSeasonalDate(elapsedDays);
+
+        // number 完整季节序号：由日期系统按季节长度计算，用于跨年份区分同名季节。
+        var seasonSerial = game.calendar.getSeasonSerial(elapsedDays);
+
+        return "season-" + seasonSerial + "-" + seasonalDate.seasonIndex;
+    }
+
+    /**
+     * 判断天气 ID 是否在事件允许列表中。
+     *
+     * @param {EventDefinition} eventDefinition - 事件定义对象；weatherIds 省略时表示不限制天气。
+     * @param {WeatherId} weatherId - 当前天气稳定 ID。
+     * @returns {boolean} 是否允许；true 表示天气匹配或事件未声明天气限制。
+     */
+    function isWeatherAllowed(eventDefinition, weatherId) {
+        // string[] 天气 ID 列表：限制该事件只能在指定天气中触发。
+        var weatherIds = eventDefinition.weatherIds || [];
+
+        if (weatherIds.length === 0) {
+            return true;
+        }
+
+        return weatherIds.indexOf(weatherId) !== -1;
     }
 
     /**

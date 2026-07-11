@@ -47,6 +47,17 @@
      * @property {number} baseChancePerCheck - 每次检查的基础概率，范围 0-1。
      * @property {"normal"|"important"|"warning"} logLevel - 触发时使用的日志等级。
      * @property {number} cooldownSeconds - 事件冷却秒数，非负整数。
+     * @property {"neutral"|"accident"=} riskMode - 风险模式；neutral 不吃事故风险倍率，accident 会吃服从和事故修正。
+     * @property {WeatherId[]=} weatherIds - 允许触发的天气 ID 数组；省略表示不按天气限制。
+     * @property {BuildingId=} requiredBuildingId - 额外要求拥有的建筑 ID；省略表示不要求建筑。
+     * @property {WeatherEventResourceChange[]=} resourceChanges - 天气事件一次性资源变化数组；amount 可正可负。
+     * @property {string=} logText - 通用天气事件日志正文，不含事件名前缀。
+     */
+
+    /**
+     * @typedef {Object} WeatherEventResourceChange
+     * @property {ResourceId} resource - 资源稳定 ID。
+     * @property {number} amount - 一次性资源变化数量；正数为获得，负数为损失。
      */
 
     /**
@@ -3655,6 +3666,183 @@
             baseChancePerCheck: 0.012,
             logLevel: "warning",
             cooldownSeconds: 420
+        },
+        {
+            id: "clear_stable_shift",
+            name: "稳潮轮值",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.014,
+            logLevel: "normal",
+            cooldownSeconds: 240,
+            riskMode: "neutral",
+            weatherIds: [
+                "clear"
+            ],
+            resourceChanges: [
+                { resource: "obedience", amount: 6 },
+                { resource: "crudeKnowledge", amount: 4 }
+            ],
+            logText: "洞壁水线稳定，守夜哥布林顺手整理了口令和刻痕。"
+        },
+        {
+            id: "damp_mushroom_surge",
+            name: "湿涌菌簇",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.018,
+            logLevel: "important",
+            cooldownSeconds: 260,
+            riskMode: "neutral",
+            weatherIds: [
+                "damp"
+            ],
+            resourceChanges: [
+                { resource: "fungus", amount: 45 },
+                { resource: "rottenWood", amount: 15 }
+            ],
+            logText: "水汽把阴沟里的菌簇催得发亮，捡柴工也拖回一批湿软朽木。"
+        },
+        {
+            id: "damp_flooded_gallery",
+            name: "湿涌漫坑",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.012,
+            logLevel: "warning",
+            cooldownSeconds: 320,
+            riskMode: "accident",
+            weatherIds: [
+                "damp"
+            ],
+            requiredBuildingId: "shallow_mine",
+            resourceChanges: [
+                { resource: "rubble", amount: -25 },
+                { resource: "ironOre", amount: -8 }
+            ],
+            logText: "矿坑低处被浑水漫过，碎石和少量铁矿被冲进暗缝。"
+        },
+        {
+            id: "spore_lantern_bloom",
+            name: "孢灯暴绽",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.016,
+            logLevel: "important",
+            cooldownSeconds: 280,
+            riskMode: "neutral",
+            weatherIds: [
+                "spore_rain"
+            ],
+            resourceChanges: [
+                { resource: "fungus", amount: 70 },
+                { resource: "crudeKnowledge", amount: 5 }
+            ],
+            logText: "一片发光孢灯在沟边暴绽，采菌工抢收了菌肉，也记下了孢粉纹路。"
+        },
+        {
+            id: "spore_sneeze_panic",
+            name: "孢粉喷嚏",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.012,
+            logLevel: "warning",
+            cooldownSeconds: 300,
+            riskMode: "accident",
+            weatherIds: [
+                "spore_rain"
+            ],
+            resourceChanges: [
+                { resource: "obedience", amount: -6 },
+                { resource: "rubble", amount: -12 }
+            ],
+            logText: "孢粉钻进鼻孔，矿道里一阵乱喷嚏，队列和碎石堆都被搅乱。"
+        },
+        {
+            id: "cave_wind_dry_timber",
+            name: "风干柴堆",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.016,
+            logLevel: "normal",
+            cooldownSeconds: 260,
+            riskMode: "neutral",
+            weatherIds: [
+                "cave_wind"
+            ],
+            requiredBuildingId: "charcoal_kiln",
+            resourceChanges: [
+                { resource: "rottenWood", amount: 35 },
+                { resource: "coalSlag", amount: 6 }
+            ],
+            logText: "穿洞风把晾木架吹得干响，几堆朽木刚好能进窑压成煤渣。"
+        },
+        {
+            id: "cave_wind_echo_warning",
+            name: "岩层回声",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.014,
+            logLevel: "normal",
+            cooldownSeconds: 300,
+            riskMode: "neutral",
+            weatherIds: [
+                "cave_wind"
+            ],
+            requiredBuildingId: "shallow_mine",
+            resourceChanges: [
+                { resource: "rubble", amount: 20 },
+                { resource: "crudeKnowledge", amount: 6 }
+            ],
+            logText: "矿工听见风声穿过空腔，提前敲开一段松动岩层并记下裂响规律。"
+        },
+        {
+            id: "acid_fog_corrosion",
+            name: "酸雾腐蚀",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.012,
+            logLevel: "warning",
+            cooldownSeconds: 340,
+            riskMode: "accident",
+            weatherIds: [
+                "acid_fog"
+            ],
+            requiredBuildingId: "crude_furnace",
+            resourceChanges: [
+                { resource: "rottenWood", amount: -20 },
+                { resource: "ironOre", amount: -8 },
+                { resource: "ironPlate", amount: -3 }
+            ],
+            logText: "酸雾钻进炉棚，朽木发黑，铁矿和铁片表面都被咬出麻点。"
+        },
+        {
+            id: "acid_fog_etched_wall",
+            name: "蚀痕壁画",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.012,
+            logLevel: "normal",
+            cooldownSeconds: 300,
+            riskMode: "neutral",
+            weatherIds: [
+                "acid_fog"
+            ],
+            requiredBuildingId: "graffiti_wall",
+            resourceChanges: [
+                { resource: "crudeKnowledge", amount: 12 },
+                { resource: "rubble", amount: 10 }
+            ],
+            logText: "雾气在洞壁咬出清晰纹路，涂鸦学徒刮下碎屑并抄走一串粗陋图形。"
+        },
+        {
+            id: "lust_wind_sweet_haze",
+            name: "甜腥雾障",
+            conditionId: "current_weather",
+            baseChancePerCheck: 0.014,
+            logLevel: "warning",
+            cooldownSeconds: 320,
+            riskMode: "accident",
+            weatherIds: [
+                "lust_wind"
+            ],
+            requiredBuildingId: "brainwash_shed",
+            resourceChanges: [
+                { resource: "obedience", amount: -8 },
+                { resource: "crudeKnowledge", amount: 10 }
+            ],
+            logText: "甜腥怪风让棚里的叫喊变得混乱，监工压住骚动后记下几条驯化偏方。"
         }
     ];
 
