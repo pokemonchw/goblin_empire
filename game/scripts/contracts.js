@@ -94,6 +94,7 @@
      * @property {number} rawBuildingUsageTotal - 减免前建筑占用劳力总量，非负资源数量。
      * @property {number} reductionRatio - 建筑劳力占用减免比例，范围为 0-0.75。
      * @property {number} adjustedBuildingUsageTotal - 减免后建筑占用劳力总量，非负资源数量。
+     * @property {boolean} isProductionLaborOverloaded - 是否生产建筑劳力占用超过人口供给；true 表示除菌菇床外建筑停产。
      * @property {LaborUsageEntry[]} buildingUsageEntries - 逐建筑占用明细数组。
      */
 

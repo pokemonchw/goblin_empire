@@ -151,6 +151,9 @@
      */
     function appendBuildingFlowEntries(state, flowEntries) {
         appendPerTickBuildingEntry(state, flowEntries, "fungus_bed", "fungusPerTick", "fungus");
+        if (isProductionLaborOverloaded(state)) {
+            return;
+        }
         appendPerTickBuildingEntry(state, flowEntries, "rotten_grove", "rottenWoodPerTick", "rottenWood");
         appendPerTickBuildingEntry(state, flowEntries, "shallow_mine", "coalSlagPerTick", "coalSlag");
         appendPerTickBuildingEntry(state, flowEntries, "rubble_yard", "coalSlagPerTick", "coalSlag");
@@ -496,6 +499,10 @@
      * @returns {number} 效果总和，非负或有符号浮点数，取决于效果定义。
      */
     function getOwnedBuildingEffectTotal(state, effectId) {
+        if (isProductionLaborOverloaded(state)) {
+            return 0;
+        }
+
         // number 效果总和：按建筑拥有数量累加。
         var effectTotal = 0;
 
@@ -515,6 +522,16 @@
         }
 
         return effectTotal;
+    }
+
+    /**
+     * 判断建筑流量是否因劳力过载而停摆。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否劳力过载；true 表示非菌菇床建筑流量不再预估。
+     */
+    function isProductionLaborOverloaded(state) {
+        return Boolean(game.population && game.population.isProductionLaborOverloaded && game.population.isProductionLaborOverloaded(state));
     }
 
     /**

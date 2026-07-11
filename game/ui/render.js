@@ -207,6 +207,7 @@
             appendTooltipDefinition(listElement, "劳力来源", formatLaborSourceText(laborBreakdown));
             appendTooltipDefinition(listElement, "建筑占用", formatLaborUsageEntries(laborBreakdown.buildingUsageEntries));
             appendTooltipDefinition(listElement, "占用减免", formatLaborReductionText(laborBreakdown));
+            appendTooltipDefinition(listElement, "生产状态", formatLaborProductionStatusText(laborBreakdown));
         }
 
         appendTooltipDefinition(listElement, "加成", formatBonusEntries(flowSummary.bonusEntries));
@@ -329,6 +330,20 @@
         }
 
         return "减免前 -" + formatNumber(laborBreakdown.rawBuildingUsageTotal) + "，减免 " + Math.round(laborBreakdown.reductionRatio * 100) + "%，当前占用 -" + formatNumber(laborBreakdown.adjustedBuildingUsageTotal);
+    }
+
+    /**
+     * 格式化劳力过载下的建筑生产状态。
+     *
+     * @param {LaborBreakdown} laborBreakdown - 劳力派生和占用摘要对象。
+     * @returns {string} 建筑生产状态中文文本。
+     */
+    function formatLaborProductionStatusText(laborBreakdown) {
+        if (laborBreakdown.isProductionLaborOverloaded) {
+            return "劳力过载，除菌菇床外建筑停产";
+        }
+
+        return "劳力覆盖建筑占用";
     }
 
     /**
@@ -4140,8 +4155,14 @@
         // Price[] 当前价格：按拥有数量缩放后的购买成本。
         var price = game.buildings.getBuildingPrice(state, buildingDefinition);
 
+        // Price[] 摧毁返还资源：按最后一座建筑成本的 10% 预览。
+        var refundPrice = game.buildings.getBuildingDestroyRefund(state, buildingDefinition);
+
         // boolean 当前是否可购买：综合暂停、解锁和资源库存。
         var canBuy = game.buildings.canBuyBuilding(state, buildingDefinition);
+
+        // boolean 当前是否可摧毁：拥有数量大于 0 且未暂停。
+        var canDestroy = buildingState.owned > 0 && !state.isPaused;
 
         // string[] 缺口文本数组：资源不足时显示在建筑行成本信息中。
         var missingTexts = game.resources.getMissingResourceTexts(state, price);
@@ -4167,8 +4188,14 @@
         // HTMLElement 倒计时元素：显示当前资源速度下何时可建。
         var availabilityElement = document.createElement("div");
 
+        // HTMLElement 按钮组元素：承载建造和摧毁按钮。
+        var actionsElement = document.createElement("div");
+
         // HTMLButtonElement 购买按钮：点击后尝试购买建筑。
-        var buttonElement = document.createElement("button");
+        var buyButtonElement = document.createElement("button");
+
+        // HTMLButtonElement|null 摧毁按钮：拥有数量大于 0 时点击摧毁一座建筑。
+        var destroyButtonElement = null;
 
         rowElement.className = canBuy ? "building-row is-affordable" : "building-row is-locked";
         rowElement.tabIndex = 0;
@@ -4193,16 +4220,29 @@
         availabilityElement.className = "building-availability";
         availabilityElement.textContent = "可用倒计时：" + availabilityText;
 
-        buttonElement.type = "button";
-        buttonElement.dataset.buildingId = buildingDefinition.id;
-        buttonElement.disabled = !canBuy;
-        buttonElement.textContent = canBuy ? "建造" : "缺资源";
+        actionsElement.className = "building-actions";
+
+        buyButtonElement.type = "button";
+        buyButtonElement.dataset.buildingId = buildingDefinition.id;
+        buyButtonElement.disabled = !canBuy;
+        buyButtonElement.textContent = canBuy ? "建造" : "缺资源";
+        actionsElement.appendChild(buyButtonElement);
+
+        if (buildingState.owned > 0) {
+            destroyButtonElement = document.createElement("button");
+            destroyButtonElement.type = "button";
+            destroyButtonElement.dataset.buildingDestroyId = buildingDefinition.id;
+            destroyButtonElement.disabled = !canDestroy;
+            destroyButtonElement.textContent = "摧毁";
+            destroyButtonElement.className = "danger-button";
+            actionsElement.appendChild(destroyButtonElement);
+        }
 
         rowElement.appendChild(mainElement);
         rowElement.appendChild(costElement);
         rowElement.appendChild(availabilityElement);
-        rowElement.appendChild(buttonElement);
-        rowElement.appendChild(createBuildingTooltip(buildingDefinition, price));
+        rowElement.appendChild(actionsElement);
+        rowElement.appendChild(createBuildingTooltip(buildingDefinition, price, refundPrice));
         return rowElement;
     }
 
@@ -4211,9 +4251,10 @@
      *
      * @param {BuildingDefinition} buildingDefinition - 建筑定义对象，用于读取介绍和效果。
      * @param {Price[]} price - 当前建造价格数组；amount 为非负资源数量。
+     * @param {Price[]} refundPrice - 当前摧毁返还数组；amount 为非负资源数量。
      * @returns {HTMLElement} 建筑悬浮框元素。
      */
-    function createBuildingTooltip(buildingDefinition, price) {
+    function createBuildingTooltip(buildingDefinition, price, refundPrice) {
         // HTMLElement 悬浮框元素：承载建筑介绍、成本和效果详情。
         var tooltipElement = document.createElement("div");
 
@@ -4225,6 +4266,7 @@
         tooltipElement.appendChild(createTextElement("h4", buildingDefinition.name));
         appendTooltipDefinition(listElement, "建筑介绍", buildingDefinition.description);
         appendTooltipDefinition(listElement, "建筑成本", formatPriceList(price));
+        appendTooltipDefinition(listElement, "摧毁返还", formatPriceList(refundPrice));
         appendTooltipDefinition(listElement, "建筑效果", formatBuildingEffects(buildingDefinition.effects));
         appendTooltipDefinition(listElement, "价格倍率", "x" + buildingDefinition.priceRatio.toFixed(2));
         tooltipElement.appendChild(listElement);

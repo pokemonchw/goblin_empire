@@ -765,6 +765,10 @@
      * @returns {number} 效果总值，有符号浮点数。
      */
     function getOwnedEffectTotal(state, effectId) {
+        if (game.population && game.population.isProductionLaborOverloaded && game.population.isProductionLaborOverloaded(state)) {
+            return 0;
+        }
+
         // number 效果总值：每个建筑效果乘以拥有数量后累加。
         var effectTotal = 0;
 

@@ -311,8 +311,22 @@
             rawBuildingUsageTotal: rawBuildingUsageTotal,
             reductionRatio: reductionRatio,
             adjustedBuildingUsageTotal: rawBuildingUsageTotal * (1 - reductionRatio),
+            isProductionLaborOverloaded: rawBuildingUsageTotal * (1 - reductionRatio) > populationLabor,
             buildingUsageEntries: buildingUsageEntries
         };
+    }
+
+    /**
+     * 判断生产建筑劳力占用是否超过存活人口供给。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否劳力过载；true 表示除菌菇床外的建筑生产应停止。
+     */
+    function isProductionLaborOverloaded(state) {
+        // LaborBreakdown 劳力摘要：用于复用人口劳力和减免后建筑占用口径。
+        var laborBreakdown = analyzeLaborBreakdown(state);
+
+        return laborBreakdown.isProductionLaborOverloaded;
     }
 
     /**
@@ -641,6 +655,7 @@
         updateLaborFromPopulation: updateLaborFromPopulation,
         consumeFungusForPopulation: consumeFungusForPopulation,
         analyzeLaborBreakdown: analyzeLaborBreakdown,
+        isProductionLaborOverloaded: isProductionLaborOverloaded,
         calculateBuildingLaborUsage: calculateBuildingLaborUsage,
         calculateLaborUsageReductionRatio: calculateLaborUsageReductionRatio,
         updatePopulation: updatePopulation,

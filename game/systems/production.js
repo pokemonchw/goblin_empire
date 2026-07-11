@@ -14,7 +14,12 @@
      * @returns {void} 无返回值。
      */
     function updateProduction(state, deltaSeconds) {
-        applyFlatBuildingProduction(state, deltaSeconds);
+        applyFungusBedProduction(state, deltaSeconds);
+        if (isProductionLaborOverloaded(state)) {
+            applyPactResourceDrains(state, deltaSeconds);
+            return;
+        }
+        applyLaborGatedFlatBuildingProduction(state, deltaSeconds);
         applyCharcoalKilnProduction(state, deltaSeconds);
         applyCrudeFurnaceProduction(state, deltaSeconds);
         applyDeepFurnaceProduction(state, deltaSeconds);
@@ -24,14 +29,24 @@
     }
 
     /**
-     * 应用建筑固定产出。
+     * 应用菌菇床固定产出。
      *
      * @param {GameState} state - 当前游戏状态对象，会被直接修改。
      * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点数。
      * @returns {void} 无返回值。
      */
-    function applyFlatBuildingProduction(state, deltaSeconds) {
+    function applyFungusBedProduction(state, deltaSeconds) {
         applyPerTickEffect(state, "fungus_bed", "fungusPerTick", "fungus", deltaSeconds);
+    }
+
+    /**
+     * 应用受劳力门控的建筑固定产出。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会被直接修改。
+     * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点数。
+     * @returns {void} 无返回值。
+     */
+    function applyLaborGatedFlatBuildingProduction(state, deltaSeconds) {
         applyPerTickEffect(state, "rotten_grove", "rottenWoodPerTick", "rottenWood", deltaSeconds);
         applyPerTickEffect(state, "shallow_mine", "coalSlagPerTick", "coalSlag", deltaSeconds);
         applyPerTickEffect(state, "rubble_yard", "coalSlagPerTick", "coalSlag", deltaSeconds);
@@ -156,6 +171,10 @@
      * @returns {number} 效果总和，非负或有符号浮点数，取决于效果定义。
      */
     function getOwnedBuildingEffectTotal(state, effectId) {
+        if (isProductionLaborOverloaded(state)) {
+            return 0;
+        }
+
         // number 效果总和：按建筑拥有数量累加。
         var effectTotal = 0;
 
@@ -408,6 +427,16 @@
         }
 
         return game.weather.calculateResourceOutputMultiplier(state, "ironPlate");
+    }
+
+    /**
+     * 判断当前建筑生产是否因劳力过载而停摆。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否劳力过载；true 表示非菌菇床建筑生产停止。
+     */
+    function isProductionLaborOverloaded(state) {
+        return Boolean(game.population && game.population.isProductionLaborOverloaded && game.population.isProductionLaborOverloaded(state));
     }
 
     // Object 建筑生产模块命名空间：提供建筑自动生产入口。

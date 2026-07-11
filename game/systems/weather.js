@@ -320,6 +320,10 @@
             return 0;
         }
 
+        if (game.population && game.population.isProductionLaborOverloaded && game.population.isProductionLaborOverloaded(state)) {
+            return 0;
+        }
+
         // number 效果总和：按已拥有建筑数量累加。
         var effectTotal = 0;
 

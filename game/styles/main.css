@@ -388,6 +388,22 @@ h3 {
     color: var(--color-accent);
 }
 
+.building-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.building-actions button {
+    min-width: 56px;
+}
+
+.danger-button {
+    border-color: rgba(201, 84, 74, 0.7);
+    color: #f0b5ae;
+}
+
 .building-tooltip {
     position: fixed;
     z-index: 25;
@@ -572,8 +588,9 @@ h3 {
         white-space: normal;
     }
 
-    .building-row button {
+    .building-actions {
         justify-self: start;
+        justify-content: flex-start;
     }
 
     .captive-row {

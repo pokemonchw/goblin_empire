@@ -69,8 +69,8 @@
         reset: "存档已重置，新的地穴从头开始。",
         extinct: "最后的俘虏和哥布林都死光了，旧地穴崩溃，游戏回到初始界面。",
         imported: "导入存档已载入。",
-        builtPrefix: "建造完成："
-        ,
+        builtPrefix: "建造完成：",
+        destroyedPrefix: "建筑摧毁：",
         bornPrefix: "新哥布林加入：",
         foodWarning: "菌菇不足，存活哥布林开始挨饿。",
         researchedPrefix: "研究完成："

@@ -216,6 +216,12 @@
                 return;
             }
 
+            if (targetElement.dataset.buildingDestroyId) {
+                game.buildings.destroyBuilding(currentState, targetElement.dataset.buildingDestroyId);
+                renderAfterStateChange(currentState);
+                return;
+            }
+
             if (targetElement.dataset.jobId && targetElement.dataset.jobAction) {
                 applyJobButtonAction(currentState, targetElement.dataset.jobId, targetElement.dataset.jobAction);
                 renderAfterStateChange(currentState);
