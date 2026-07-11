@@ -326,11 +326,19 @@
         // ResourceState 服从资源状态：用于显示纪律压力。
         var obedienceState = state.resourcesById.obedience;
 
+        // string 当前天气文本：显示天气名称和剩余游戏日。
+        var weatherText = game.weather ? game.weather.formatCurrentWeather(state) : "未记录";
+
+        // string 天气影响文本：显示当前天气对生产的主要修正。
+        var weatherEffectText = game.weather ? game.weather.formatWeatherEffectSummary(state) : "无生产修正";
+
         statusListElement.innerHTML = "";
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.goblins, String(aliveCount)));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.freeGoblins, String(idleCount)));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.housing, freeHousing + " / " + housingMax));
         statusListElement.appendChild(createDefinitionRow("服从度", obedienceState ? obedienceState.value.toFixed(0) + " / " + obedienceState.maxValue.toFixed(0) : "未解锁"));
+        statusListElement.appendChild(createDefinitionRow("天气", weatherText));
+        statusListElement.appendChild(createDefinitionRow("天气影响", weatherEffectText));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.crowding, Math.round(crowdingRatio * 100) + "%"));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.tickRate, game.definitions.TICKS_PER_SECOND + " tick/秒"));
         statusListElement.appendChild(createDefinitionRow(game.text.TEXT_REGISTRY.status.calendarRate, game.calendar.getSecondsPerDay() + " 秒/天"));
@@ -1038,10 +1046,10 @@
         var listElement = document.createElement("dl");
 
         // Object.<string, string|number> 培育预览：读取孕育成功率、失败率和继承概率。
-        var bedPreview = game.captivesSystem.previewDisposition(captive, "bed");
+        var bedPreview = game.captivesSystem.previewDisposition(captive, "bed", state);
 
         // Object.<string, string|number> 洗脑预览：读取固定菌菇消耗、洗脑提升和风险。
-        var modifyPreview = game.captivesSystem.previewDisposition(captive, "modify");
+        var modifyPreview = game.captivesSystem.previewDisposition(captive, "modify", state);
 
         // number 孕育成功率：0-1 浮点比例，由失败率反推。
         var breedingSuccessRate = 1 - Number(bedPreview.failureRisk || 0);
@@ -1078,6 +1086,7 @@
         appendDefinitionDetail(listElement, "反抗率", formatRatioAsPercent(resistanceRate));
         appendDefinitionDetail(listElement, "继承倾向", formatRatioAsPercent(bedPreview.inheritedTraitChance));
         appendDefinitionDetail(listElement, "属性加成", "+" + bedPreview.attributeBonus);
+        appendDefinitionDetail(listElement, "属性惩罚", "-" + Number(bedPreview.attributePenalty || 0));
         appendDefinitionDetail(listElement, "状态", formatCaptiveBreedingState(captive));
         tooltipElement.appendChild(listElement);
         return tooltipElement;
@@ -1202,6 +1211,10 @@
 
         if (previewKey === "attributeBonus") {
             return "属性加成 +" + previewValue;
+        }
+
+        if (previewKey === "attributePenalty") {
+            return "属性惩罚 -" + previewValue;
         }
 
         if (previewKey === "escapeRisk") {
@@ -4266,7 +4279,10 @@
         // HTMLInputElement 警告日志开关：控制警告日志是否显示。
         var showWarningElement = document.getElementById("show-warning-logs");
 
-        logDateElement.textContent = "时间：" + game.calendar.formatCurrentDate(state);
+        // string 当前天气文本：用于在日志栏时间旁提示自然环境。
+        var currentWeatherText = game.weather ? "｜天气：" + game.weather.formatCurrentWeather(state) : "";
+
+        logDateElement.textContent = "时间：" + game.calendar.formatCurrentDate(state) + currentWeatherText;
         logListElement.innerHTML = "";
 
         // number 循环索引：遍历日志数组的整数下标。

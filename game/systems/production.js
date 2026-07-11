@@ -99,6 +99,11 @@
             perSecond *= 1 + getOwnedBuildingEffectTotal(state, "rottenWoodOutputRatio") + (state.statistics.woodcuttingToolRatio || 0);
         }
 
+        // number 天气产出倍率：地穴生态和矿道资源随当前天气上下波动。
+        var weatherMultiplier = game.weather ? game.weather.calculateResourceOutputMultiplier(state, resourceId) : 1;
+
+        perSecond *= weatherMultiplier;
+
         game.resources.addResource(state, resourceId, perSecond * deltaSeconds);
         state.resourcesById[resourceId].perSecond += perSecond;
     }
@@ -251,14 +256,14 @@
         // Object.<string, number> 祖灵升级效果字典：读取地穴圣火工业倍率。
         var ritualEffects = game.rituals ? game.rituals.getRitualEffects(state) : {};
 
-        // number 工业产出倍率：粗熔炉产出由工坊和祖灵升级共同加成。
         // Object.<string, number> 政策效果字典：读取高阶工业政策倍率。
         var policyEffects = game.policiesSystem ? game.policiesSystem.getPolicyEffects(state) : {};
 
         // Object.<string, number> 契约效果字典：黑炉契约会提高工业产出。
         var pactEffects = game.pacts ? game.pacts.getPactEffects(state) : {};
 
-        var furnaceOutputMultiplier = 1 + (state.statistics.furnaceOutputRatio || 0) + (ritualEffects.industrialOutputRatio || 0) + (policyEffects.industrialOutputRatio || 0) + (pactEffects.industrialOutputRatio || 0);
+        // number 工业产出倍率：粗熔炉产出由工坊、祖灵、政策、契约和天气共同修正。
+        var furnaceOutputMultiplier = (1 + (state.statistics.furnaceOutputRatio || 0) + (ritualEffects.industrialOutputRatio || 0) + (policyEffects.industrialOutputRatio || 0) + (pactEffects.industrialOutputRatio || 0)) * getWeatherIndustrialOutputMultiplier(state);
 
         addFurnaceOutput(state, "ironOre", furnaceDefinition.effects.crudeFurnaceIronOrePerSecond * furnaceOutputMultiplier, furnaceState.active, deltaSeconds);
         addFurnaceOutput(state, "ironPlate", furnaceDefinition.effects.crudeFurnaceIronPlatePerSecond * furnaceOutputMultiplier, furnaceState.active, deltaSeconds);
@@ -327,8 +332,8 @@
         state.resourcesById.tar.value -= tarCost;
         state.resourcesById.tar.perSecond -= furnaceDefinition.effects.deepFurnaceTarCostPerSecond * furnaceState.active * Math.max(0, 1 - valveReductionRatio);
 
-        // number 工业产出倍率：工坊升级和祖灵升级共同影响深炉。
-        var outputMultiplier = 1 + (state.statistics.furnaceOutputRatio || 0) + (ritualEffects.industrialOutputRatio || 0) + (policyEffects.industrialOutputRatio || 0) + (pactEffects.industrialOutputRatio || 0);
+        // number 工业产出倍率：深炉产出由工坊、祖灵、政策、契约和天气共同修正。
+        var outputMultiplier = (1 + (state.statistics.furnaceOutputRatio || 0) + (ritualEffects.industrialOutputRatio || 0) + (policyEffects.industrialOutputRatio || 0) + (pactEffects.industrialOutputRatio || 0)) * getWeatherIndustrialOutputMultiplier(state);
 
         addFurnaceOutput(state, "steelIngot", furnaceDefinition.effects.deepFurnaceSteelPerSecond * outputMultiplier, furnaceState.active, deltaSeconds);
         addFurnaceOutput(state, "blackIron", furnaceDefinition.effects.deepFurnaceBlackIronPerSecond * outputMultiplier, furnaceState.active, deltaSeconds);
@@ -389,6 +394,20 @@
             state.resourcesById.obedience.value = Math.max(0, state.resourcesById.obedience.value - pactEffects.obedienceDrainPerSecond * deltaSeconds);
             state.resourcesById.obedience.perSecond -= pactEffects.obedienceDrainPerSecond;
         }
+    }
+
+    /**
+     * 计算当前天气对工业产出的倍率。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 工业天气产出倍率，至少为 0。
+     */
+    function getWeatherIndustrialOutputMultiplier(state) {
+        if (!game.weather) {
+            return 1;
+        }
+
+        return game.weather.calculateResourceOutputMultiplier(state, "ironPlate");
     }
 
     // Object 建筑生产模块命名空间：提供建筑自动生产入口。

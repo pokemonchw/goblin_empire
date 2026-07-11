@@ -165,6 +165,7 @@
                 disposition: undefined,
                 brainwashLevel: 0,
                 breedingState: "idle",
+                gestationWeatherId: undefined,
                 gestationSecondsRemaining: 0,
                 restSecondsRemaining: 0
             }
@@ -182,6 +183,9 @@
 
         // CalendarState 初始日期状态：新局从春第 1 日开始，未解锁历法。
         var initialCalendar = game.calendar.createInitialCalendar();
+
+        // WeatherState 初始天气状态：新局从稳潮开始，数日后进入轮换。
+        var initialWeather = game.weather.createInitialWeather();
 
         return {
             version: game.definitions.SAVE_VERSION,
@@ -206,6 +210,7 @@
                 completedById: {}
             },
             calendar: initialCalendar,
+            weather: initialWeather,
             captives: createInitialCaptives(),
             prestige: {
                 legacy: 0,

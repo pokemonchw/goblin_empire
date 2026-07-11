@@ -154,6 +154,8 @@
         foodConsumptionReductionRatio: "菌菇消耗减免",
         fungusOutputRatio: "菌菇产出倍率",
         rottenWoodOutputRatio: "朽木产出倍率",
+        weatherNegativeMitigationRatio: "恶劣天气削弱",
+        weatherPositiveAmplificationRatio: "有利天气放大",
         housingMax: "人口上限",
         laborMax: "劳力上限",
         crudeKnowledgeMax: "粗识上限",
@@ -443,6 +445,14 @@
             name: "滴水渠",
             description: "让岩缝渗水流过菌床，提高菌菇生长效率。"
         },
+        weather_totem: {
+            name: "潮痕桩",
+            description: "把骨片、刻痕和湿泥堆成观测桩，提前安排菌床、矿道和炉火的防潮活。"
+        },
+        spore_sluice: {
+            name: "孢潮闸",
+            description: "用腐木和碎石挡板调节孢雨与湿涌，让有利天气更容易被菌床和木圃吃干榨净。"
+        },
         graffiti_wall: {
             name: "涂鸦墙",
             description: "给哥布林乱画记号的墙面，提高粗识上限并解锁研究。"
@@ -478,6 +488,10 @@
         pulley_gallery: {
             name: "绞盘廊",
             description: "沿矿道装上木轴和绳轮，让少数哥布林拖动更多矿车和炉料。"
+        },
+        vent_shaft: {
+            name: "通风井",
+            description: "给矿道和熔炉开出可控风口，降低酸雾、湿涌和孢雨对生产的拖累。"
         },
         rubble_yard: {
             name: "碎石场",
@@ -599,6 +613,10 @@
             name: "挖掘",
             description: "知道哪些石缝能挖，哪些石缝会塌。"
         },
+        weather_signs: {
+            name: "潮痕观测",
+            description: "学会从洞壁水线、孢粉厚度和风声里判断下一段地穴天气。"
+        },
         hut_building: {
             name: "窝棚搭建",
             description: "让窝棚不再完全靠运气站住。"
@@ -626,6 +644,10 @@
         pulley_systems: {
             name: "绞盘系统",
             description: "用木梁、铁片和绳轮把重复搬运交给矿道机械。"
+        },
+        cave_ventilation: {
+            name: "通风支护",
+            description: "把矿井支柱、风口和炉火排烟连成一套抗天气的生产结构。"
         },
         beast_pen: {
             name: "兽栏",

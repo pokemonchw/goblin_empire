@@ -176,6 +176,17 @@
      */
 
     /**
+     * @typedef {Object} WeatherDefinition
+     * @property {string} id - 天气稳定 ID，作为运行时和存档引用。
+     * @property {string} name - 天气中文显示名。
+     * @property {string} description - 天气中文说明。
+     * @property {number[]} seasonWeights - 四季权重数组，依次对应春夏秋冬，数值为非负权重。
+     * @property {number} minDurationDays - 最短持续游戏日数，正整数。
+     * @property {number} maxDurationDays - 最长持续游戏日数，正整数。
+     * @property {Object.<string, number>} effects - 天气效果字典；key 为效果 ID，value 为加成比例。
+     */
+
+    /**
      * @typedef {Object} PopulationConstants
      * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏的菌菇口粮消耗，单位为菌菇/秒。
      * @property {number} starvationCheckDays - 断粮死亡检查间隔，单位为游戏日，正整数。
@@ -183,7 +194,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 9;
+    var SAVE_VERSION = 12;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -194,6 +205,114 @@
         starvationCheckDays: 3,
         starvationDeathRatio: 0.1
     };
+
+    // WeatherDefinition[] 天气定义列表：控制地穴自然波动和生产倍率。
+    var WEATHER_DEFINITIONS = [
+        {
+            id: "clear",
+            name: "稳潮",
+            description: "洞壁湿度稳定，菌床、矿道和炉火都按常态运转。",
+            seasonWeights: [
+                4,
+                3,
+                3,
+                4
+            ],
+            minDurationDays: 30,
+            maxDurationDays: 90,
+            effects: {}
+        },
+        {
+            id: "damp",
+            name: "湿涌",
+            description: "地下水汽沿裂缝翻涌，菌菇和朽木更易生长，矿道略显泥泞。",
+            seasonWeights: [
+                5,
+                3,
+                4,
+                2
+            ],
+            minDurationDays: 30,
+            maxDurationDays: 90,
+            effects: {
+                fungusOutputRatio: 0.15,
+                rottenWoodOutputRatio: 0.1,
+                miningOutputRatio: -0.05
+            }
+        },
+        {
+            id: "spore_rain",
+            name: "孢雨",
+            description: "发亮孢子像雨一样落下，菌菇疯长，但哥布林挖矿时容易打喷嚏。",
+            seasonWeights: [
+                4,
+                2,
+                5,
+                1
+            ],
+            minDurationDays: 30,
+            maxDurationDays: 90,
+            effects: {
+                fungusOutputRatio: 0.3,
+                miningOutputRatio: -0.1
+            }
+        },
+        {
+            id: "cave_wind",
+            name: "穿洞风",
+            description: "冷风穿过长矿道，吹干木料并让矿工更容易听见岩层裂响。",
+            seasonWeights: [
+                2,
+                4,
+                3,
+                5
+            ],
+            minDurationDays: 30,
+            maxDurationDays: 90,
+            effects: {
+                rottenWoodOutputRatio: -0.05,
+                miningOutputRatio: 0.12
+            }
+        },
+        {
+            id: "acid_fog",
+            name: "酸雾",
+            description: "带腐蚀味的雾从深处漫上来，菌床萎缩，炉火和矿道都需要额外照看。",
+            seasonWeights: [
+                1,
+                3,
+                2,
+                1
+            ],
+            minDurationDays: 30,
+            maxDurationDays: 90,
+            effects: {
+                fungusOutputRatio: -0.2,
+                rottenWoodOutputRatio: -0.1,
+                miningOutputRatio: -0.08,
+                industrialOutputRatio: -0.05
+            }
+        },
+        {
+            id: "lust_wind",
+            name: "欲风",
+            description: "温热怪风裹着甜腥孢粉吹过苗床，俘虏更易被驯化和孕育，但新生个体会显得虚弱。",
+            seasonWeights: [
+                2,
+                4,
+                3,
+                1
+            ],
+            minDurationDays: 30,
+            maxDurationDays: 90,
+            effects: {
+                captiveBrainwashCostRatio: -0.5,
+                captiveBrainwashGainRatio: 0.5,
+                captiveBreedingFailureRiskRatio: -0.5,
+                captiveNewbornAttributePenalty: 1
+            }
+        }
+    ];
 
     // TabDefinition[] 标签页定义列表：控制主界面可见标签页和默认顺序。
     var TAB_DEFINITIONS = [
@@ -759,6 +878,43 @@
             }
         },
         {
+            id: "weather_totem",
+            name: game.text.TEXT_REGISTRY.buildings.weather_totem.name,
+            description: game.text.TEXT_REGISTRY.buildings.weather_totem.description,
+            basePrice: [
+                game.pricing.createPrice("rottenWood", 45),
+                game.pricing.createPrice("rubble", 35),
+                game.pricing.createPrice("crudeKnowledge", 20)
+            ],
+            priceRatio: 1.14,
+            effects: {
+                laborUsage: 1,
+                weatherNegativeMitigationRatio: 0.04
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "spore_sluice",
+            name: game.text.TEXT_REGISTRY.buildings.spore_sluice.name,
+            description: game.text.TEXT_REGISTRY.buildings.spore_sluice.description,
+            basePrice: [
+                game.pricing.createPrice("fungus", 240),
+                game.pricing.createPrice("rottenWood", 45),
+                game.pricing.createPrice("rubble", 55)
+            ],
+            priceRatio: 1.15,
+            effects: {
+                laborUsage: 3,
+                fungusMax: 1000,
+                weatherPositiveAmplificationRatio: 0.04
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
             id: "graffiti_wall",
             name: game.text.TEXT_REGISTRY.buildings.graffiti_wall.name,
             description: game.text.TEXT_REGISTRY.buildings.graffiti_wall.description,
@@ -977,6 +1133,25 @@
                 laborUsage: 8,
                 charcoalKilnWoodCostPerSecond: 0.03,
                 charcoalKilnCoalSlagPerSecond: 0.012
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "vent_shaft",
+            name: game.text.TEXT_REGISTRY.buildings.vent_shaft.name,
+            description: game.text.TEXT_REGISTRY.buildings.vent_shaft.description,
+            basePrice: [
+                game.pricing.createPrice("woodenBeam", 6),
+                game.pricing.createPrice("stoneSlab", 8),
+                game.pricing.createPrice("ironPlate", 8)
+            ],
+            priceRatio: 1.16,
+            effects: {
+                laborUsage: 6,
+                weatherNegativeMitigationRatio: 0.06,
+                industrialOutputRatio: 0.01
             },
             unlock: {
                 isDefault: false
@@ -1519,6 +1694,9 @@
             unlocks: {
                 buildings: [
                     "drip_channel"
+                ],
+                technologies: [
+                    "weather_signs"
                 ]
             },
             unlock: {
@@ -1561,6 +1739,24 @@
                 ],
                 technologies: [
                     "pulley_systems"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "weather_signs",
+            name: game.text.TEXT_REGISTRY.technologies.weather_signs.name,
+            description: game.text.TEXT_REGISTRY.technologies.weather_signs.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 40),
+                game.pricing.createPrice("rubble", 30)
+            ],
+            unlocks: {
+                buildings: [
+                    "weather_totem",
+                    "spore_sluice"
                 ]
             },
             unlock: {
@@ -1632,7 +1828,8 @@
                     "smelter"
                 ],
                 technologies: [
-                    "charcoal_burning"
+                    "charcoal_burning",
+                    "cave_ventilation"
                 ]
             },
             unlock: {
@@ -1669,6 +1866,24 @@
             unlocks: {
                 buildings: [
                     "pulley_gallery"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "cave_ventilation",
+            name: game.text.TEXT_REGISTRY.technologies.cave_ventilation.name,
+            description: game.text.TEXT_REGISTRY.technologies.cave_ventilation.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 140),
+                game.pricing.createPrice("coalSlag", 15),
+                game.pricing.createPrice("ironPlate", 4)
+            ],
+            unlocks: {
+                buildings: [
+                    "vent_shaft"
                 ]
             },
             unlock: {
@@ -4044,6 +4259,7 @@
         SAVE_VERSION: SAVE_VERSION,
         TICKS_PER_SECOND: TICKS_PER_SECOND,
         POPULATION_CONSTANTS: POPULATION_CONSTANTS,
+        WEATHER_DEFINITIONS: WEATHER_DEFINITIONS,
         TAB_DEFINITIONS: TAB_DEFINITIONS,
         RESOURCE_DEFINITIONS: RESOURCE_DEFINITIONS,
         BUILDING_DEFINITIONS: BUILDING_DEFINITIONS,

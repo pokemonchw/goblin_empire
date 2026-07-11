@@ -270,6 +270,7 @@
         unlockCalendar: unlockCalendar,
         getSecondsPerDay: getSecondsPerDay,
         calculateDaysFromSeconds: calculateDaysFromSeconds,
+        getSeasonalDate: getSeasonalDate,
         formatLogDatePrefix: formatLogDatePrefix,
         formatLogSeparator: formatLogSeparator,
         formatCurrentDate: formatCurrentDate

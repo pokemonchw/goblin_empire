@@ -126,6 +126,8 @@
      * @property {Object.<string, number>} effects - 建筑效果字典；key 为效果 ID，value 为数值。
      * @property {number=} effects.laborUsage - 每个启用建筑占用的劳力数量，非负整数；菌菇床不使用该字段。
      * @property {number=} effects.laborUsageReductionRatio - 每个已拥有建筑降低生产建筑劳力占用的比例，范围通常为 0-1。
+     * @property {number=} effects.weatherNegativeMitigationRatio - 每个已拥有建筑削弱资源产出负面天气的比例，范围通常为 0-1。
+     * @property {number=} effects.weatherPositiveAmplificationRatio - 每个已拥有建筑放大资源产出正面天气的比例，范围通常为 0-1。
      * @property {UnlockBundle} unlock - 显示该建筑所需的解锁条件或默认解锁标记。
      */
 
@@ -217,6 +219,7 @@
      * @property {"bed"|"modify"|"food"=} disposition - 当前处置 ID，可省略。
      * @property {number} brainwashLevel - 洗脑程度，0-100 整数点；数值越高，新生属性越好且孕育失败率越低。
      * @property {"idle"|"gestating"|"resting"} breedingState - 苗床繁育状态；idle 可培育，gestating 孕育中且锁定处置，resting 休养中且只锁定培育。
+     * @property {string=} gestationWeatherId - 开始本次孕育时的天气 ID；只在 gestating 状态下用于锁定孕育修正。
      * @property {number} gestationSecondsRemaining - 孕育剩余游戏秒数，非负浮点数。
      * @property {number} restSecondsRemaining - 休养剩余游戏秒数，非负浮点数。
      */
@@ -271,6 +274,14 @@
      */
 
     /**
+     * @typedef {Object} WeatherState
+     * @property {string} currentWeatherId - 当前天气稳定 ID，必须对应 WeatherDefinition.id。
+     * @property {number} startedElapsedDay - 当前天气开始时的完整游戏日，非负整数天。
+     * @property {number} nextChangeElapsedDay - 下次天气变化的完整游戏日，正整数天。
+     * @property {number} randomSeed - 当前存档的天气随机种子，正整数；用于让不同新局拥有不同天气序列。
+     */
+
+    /**
      * @typedef {Object} GameState
      * @property {number} version - 存档版本整数。
      * @property {boolean} isPaused - 是否暂停；true 表示模拟不推进。
@@ -290,6 +301,7 @@
      * @property {ExpeditionState|null} activeExpedition - 当前远征状态；没有远征时为 null。
      * @property {{runMode: "undecided"|"normal"|"challenge", activeChallengeId: string|null, completedById: Object.<string, boolean>}} challenges - 挑战状态；runMode 为本局模式选择，activeChallengeId 为当前挑战 ID，completedById 为永久完成标记。
      * @property {CalendarState} calendar - 日期运行时状态；保存季节日序、历法解锁状态和纪元日。
+     * @property {WeatherState} weather - 天气运行时状态；保存当前天气和下次变化日。
      * @property {CaptiveState[]} captives - 俘虏运行时状态数组。
      * @property {{legacy: number, perks: string[]}} prestige - 威望状态；legacy 为非负数量，perks 为已购天赋 ID。
      * @property {Object.<string, number>} statistics - 统计字典；key 为统计 ID，value 为累计数值。
@@ -318,6 +330,7 @@
      * @property {ExpeditionState|null} activeExpedition - 当前远征存档状态；没有时为 null。
      * @property {{runMode: "undecided"|"normal"|"challenge", activeChallengeId: string|null, completedById: Object.<string, boolean>}} challenges - 挑战存档状态；runMode 为新局入口选择结果。
      * @property {CalendarState} calendar - 日期存档状态；保存季节日序、历法解锁状态和纪元日。
+     * @property {WeatherState} weather - 天气存档状态；保存当前天气和下次变化日。
      * @property {CaptiveState[]} captives - 俘虏存档数组。
      * @property {{legacy: number, perks: string[]}} prestige - 威望存档状态。
      * @property {Object.<string, number>} statistics - 统计存档字典。

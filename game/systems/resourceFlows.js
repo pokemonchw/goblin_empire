@@ -209,6 +209,11 @@
             perSecond *= 1 + getOwnedBuildingEffectTotal(state, "rottenWoodOutputRatio") + (state.statistics.woodcuttingToolRatio || 0);
         }
 
+        // number 天气产出倍率：与真实生产系统保持一致。
+        var weatherMultiplier = game.weather ? game.weather.calculateResourceOutputMultiplier(state, resourceId) : 1;
+
+        perSecond *= weatherMultiplier;
+
         pushFlowEntry(flowEntries, resourceId, "output", perSecond, buildingDefinition.name, "建筑自动产出");
     }
 
@@ -477,7 +482,10 @@
         // Object.<string, number> 契约效果字典：读取工业产出倍率。
         var pactEffects = game.pacts ? game.pacts.getPactEffects(state) : {};
 
-        return Math.max(0, 1 + (state.statistics.furnaceOutputRatio || 0) + (ritualEffects.industrialOutputRatio || 0) + (policyEffects.industrialOutputRatio || 0) + (pactEffects.industrialOutputRatio || 0));
+        // number 天气工业倍率：酸雾等天气会轻微压制炉火产出。
+        var weatherMultiplier = game.weather ? game.weather.calculateResourceOutputMultiplier(state, "ironPlate") : 1;
+
+        return Math.max(0, 1 + (state.statistics.furnaceOutputRatio || 0) + (ritualEffects.industrialOutputRatio || 0) + (policyEffects.industrialOutputRatio || 0) + (pactEffects.industrialOutputRatio || 0)) * weatherMultiplier;
     }
 
     /**
@@ -657,6 +665,10 @@
 
         if (obedienceState) {
             bonusEntries.push({ label: "服从修正", value: "x" + game.jobs.calculateObedienceModifier(state).toFixed(2) });
+        }
+
+        if (game.weather) {
+            bonusEntries.push({ label: "当前天气", value: "x" + game.weather.calculateResourceOutputMultiplier(state, resourceId).toFixed(2) });
         }
     }
 

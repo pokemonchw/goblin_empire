@@ -169,6 +169,7 @@
             disposition: undefined,
             brainwashLevel: 0,
             breedingState: "idle",
+            gestationWeatherId: undefined,
             gestationSecondsRemaining: 0,
             restSecondsRemaining: 0
         };
@@ -235,9 +236,10 @@
      *
      * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
      * @param {"bed"|"modify"|"food"} dispositionId - 处置方式 ID。
+     * @param {GameState=} state - 当前游戏状态对象；提供时会计入天气和建筑修正。
      * @returns {Object.<string, string|number>} 预览对象；包含收益、继承概率、逃脱风险和报复风险。
      */
-    function previewDisposition(captive, dispositionId) {
+    function previewDisposition(captive, dispositionId, state) {
         // CaptiveTypeDefinition|null 俘虏类型定义：用于读取倾向和技能偏向。
         var captiveTypeDefinition = getCaptiveTypeDefinition(captive.type);
 
@@ -250,14 +252,24 @@
         // number 洗脑程度：0-1 浮点比例，用于影响孕育失败率和新生属性。
         var brainwashRatio = getCaptiveBrainwashRatio(captive);
 
+        // Price[] 洗脑价格：提供状态时会计入欲风等天气修正。
+        var brainwashPrice = calculateBrainwashPrice(state);
+
+        // number 洗脑建筑倍率：提供状态时会计入洗脑棚收益。
+        var buildingRatio = state ? getCaptiveBuildingEffectTotal(state, "captiveModifyKnowledgeRatio") : 0;
+
+        // Object.<string, number> 俘虏天气效果：提供状态时读取当前天气或孕育天气。
+        var captiveWeatherEffects = getCaptiveWeatherEffects(state, captive);
+
         if (dispositionId === "bed") {
             return {
                 summary: "开始一个月孕育，可能生成 1 个带 " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type) + " 倾向的新生；洗脑为 0 时不可培育，结算后洗脑会衰减",
                 gestationMonths: 1,
                 restMonths: 1,
-                failureRisk: calculateBreedingFailureRisk(captive),
+                failureRisk: calculateBreedingFailureRisk(captive, state),
                 brainwashLevel: Math.round(brainwashRatio * 100),
                 attributeBonus: calculateBrainwashAttributeBonus(captive),
+                attributePenalty: captiveWeatherEffects.captiveNewbornAttributePenalty || 0,
                 inheritedTraitChance: Math.min(0.8, 0.25 * qualityMultiplier),
                 escapeRisk: qualityDefinition ? qualityDefinition.escapeRisk : 0.1,
                 retaliationRisk: qualityDefinition ? qualityDefinition.retaliationRisk : 0.05
@@ -266,9 +278,9 @@
 
         if (dispositionId === "modify") {
             return {
-                summary: "消耗 100 菌菇，洗脑程度 +" + calculateBrainwashGain(captive, 0) + "，粗识 +" + Math.round(10 * qualityMultiplier),
-                brainwashCost: 100,
-                brainwashGain: calculateBrainwashGain(captive, 0),
+                summary: "消耗 " + brainwashPrice[0].amount + " 菌菇，洗脑程度 +" + calculateBrainwashGain(captive, buildingRatio, state) + "，粗识 +" + Math.round(10 * qualityMultiplier * (1 + buildingRatio)),
+                brainwashCost: brainwashPrice[0].amount,
+                brainwashGain: calculateBrainwashGain(captive, buildingRatio, state),
                 brainwashLevel: Math.round(brainwashRatio * 100),
                 escapeRisk: qualityDefinition ? qualityDefinition.escapeRisk : 0.1,
                 retaliationRisk: qualityDefinition ? qualityDefinition.retaliationRisk : 0.05
@@ -316,7 +328,7 @@
             startCaptiveGestation(state, captive);
         } else {
             if (dispositionId === "modify") {
-                if (!game.resources.spendResources(state, CAPTIVE_BRAINWASH_PRICE)) {
+                if (!game.resources.spendResources(state, calculateBrainwashPrice(state))) {
                     return false;
                 }
 
@@ -352,7 +364,7 @@
         }
 
         if (dispositionId === "modify") {
-            return !state || game.resources.canAfford(state, CAPTIVE_BRAINWASH_PRICE);
+            return !state || game.resources.canAfford(state, calculateBrainwashPrice(state));
         }
 
         return dispositionId === "food";
@@ -369,6 +381,7 @@
         captive.breedingState = "gestating";
         captive.gestationSecondsRemaining = CAPTIVE_GESTATION_SECONDS;
         captive.restSecondsRemaining = 0;
+        captive.gestationWeatherId = game.weather ? game.weather.getCurrentWeatherDefinition(state).id : undefined;
         game.simulation.addLog(state, "normal", "苗床开始培育新生，需要一个月孕育。");
     }
 
@@ -427,7 +440,7 @@
      */
     function resolveCaptiveGestation(state, captive) {
         // number 失败概率：0-1 浮点比例，洗脑程度越高失败概率越低。
-        var failureRisk = calculateBreedingFailureRisk(captive);
+        var failureRisk = calculateBreedingFailureRisk(captive, state);
 
         // number 随机掷骰：0-1 浮点比例，用于本次孕育成败判定。
         var failureRoll = Math.random();
@@ -440,6 +453,7 @@
             game.simulation.addLog(state, "warning", "苗床孕育失败，仍需一个月休养。");
         }
 
+        captive.gestationWeatherId = undefined;
         captive.breedingState = "resting";
         captive.gestationSecondsRemaining = 0;
         captive.restSecondsRemaining = CAPTIVE_REST_SECONDS;
@@ -483,7 +497,7 @@
         var newGoblin = game.population.createGoblin(state, "captive_bed");
 
         if (captiveTypeDefinition) {
-            applyCaptiveBiasToGoblin(newGoblin, captiveTypeDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, calculateBrainwashAttributeBonus(captive));
+            applyCaptiveBiasToGoblin(newGoblin, captiveTypeDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, calculateBrainwashAttributeBonus(captive), getCaptiveNewbornAttributePenalty(state, captive));
         }
 
         state.goblins.push(newGoblin);
@@ -498,9 +512,15 @@
      * @param {CaptiveTypeDefinition} captiveTypeDefinition - 俘虏类型定义对象。
      * @param {number} qualityMultiplier - 质量倍率，正数。
      * @param {number} brainwashAttributeBonus - 洗脑属性加成，非负整数。
+     * @param {number} attributePenalty - 新生属性惩罚，非负整数。
      * @returns {void} 无返回值。
      */
-    function applyCaptiveBiasToGoblin(goblin, captiveTypeDefinition, qualityMultiplier, brainwashAttributeBonus) {
+    function applyCaptiveBiasToGoblin(goblin, captiveTypeDefinition, qualityMultiplier, brainwashAttributeBonus, attributePenalty) {
+        // number 新生属性惩罚：欲风等天气会让这次苗床新生更虚弱。
+        var safeAttributePenalty = Math.max(0, Math.floor(Number(attributePenalty) || 0));
+
+        applyNewbornAttributePenalty(goblin, safeAttributePenalty);
+
         // string[] 属性 ID 数组：用于遍历属性偏向字典。
         var attributeIds = Object.keys(captiveTypeDefinition.attributeBias);
 
@@ -540,13 +560,20 @@
      * 计算苗床孕育失败概率。
      *
      * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
+     * @param {GameState=} state - 当前游戏状态对象；提供时会计入当前或孕育开始天气。
      * @returns {number} 失败概率，范围 0.1-0.45；洗脑程度越高越低。
      */
-    function calculateBreedingFailureRisk(captive) {
+    function calculateBreedingFailureRisk(captive, state) {
         // number 洗脑程度比例：0-1 浮点比例，用于压低失败概率。
         var brainwashRatio = getCaptiveBrainwashRatio(captive);
 
-        return Math.max(0.1, 0.45 - brainwashRatio * 0.35);
+        // Object.<string, number> 俘虏天气效果：欲风会降低本次孕育失败概率。
+        var captiveWeatherEffects = getCaptiveWeatherEffects(state, captive);
+
+        // number 基础失败概率：范围 0.1-0.45，洗脑程度越高失败概率越低。
+        var baseFailureRisk = Math.max(0.1, 0.45 - brainwashRatio * 0.35);
+
+        return Math.max(0.05, Math.min(0.95, baseFailureRisk * (1 + (captiveWeatherEffects.captiveBreedingFailureRiskRatio || 0))));
     }
 
     /**
@@ -581,16 +608,20 @@
      *
      * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
      * @param {number} buildingRatio - 洗脑棚效果倍率，非负浮点比例。
+     * @param {GameState=} state - 当前游戏状态对象；提供时会计入当前天气。
      * @returns {number} 洗脑程度提升值，非负整数点。
      */
-    function calculateBrainwashGain(captive, buildingRatio) {
+    function calculateBrainwashGain(captive, buildingRatio, state) {
         // CaptiveQualityDefinition|null 质量定义：用于让高质量俘虏更难被改造但收益更高。
         var qualityDefinition = getCaptiveQualityDefinition(captive.quality);
 
         // number 质量倍率：缺失定义时按 1。
         var qualityMultiplier = qualityDefinition ? qualityDefinition.multiplier : 1;
 
-        return Math.max(1, Math.round(12 * qualityMultiplier * (1 + Math.max(0, buildingRatio))));
+        // Object.<string, number> 俘虏天气效果：欲风会提高洗脑提升。
+        var captiveWeatherEffects = getCaptiveWeatherEffects(state, captive);
+
+        return Math.max(1, Math.round(12 * qualityMultiplier * (1 + Math.max(0, buildingRatio)) * (1 + (captiveWeatherEffects.captiveBrainwashGainRatio || 0))));
     }
 
     /**
@@ -608,11 +639,95 @@
         var buildingRatio = getCaptiveBuildingEffectTotal(state, "captiveModifyKnowledgeRatio");
 
         // number 洗脑提升值：本次改造增加的洗脑程度点数。
-        var brainwashGain = calculateBrainwashGain(captive, buildingRatio);
+        var brainwashGain = calculateBrainwashGain(captive, buildingRatio, state);
 
         captive.brainwashLevel = Math.min(100, (Number(captive.brainwashLevel) || 0) + brainwashGain);
         game.resources.addResource(state, "crudeKnowledge", 10 * (qualityDefinition ? qualityDefinition.multiplier : 1) * (1 + buildingRatio));
         game.simulation.addLog(state, "normal", "洗脑改造完成，苗床洗脑程度提升到 " + Math.round(captive.brainwashLevel) + "%。");
+    }
+
+    /**
+     * 计算一次洗脑改造的实际价格。
+     *
+     * @param {GameState=} state - 当前游戏状态对象；提供时会计入当前天气。
+     * @returns {Price[]} 洗脑价格数组；amount 为非负资源数量。
+     */
+    function calculateBrainwashPrice(state) {
+        // Object.<string, number> 俘虏天气效果：欲风会降低洗脑消耗。
+        var captiveWeatherEffects = getCaptiveWeatherEffects(state, null);
+
+        // number 洗脑价格倍率：最低为 0，避免负数消耗。
+        var priceMultiplier = Math.max(0, 1 + (captiveWeatherEffects.captiveBrainwashCostRatio || 0));
+
+        return [
+            {
+                resource: CAPTIVE_BRAINWASH_PRICE[0].resource,
+                amount: CAPTIVE_BRAINWASH_PRICE[0].amount * priceMultiplier
+            }
+        ];
+    }
+
+    /**
+     * 读取俘虏相关天气效果。
+     *
+     * @param {GameState=} state - 当前游戏状态对象；缺失时返回空效果。
+     * @param {CaptiveState|null=} captive - 俘虏状态；孕育中优先读取开始孕育时天气。
+     * @returns {Object.<string, number>} 天气效果字典；key 为俘虏效果 ID。
+     */
+    function getCaptiveWeatherEffects(state, captive) {
+        if (!state || !game.weather) {
+            return {};
+        }
+
+        // string|null 孕育天气 ID：用于让一次孕育从开始到结算保持同一天气修正。
+        var gestationWeatherId = captive && captive.gestationWeatherId ? captive.gestationWeatherId : null;
+
+        if (gestationWeatherId) {
+            // WeatherDefinition|null 孕育天气定义：读取开始孕育时锁定的天气。
+            var gestationWeatherDefinition = game.weather.getWeatherDefinition(gestationWeatherId);
+
+            return gestationWeatherDefinition ? gestationWeatherDefinition.effects : {};
+        }
+
+        return game.weather.getWeatherEffects(state);
+    }
+
+    /**
+     * 取得新生属性惩罚。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
+     * @returns {number} 新生属性惩罚，非负整数点。
+     */
+    function getCaptiveNewbornAttributePenalty(state, captive) {
+        // Object.<string, number> 俘虏天气效果：欲风会降低这次新生属性。
+        var captiveWeatherEffects = getCaptiveWeatherEffects(state, captive);
+
+        return Math.max(0, Math.floor(Number(captiveWeatherEffects.captiveNewbornAttributePenalty) || 0));
+    }
+
+    /**
+     * 对新生哥布林应用全属性惩罚。
+     *
+     * @param {Goblin} goblin - 新生哥布林对象，会被直接修改。
+     * @param {number} attributePenalty - 属性惩罚，非负整数点。
+     * @returns {void} 无返回值。
+     */
+    function applyNewbornAttributePenalty(goblin, attributePenalty) {
+        if (attributePenalty <= 0) {
+            return;
+        }
+
+        // string[] 属性 ID 数组：遍历新生哥布林六项属性。
+        var attributeIds = Object.keys(goblin.attributes);
+
+        // number 循环索引：遍历属性 ID 数组的整数下标。
+        for (var attributeIndex = 0; attributeIndex < attributeIds.length; attributeIndex += 1) {
+            // string 当前属性 ID：用于写回被天气削弱后的属性。
+            var attributeId = attributeIds[attributeIndex];
+
+            goblin.attributes[attributeId] = Math.max(1, goblin.attributes[attributeId] - attributePenalty);
+        }
     }
 
     /**

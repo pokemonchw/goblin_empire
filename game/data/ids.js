@@ -18,6 +18,7 @@
      * @property {string[]} raidTargets - 掠夺目标稳定 ID 数组；key 空间为掠夺目标 ID。
      * @property {string[]} prestigePerks - 威望天赋稳定 ID 数组；key 空间为威望天赋 ID。
      * @property {string[]} challenges - 挑战稳定 ID 数组；key 空间为挑战 ID。
+     * @property {string[]} weather - 天气稳定 ID 数组；key 空间为 WeatherId。
      */
 
     // string[] 资源稳定 ID 列表：覆盖基础、工业、神秘和威望资源。
@@ -72,6 +73,8 @@
         "spore_trench",
         "drying_rack",
         "drip_channel",
+        "weather_totem",
+        "spore_sluice",
         "mud_hut",
         "cave_room",
         "barracks_cave",
@@ -86,6 +89,7 @@
         "artisan_shed",
         "crude_furnace",
         "pulley_gallery",
+        "vent_shaft",
         "beast_pen",
         "bad_wine_barrel",
         "chief_hall",
@@ -117,6 +121,7 @@
         "deadwood_cultivation",
         "foraging",
         "digging",
+        "weather_signs",
         "hut_building",
         "labor_rosters",
         "woodcraft",
@@ -124,6 +129,7 @@
         "metallurgy",
         "charcoal_burning",
         "pulley_systems",
+        "cave_ventilation",
         "beast_pen",
         "crossbow",
         "crude_tools",
@@ -166,6 +172,16 @@
         "rune_smith",
         "war_chief",
         "deep_miner"
+    ];
+
+    // string[] 天气稳定 ID 列表：控制地穴自然波动和存档校验。
+    var WEATHER_IDS = [
+        "clear",
+        "damp",
+        "spore_rain",
+        "cave_wind",
+        "acid_fog",
+        "lust_wind"
     ];
 
     // string[] 政策稳定 ID 列表：按后续政策组引用。
@@ -261,7 +277,8 @@
         factions: FACTION_IDS,
         raidTargets: RAID_TARGET_IDS,
         prestigePerks: PRESTIGE_PERK_IDS,
-        challenges: CHALLENGE_IDS
+        challenges: CHALLENGE_IDS,
+        weather: WEATHER_IDS
     };
 
     /**

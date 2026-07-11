@@ -72,6 +72,7 @@
         var deltaSeconds = Math.max(0, (nowTimestamp - state.lastActiveTimestamp) / 1000);
 
         game.calendar.updateCalendar(state, deltaSeconds);
+        game.weather.updateWeather(state);
         game.jobs.resetResourceRates(state);
         game.population.updatePopulation(state, deltaSeconds);
         game.jobs.applyJobProduction(state, deltaSeconds);

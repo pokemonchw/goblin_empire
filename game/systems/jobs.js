@@ -536,7 +536,22 @@
      * @returns {number} 职业产出综合倍率，非负浮点数。
      */
     function calculateJobOutputModifier(state, goblin, jobDefinition) {
-        return calculateAttributeModifier(goblin, jobDefinition) * calculateSkillModifier(goblin, jobDefinition.skillId) * calculateWoundModifier(goblin) * calculateBuildingModifier(state, jobDefinition) * calculateTechnologyModifier(state, jobDefinition) * calculateObedienceModifier(state);
+        return calculateAttributeModifier(goblin, jobDefinition) * calculateSkillModifier(goblin, jobDefinition.skillId) * calculateWoundModifier(goblin) * calculateBuildingModifier(state, jobDefinition) * calculateTechnologyModifier(state, jobDefinition) * calculateObedienceModifier(state) * calculateWeatherModifier(state, jobDefinition);
+    }
+
+    /**
+     * 计算天气对职业产出的修正。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {JobDefinition} jobDefinition - 职业定义对象。
+     * @returns {number} 天气产出倍率，至少为 0。
+     */
+    function calculateWeatherModifier(state, jobDefinition) {
+        if (!game.weather) {
+            return 1;
+        }
+
+        return game.weather.calculateJobOutputMultiplier(state, jobDefinition);
     }
 
     /**
@@ -822,6 +837,7 @@
         calculateBuildingModifier: calculateBuildingModifier,
         calculateTechnologyModifier: calculateTechnologyModifier,
         calculateObedienceModifier: calculateObedienceModifier,
+        calculateWeatherModifier: calculateWeatherModifier,
         calculateJobOutputModifier: calculateJobOutputModifier
     };
 })(window.GoblinEmpire);

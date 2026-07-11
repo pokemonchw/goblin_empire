@@ -102,6 +102,7 @@
                 completedById: state.challenges ? Object.assign({}, state.challenges.completedById) : {}
             },
             calendar: Object.assign({}, state.calendar || game.calendar.createInitialCalendar()),
+            weather: Object.assign({}, state.weather || game.weather.createInitialWeather()),
             captives: state.captives.slice(),
             prestige: {
                 legacy: state.prestige.legacy,
@@ -216,6 +217,7 @@
                         disposition: undefined,
                         brainwashLevel: 0,
                         breedingState: "idle",
+                        gestationWeatherId: undefined,
                         gestationSecondsRemaining: 0,
                         restSecondsRemaining: 0
                     }
@@ -248,6 +250,26 @@
             // v8 旧 shape：没有劳力名册、绞盘系统、监工操典及对应建筑的静态 ID。
             // v9 新 shape：新增劳力科技和建筑；运行时恢复会从当前定义补齐缺失状态。
             // 迁移原因：静态定义扩展不需要改写存档数组，但需要版本号标记新平衡口径。
+        }
+
+        if (sourceVersion < 10) {
+            // v9 旧 shape：没有天气状态，生产只受季节日期和事件影响。
+            // v10 新 shape：补齐 weather，用于保存当前天气、开始日和下次变化日。
+            // 迁移原因：天气会影响持续生产倍率，需要读档后保持同一段天气。
+            migratedSaveData.weather = game.weather.createInitialWeather();
+        }
+
+        if (sourceVersion < 11) {
+            // v10 旧 shape：没有潮痕观测、通风支护和天气调控建筑的静态 ID。
+            // v11 新 shape：运行时从当前定义补齐新增科技和建筑状态。
+            // 迁移原因：天气从纯环境压力扩展为可被建筑缓冲和利用的生产系统。
+        }
+
+        if (sourceVersion < 12) {
+            // v11 旧 shape：天气状态没有存档级随机种子，不同新局会按同一日期序列变化。
+            // v12 新 shape：weather.randomSeed 保存每局天气随机源，读档继续复用。
+            // 迁移原因：天气持续 30-90 天后，需要不同新局有不同天气序列，同时保持读档稳定。
+            migratedSaveData.weather = game.weather.normalizeWeatherState(migratedSaveData.weather, migratedSaveData.calendar);
         }
 
         migratedSaveData.version = game.definitions.SAVE_VERSION;
@@ -317,6 +339,7 @@
         restoredState.activeExpedition = saveData.activeExpedition || null;
         restoredState.challenges = normalizeSavedChallenges(saveData.challenges);
         restoredState.calendar = game.calendar.normalizeCalendarState(saveData.calendar);
+        restoredState.weather = game.weather.normalizeWeatherState(saveData.weather, restoredState.calendar);
         restoredState.captives = normalizeSavedCaptives(Array.isArray(saveData.captives) ? saveData.captives : []);
         restoredState.prestige = saveData.prestige || { legacy: 0, perks: [] };
         restoredState.statistics = saveData.statistics || {};
@@ -422,6 +445,10 @@
             validateRunMode(saveData.challenges.runMode);
             validateNullableId(saveData.challenges.activeChallengeId, game.ids.ID_REGISTRY.challenges, "活动挑战");
             validateDictionaryKeys(saveData.challenges.completedById, game.ids.ID_REGISTRY.challenges, "完成挑战");
+        }
+
+        if (saveData.weather) {
+            validateNullableId(saveData.weather.currentWeatherId, game.ids.ID_REGISTRY.weather, "天气");
         }
 
         if (saveData.prestige && Array.isArray(saveData.prestige.perks)) {
@@ -707,6 +734,7 @@
             captive.name = normalizeCaptiveName(captive, captiveIndex);
             captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
             captive.breedingState = normalizeCaptiveBreedingState(captive.breedingState);
+            captive.gestationWeatherId = normalizeCaptiveGestationWeatherId(captive.gestationWeatherId, captive.breedingState);
             captive.gestationSecondsRemaining = Math.max(0, Number(captive.gestationSecondsRemaining) || 0);
             captive.restSecondsRemaining = Math.max(0, Number(captive.restSecondsRemaining) || 0);
 
@@ -778,6 +806,25 @@
         }
 
         return "idle";
+    }
+
+    /**
+     * 规范化俘虏孕育天气 ID。
+     *
+     * @param {string|undefined} gestationWeatherId - 存档中的孕育开始天气 ID，可省略。
+     * @param {"idle"|"gestating"|"resting"} breedingState - 俘虏繁育状态。
+     * @returns {string|undefined} 有效天气 ID；非孕育中或未知 ID 时返回 undefined。
+     */
+    function normalizeCaptiveGestationWeatherId(gestationWeatherId, breedingState) {
+        if (breedingState !== "gestating") {
+            return undefined;
+        }
+
+        if (game.ids.ID_REGISTRY.weather.indexOf(gestationWeatherId) === -1) {
+            return undefined;
+        }
+
+        return gestationWeatherId;
     }
 
     /**
