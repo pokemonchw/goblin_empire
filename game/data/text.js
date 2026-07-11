@@ -184,8 +184,7 @@
         ancestralEchoPerSecond: "祖灵回响/秒",
         allBasicCapacity: "基础容量"
         ,
-        militaryPowerMax: "军力上限",
-        militaryPowerOutputRatio: "军力产出倍率",
+        raidStrengthRatio: "掠夺队伍强度",
         ancestralEchoMax: "祖灵回响上限",
         tarMax: "焦油上限",
         blackIronMax: "黑铁上限",
@@ -259,10 +258,6 @@
         labor: {
             name: "劳力",
             description: "由存活哥布林派生，并被启用生产建筑占用的行动资源。"
-        },
-        militaryPower: {
-            name: "军力",
-            description: "训练、装备和抢掠兵积累的暴力准备。"
         },
         crudeKnowledge: {
             name: "粗识",
@@ -430,7 +425,7 @@
         },
         barracks_cave: {
             name: "兵营洞",
-            description: "把居住空间和武备堆场混在一起，提高人口和军力容量。"
+            description: "把居住空间和武备堆场混在一起，提高人口容量并给抢掠队集结。"
         },
         spore_trench: {
             name: "孢子沟",
@@ -518,7 +513,7 @@
         },
         training_pit: {
             name: "训练坑",
-            description: "让抢掠兵互相殴打，积累军力。"
+            description: "让抢掠兵互相殴打，提高掠夺队伍的临场强度。"
         },
         overseer_platform: {
             name: "监工台",
@@ -562,7 +557,7 @@
         },
         black_iron_dwelling: {
             name: "黑铁居所",
-            description: "更坚固的高阶居所，提高人口容量和军力储备。"
+            description: "更坚固的高阶居所，提高人口容量并容纳武装哥布林。"
         },
         rune_machine_room: {
             name: "符文机房",
@@ -651,6 +646,10 @@
         beast_pen: {
             name: "兽栏",
             description: "把洞穴小兽从食物变成可管理的材料来源。"
+        },
+        big_club: {
+            name: "大木棒",
+            description: "挑出够粗的朽木，削成能把胆子砸出来的第一批武器。"
         },
         crossbow: {
             name: "弓弩",
@@ -798,7 +797,7 @@
         },
         war_chief: {
             name: "战争头目",
-            description: "组织抢掠兵、战旗和战争营地，提高军力与战利品。"
+            description: "组织抢掠兵、战旗和战争营地，提高队伍强度与战利品。"
         },
         deep_miner: {
             name: "深矿师",

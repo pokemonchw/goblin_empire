@@ -718,10 +718,6 @@
             ratioBonus += state.statistics.woodcuttingToolRatio || 0;
         }
 
-        if (jobDefinition.baseOutput.militaryPower) {
-            ratioBonus += getOwnedEffectTotal(state, "militaryPowerOutputRatio");
-        }
-
         if (jobDefinition.baseOutput.obedience) {
             ratioBonus += policyEffects.obedienceOutputRatio || 0;
             ratioBonus += ritualEffects.obedienceOutputRatio || 0;

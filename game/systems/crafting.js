@@ -319,7 +319,6 @@
 
         if (resourceId === "steelIngot") {
             state.resourcesById.ironPlate.maxValue += 20 * craftedAmount;
-            state.resourcesById.militaryPower.maxValue += 10 * craftedAmount;
         }
 
         if (resourceId === "gear") {
@@ -358,7 +357,7 @@
         }
 
         if (resourceId === "warBanner") {
-            state.statistics.raidEquipmentRatio = (state.statistics.raidEquipmentRatio || 0) + 0.03 * craftedAmount;
+            state.statistics.raidStrengthRatio = (state.statistics.raidStrengthRatio || 0) + 0.03 * craftedAmount;
         }
 
         if (resourceId === "runeCarvingKnife") {
@@ -381,7 +380,7 @@
         state.statistics.woodcuttingToolRatio = 0;
         state.statistics.furnaceOutputRatio = 0;
         state.statistics.autoCraftRatio = 0;
-        state.statistics.raidEquipmentRatio = 0;
+        state.statistics.raidStrengthRatio = 0;
         state.statistics.raidCasualtyReductionRatio = 0;
         state.statistics.crudeKnowledgeOutputRatio = 0;
         state.statistics.tradeRatio = 0;

@@ -84,6 +84,7 @@
         game.expeditions.updateExpeditions(state, deltaSeconds);
         game.prestigeSystem.updatePrestigeStatistics(state);
         game.captivesSystem.syncCaptiveResource(state);
+        game.unlocks.applyPopulationUnlocks(state);
         resolveExtinctionIfNeeded(state, nowTimestamp);
         state.lastActiveTimestamp = nowTimestamp;
 

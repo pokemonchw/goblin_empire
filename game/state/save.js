@@ -272,8 +272,159 @@
             migratedSaveData.weather = game.weather.normalizeWeatherState(migratedSaveData.weather, migratedSaveData.calendar);
         }
 
+        if (sourceVersion < 13) {
+            // v12 旧 shape：弓弩同时承担早期抢掠兵和掠夺入口解锁，且没有大木棒科技状态。
+            // v13 新 shape：新增大木棒作为早期抢掠研究，弓弩退后为铁片阶段军工扩展。
+            // 迁移原因：避免旧存档已研究朽木栽培或弓弩后缺少新的抢掠兵研究入口。
+            migrateCrossbowRaidUnlocksToBigClub(migratedSaveData);
+        }
+
+        if (sourceVersion < 14) {
+            // v13 旧 shape：存在 militaryPower 资源、raidEquipmentRatio 统计和 raidPowerRatio 效果命名。
+            // v14 新 shape：掠夺由玩家输入战斗职业人数并按队伍强度结算，不再保存军力资源。
+            // 迁移原因：移除军力设定，同时保留无法由战旗库存重建的旧装备强度收益。
+            migrateMilitaryPowerRaidModelToRaidStrength(migratedSaveData);
+        }
+
         migratedSaveData.version = game.definitions.SAVE_VERSION;
         return migratedSaveData;
+    }
+
+    /**
+     * 将旧抢掠研究入口迁移到大木棒。
+     *
+     * @param {SaveData} saveData - v12 或更早存档对象，会直接修改 technologies 数组。
+     * @returns {void} 无返回值。
+     */
+    function migrateCrossbowRaidUnlocksToBigClub(saveData) {
+        if (!Array.isArray(saveData.technologies)) {
+            return;
+        }
+
+        // Object|null 朽木栽培科技存档：用于补齐新插入的大木棒显示状态。
+        var deadwoodCultivationTechnology = null;
+
+        // Object|null 弓弩科技存档：用于读取旧抢掠研究进度。
+        var crossbowTechnology = null;
+
+        // Object|null 大木棒科技存档：用于写入新抢掠研究进度。
+        var bigClubTechnology = null;
+
+        // number 循环索引：遍历存档科技数组的整数下标。
+        for (var technologyIndex = 0; technologyIndex < saveData.technologies.length; technologyIndex += 1) {
+            // Object 当前科技存档：包含 id、isUnlocked 和 isResearched。
+            var savedTechnology = saveData.technologies[technologyIndex];
+
+            if (savedTechnology.id === "crossbow") {
+                crossbowTechnology = savedTechnology;
+            }
+
+            if (savedTechnology.id === "deadwood_cultivation") {
+                deadwoodCultivationTechnology = savedTechnology;
+            }
+
+            if (savedTechnology.id === "big_club") {
+                bigClubTechnology = savedTechnology;
+            }
+        }
+
+        // boolean 是否应显示大木棒：朽木栽培完成或外交已解锁都会暴露早期抢掠研究入口。
+        var shouldUnlockBigClub = Boolean(
+            (deadwoodCultivationTechnology && deadwoodCultivationTechnology.isResearched) ||
+            (saveData.tabsUnlockedById && saveData.tabsUnlockedById.diplomacy)
+        );
+
+        // boolean 是否应完成大木棒：旧弓弩已研究等价于已走过旧抢掠前置链。
+        var shouldResearchBigClub = Boolean(crossbowTechnology && crossbowTechnology.isResearched);
+
+        if (!shouldUnlockBigClub && !shouldResearchBigClub) {
+            return;
+        }
+
+        if (!bigClubTechnology) {
+            bigClubTechnology = {
+                id: "big_club",
+                isUnlocked: true,
+                isResearched: shouldResearchBigClub
+            };
+            saveData.technologies.push(bigClubTechnology);
+            return;
+        }
+
+        bigClubTechnology.isUnlocked = true;
+        bigClubTechnology.isResearched = Boolean(bigClubTechnology.isResearched || shouldResearchBigClub);
+    }
+
+    /**
+     * 将旧军力资源掠夺模型迁移为队伍强度模型。
+     *
+     * @param {SaveData} saveData - v13 或更早存档对象，会清理 resources 并改写 statistics。
+     * @returns {void} 无返回值。
+     */
+    function migrateMilitaryPowerRaidModelToRaidStrength(saveData) {
+        if (Array.isArray(saveData.resources)) {
+            // ResourceState[] 过滤后资源数组：移除旧 militaryPower 存档项。
+            var filteredResources = [];
+
+            // number 循环索引：遍历旧资源存档数组的整数下标。
+            for (var resourceIndex = 0; resourceIndex < saveData.resources.length; resourceIndex += 1) {
+                // Object 当前资源存档：用于过滤旧军力资源。
+                var savedResource = saveData.resources[resourceIndex];
+
+                if (savedResource.id !== "militaryPower") {
+                    filteredResources.push(savedResource);
+                }
+            }
+
+            saveData.resources = filteredResources;
+        }
+
+        saveData.statistics = saveData.statistics || {};
+
+        if (saveData.statistics.raidEquipmentRatio) {
+            // number 旧装备倍率：来自战旗等制作物，可能包含无法从当前资源库存重建的值。
+            var legacyEquipmentRatio = saveData.statistics.raidEquipmentRatio;
+
+            // number 战旗数量：用于估算恢复时会由工坊系统重建的队伍强度倍率。
+            var warBannerCount = getSavedResourceValue(saveData, "warBanner");
+
+            // number 可重建装备倍率：每个战旗在当前规则下提供 0.03 队伍强度。
+            var rebuildableStrengthRatio = warBannerCount * 0.03;
+
+            // number 兼容强度倍率：只迁移旧统计里不能由资源库存重建的剩余部分，避免读档后双算。
+            var legacyStrengthRatio = Math.max(0, legacyEquipmentRatio - rebuildableStrengthRatio);
+
+            if (legacyStrengthRatio > 0) {
+                saveData.statistics.raidLegacyStrengthRatio = (saveData.statistics.raidLegacyStrengthRatio || 0) + legacyStrengthRatio;
+            }
+
+            delete saveData.statistics.raidEquipmentRatio;
+        }
+    }
+
+    /**
+     * 读取存档资源数量。
+     *
+     * @param {SaveData} saveData - 当前迁移中的存档对象，不会被修改。
+     * @param {ResourceId} resourceId - 资源稳定 ID。
+     * @returns {number} 存档资源数量，非负资源数量；缺失时返回 0。
+     */
+    function getSavedResourceValue(saveData, resourceId) {
+        if (!Array.isArray(saveData.resources)) {
+            return 0;
+        }
+
+        // number 循环索引：遍历资源存档数组的整数下标。
+        for (var resourceIndex = 0; resourceIndex < saveData.resources.length; resourceIndex += 1) {
+            // Object 当前资源存档：用于匹配资源 ID 并读取数量。
+            var savedResource = saveData.resources[resourceIndex];
+
+            if (savedResource.id === resourceId) {
+                return Math.max(0, Number(savedResource.value) || 0);
+            }
+        }
+
+        return 0;
     }
 
     /**

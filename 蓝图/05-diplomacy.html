@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="blueprint.css">
 </head>
 <body>
-    <!-- 外交页：表现贸易、关系、军力解锁后的独立掠夺行动和俘虏处置，所有风险与俘虏详情浮窗字段必须在按钮旁可见。 -->
+    <!-- 外交页：表现贸易、关系和战斗职业解锁后的独立掠夺行动；俘虏处置保留在氏族页。 -->
     <header class="global-topbar" aria-label="全局工具栏">
         <div class="brand-mark">
             <strong>哥布林帝国</strong>
@@ -29,7 +29,6 @@
                 <h2>外交资源</h2>
                 <div class="resource-row"><strong>金币</strong><span>18 / 50</span><span class="positive">+0.02/s</span></div>
                 <div class="resource-row"><strong>战利品</strong><span>6 / 100</span><span>掠夺</span></div>
-                <div class="resource-row"><strong>军力</strong><span>42 / 100</span><span class="positive">+0.2/s</span></div>
                 <div class="resource-row"><strong>劳力</strong><span>130 / 225</span><span class="positive">+0.1/s</span></div>
             </div>
             <div class="section">
@@ -44,7 +43,7 @@
             <div class="topline">
                 <div class="title-block">
                     <h1>外交</h1>
-                    <p>研究货币并建造黑市后解锁，覆盖贸易、关系和俘虏管理；军力资源解锁后追加独立掠夺行动卡片。</p>
+                    <p>首次拥有存活哥布林后解锁，覆盖贸易和关系；同步开放大木棒研究，抢掠兵解锁后追加独立掠夺行动卡片。</p>
                 </div>
                 <a class="tab" href="index.html">总览</a>
             </div>
@@ -70,40 +69,30 @@
                 </table>
             </section>
             <section class="section">
-                <h2>掠夺行动（军力解锁后显示）</h2>
-                <p class="note">该区块位于外交页，但不属于研究卡片；只有军力资源已显示时才出现在运行时界面。</p>
+                <h2>掠夺行动（战斗职业解锁后显示）</h2>
+                <p class="note">该区块位于外交页，但不属于研究卡片；派出抢掠兵或战争头目即时结算，不消耗劳力或资源。</p>
                 <div class="button-list">
                     <div class="action danger">
-                        <div><div class="action-title">菌菇农洞 <span>成功率 82%</span><span>低风险</span></div><p>消耗：劳力 20，军力 10。收益：菌菇 120、战利品 3。风险：鼠人商队关系 -8。</p></div>
+                        <div><div class="action-title">菌菇农洞 <span>成功率 82%</span><span>低风险</span></div><p>最低派出：1；目标强度：15；队伍强度预览：31。收益：菌菇 120、战利品 3。风险：鼠人商队关系 -8。</p><p>派出人数：<input type="number" value="1" min="1" max="3"></p></div>
                         <button class="btn">掠夺</button>
                     </div>
                     <div class="action danger">
-                        <div><div class="action-title">商队营地 <span>成功率 58%</span><span>中风险</span></div><p>消耗：劳力 35，军力 25。收益：金币 20、战利品 8，可能获得商队账房或工匠俘虏。</p></div>
+                        <div><div class="action-title">商队营地 <span>成功率 58%</span><span>中风险</span></div><p>最低派出：2；目标强度：30；队伍强度预览：38。收益：金币 20、战利品 8，可能获得商队账房或工匠俘虏。</p><p>派出人数：<input type="number" value="2" min="2" max="3"></p></div>
                         <button class="btn">掠夺</button>
                     </div>
                     <div class="action locked">
-                        <div><div class="action-title">地表村落 <span>地表学后解锁</span></div><p>消耗：劳力 60，军力 55。收益：菌菇 200、皮革 20、战利品 18。</p><p>可用倒计时：不可用。</p></div>
+                        <div><div class="action-title">地表村落 <span>地表学后解锁</span></div><p>最低派出：4；目标强度：55。收益：菌菇 200、皮革 20、战利品 18。</p><p>可用倒计时：不可用。</p></div>
                         <button class="btn" disabled>未解锁</button>
                     </div>
                 </div>
-            </section>
-            <section class="section">
-                <h2>俘虏列表与处置</h2>
-                <p class="note">运行时俘虏卡片悬浮框显示：洗脑程度、洗脑消耗菌菇 100、孕育成功率、孕育失败率、逃跑率、反抗率、继承倾向概率和当前状态。</p>
-                <table class="table">
-                    <thead><tr><th>俘虏</th><th>质量</th><th>来源</th><th>洗脑/状态</th><th>口粮</th><th>培育收益</th><th>改造/食物收益</th><th>风险</th><th>处置</th></tr></thead>
-                    <tbody>
-                        <tr><td>村姑</td><td>普通</td><td>菌菇农洞</td><td>洗脑 0%，空闲</td><td>菌菇 -3.125/s</td><td>孕育成功 55%，失败 45%，休养 1 月，基础哥布林、采集倾向</td><td>洗脑消耗菌菇 100，洗脑提升 +12；食物 +40</td><td>逃跑 12%，反抗 5%</td><td><button class="btn">培育新生</button> <button class="btn">改造</button> <button class="btn">食物</button></td></tr>
-                        <tr><td>商队账房</td><td>熟练</td><td>商队营地</td><td>洗脑 50%，孕育中</td><td>菌菇 -3.125/s</td><td>孕育成功 72%，失败 28%，休养 1 月，精明哥布林、贸易倾向、属性更高</td><td>洗脑消耗菌菇 100，孕育中不可改造；食物 +60</td><td>逃跑 16%，反抗 8%</td><td><button class="btn" disabled>培育新生</button> <button class="btn" disabled>改造</button> <button class="btn" disabled>食物</button></td></tr>
-                    </tbody>
-                </table>
             </section>
         </main>
         <aside class="right-rail">
             <div class="section">
                 <h2>风险公式</h2>
-                <pre class="formula">成功率 = clamp(5%, 95%, 50% + 军力优势 / 100)
-伤亡率 = clamp(5%, 50%, 25% - 军力优势 / 300 - 伤亡减免)</pre>
+                <pre class="formula">强度优势 = 队伍强度 - 目标强度
+成功率 = clamp(5%, 95%, 50% + 强度优势 / 100)
+伤亡率 = clamp(3%, 55%, 22% - 强度优势 / 280 - 伤亡减免)</pre>
             </div>
             <div class="section">
                 <h2>外交日志</h2>

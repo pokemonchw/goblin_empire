@@ -65,6 +65,7 @@
                 var restoredState = game.save.loadFromText(rawSaveText);
 
                 game.captivesSystem.syncCaptiveResource(restoredState);
+                game.unlocks.applyPopulationUnlocks(restoredState);
                 game.runtime.state = restoredState;
                 game.simulation.addLog(restoredState, "normal", game.text.TEXT_REGISTRY.logs.loaded);
                 game.render.renderApp(restoredState);
@@ -112,6 +113,7 @@
                 var importedState = game.save.loadFromText(importedSaveText);
 
                 game.captivesSystem.syncCaptiveResource(importedState);
+                game.unlocks.applyPopulationUnlocks(importedState);
                 game.runtime.state = importedState;
                 game.simulation.addLog(importedState, "normal", game.text.TEXT_REGISTRY.logs.imported);
                 game.render.renderApp(importedState);
@@ -287,8 +289,11 @@
             }
 
             if (targetElement.dataset.raidTargetId) {
-                if (confirmRaidAction(currentState, targetElement.dataset.raidTargetId)) {
-                    game.raids.executeRaid(currentState, targetElement.dataset.raidTargetId);
+                // number 派出人数：从当前掠夺卡片输入框读取的正整数。
+                var raidMemberCount = getRaidMemberCountFromButton(targetElement);
+
+                if (confirmRaidAction(currentState, targetElement.dataset.raidTargetId, raidMemberCount)) {
+                    game.raids.executeRaid(currentState, targetElement.dataset.raidTargetId, raidMemberCount);
                 }
                 renderAfterStateChange(currentState);
                 return;
@@ -346,7 +351,24 @@
             // HTMLElement|null 输入目标：可能是人口普查筛选框。
             var targetElement = event.target;
 
-            if (!targetElement || !targetElement.dataset || !targetElement.dataset.censusFilterKey) {
+            if (!targetElement || !targetElement.dataset) {
+                return;
+            }
+
+            if (targetElement.dataset.raidMemberInput) {
+                if (!game.runtime.raidMemberCountsByTargetId) {
+                    game.runtime.raidMemberCountsByTargetId = {};
+                }
+
+                // number 派出人数：玩家在掠夺卡片中输入的正整数。
+                var raidMemberCount = Number(targetElement.value);
+
+                game.runtime.raidMemberCountsByTargetId[targetElement.dataset.raidMemberInput] = Number.isFinite(raidMemberCount) && raidMemberCount > 0 ? Math.floor(raidMemberCount) : 1;
+                game.render.renderApp(game.runtime.state);
+                return;
+            }
+
+            if (!targetElement.dataset.censusFilterKey) {
                 return;
             }
 
@@ -846,20 +868,57 @@
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {string} targetId - 掠夺目标稳定 ID。
+     * @param {number} raidMemberCount - 玩家输入的派出人数，正整数。
      * @returns {boolean} 玩家是否确认执行；true 表示继续掠夺。
      */
-    function confirmRaidAction(state, targetId) {
+    function confirmRaidAction(state, targetId, raidMemberCount) {
         // RaidTargetDefinition|null 目标定义：用于显示掠夺目标名称。
         var targetDefinition = game.raids.getRaidTargetDefinition(targetId);
 
-        // Object 掠夺预览：包含成本、奖励、成功率、伤亡率和关系代价。
-        var raidPreview = game.raids.previewRaid(state, targetId);
+        // Object 掠夺预览：包含队伍强度、收益、成功率、伤亡率和关系代价。
+        var raidPreview = game.raids.previewRaid(state, targetId, raidMemberCount);
 
         if (!targetDefinition) {
             return false;
         }
 
-        return window.confirm("确认掠夺：" + targetDefinition.name + "\n收益：" + formatRewardRange(raidPreview.rewards) + "\n成功率：" + formatPercent(raidPreview.successChance) + "\n伤亡概率：" + formatPercent(raidPreview.casualtyChance) + "\n关系下降：" + raidPreview.relationPenalty + "\n消耗：" + formatPriceList(raidPreview.cost));
+        if (!raidPreview.canStart) {
+            window.alert("战斗职业哥布林不足：" + targetDefinition.name + " 至少需要 " + targetDefinition.minRaiders + " 名。");
+            return false;
+        }
+
+        return window.confirm("确认掠夺：" + targetDefinition.name + "\n派出：" + raidPreview.raiderCount + " / 可用 " + raidPreview.availableRaiderCount + "\n队伍强度：" + formatNumber(raidPreview.teamStrength) + "，目标强度：" + raidPreview.targetStrength + "\n收益：" + formatRewardRange(raidPreview.rewards) + "\n成功率：" + formatPercent(raidPreview.successChance) + "\n伤亡概率：" + formatPercent(raidPreview.casualtyChance) + "，死亡概率：" + formatPercent(raidPreview.deathChance) + "\n关系下降：" + raidPreview.relationPenalty + "\n报复可能：" + formatPercent(raidPreview.retaliationChance));
+    }
+
+    /**
+     * 从掠夺按钮所在卡片读取玩家输入的派出人数。
+     *
+     * @param {HTMLElement} buttonElement - 被点击的掠夺按钮元素。
+     * @returns {number} 派出人数，正整数；缺失或非法时返回 1。
+     */
+    function getRaidMemberCountFromButton(buttonElement) {
+        // HTMLElement|null 卡片元素：用于限制查询范围到当前掠夺卡片。
+        var cardElement = buttonElement.closest(".action-card");
+
+        if (!cardElement) {
+            return 1;
+        }
+
+        // HTMLInputElement|null 输入元素：当前卡片中的派出人数输入框。
+        var inputElement = cardElement.querySelector("[data-raid-member-input]");
+
+        if (!inputElement) {
+            return 1;
+        }
+
+        // number 派出人数：玩家输入文本转成整数。
+        var raidMemberCount = Number(inputElement.value);
+
+        if (!Number.isFinite(raidMemberCount) || raidMemberCount <= 0) {
+            return 1;
+        }
+
+        return Math.floor(raidMemberCount);
     }
 
     /**

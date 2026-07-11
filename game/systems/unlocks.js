@@ -64,6 +64,57 @@
         applyFlagUnlocks(state.upgradesUnlockedById, unlockBundle.upgrades || []);
         applyFlagUnlocks(state.craftsUnlockedById, unlockBundle.crafts || []);
         applyFlagUnlocks(state.policiesUnlockedById, unlockBundle.policies || []);
+        applyDiplomacyUnlocks(state);
+    }
+
+    /**
+     * 同步由人口门槛触发的一次性解锁。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会在首次拥有存活哥布林后解锁外交标签页和早期抢掠研究入口。
+     * @returns {void} 无返回值。
+     */
+    function applyPopulationUnlocks(state) {
+        // number 存活哥布林数量：用于判断人口驱动的系统入口，非负整数。
+        var aliveGoblinCount = game.population && game.population.countAliveGoblins ? game.population.countAliveGoblins(state) : 0;
+
+        // 外交在玩家拥有第一只哥布林后开放，让贸易和抢掠研究入口不被中期黑市卡住。
+        if (aliveGoblinCount > 0) {
+            state.tabsUnlockedById.diplomacy = true;
+            applyDiplomacyUnlocks(state);
+        }
+
+        applyDerivedUnlocks(state);
+    }
+
+    /**
+     * 同步外交入口带出的早期抢掠研究。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会在外交标签页已解锁时显示大木棒研究。
+     * @returns {void} 无返回值。
+     */
+    function applyDiplomacyUnlocks(state) {
+        if (!state.tabsUnlockedById.diplomacy) {
+            return;
+        }
+
+        // TechnologyId[] 外交前置抢掠科技列表：用于让玩家尽早研究抢掠兵并在外交页开启掠夺。
+        var raidTechnologyIds = [
+            "big_club"
+        ];
+
+        applyTechnologyUnlocks(state, raidTechnologyIds);
+    }
+
+    /**
+     * 同步解锁派生规则。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会按已解锁标签页补齐派生科技入口。
+     * @returns {void} 无返回值。
+     */
+    function applyDerivedUnlocks(state) {
+        if (state.tabsUnlockedById.diplomacy) {
+            applyDiplomacyUnlocks(state);
+        }
     }
 
     /**
@@ -167,6 +218,8 @@
         isDefaultUnlocked: isDefaultUnlocked,
         shouldRevealResource: shouldRevealResource,
         applyUnlockBundle: applyUnlockBundle,
+        applyPopulationUnlocks: applyPopulationUnlocks,
+        applyDerivedUnlocks: applyDerivedUnlocks,
         applyFlagUnlocks: applyFlagUnlocks
     };
 })(window.GoblinEmpire);

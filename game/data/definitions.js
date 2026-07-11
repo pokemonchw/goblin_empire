@@ -97,8 +97,8 @@
      * @property {string} name - 中文显示名。
      * @property {string} description - 中文说明。
      * @property {string} factionId - 关联阵营 ID。
-     * @property {Price[]} cost - 发起掠夺的资源成本。
-     * @property {number} defense - 目标防御值，非负数。
+     * @property {number} minRaiders - 发起掠夺需要派出的最低战斗职业哥布林数量，正整数。
+     * @property {number} targetStrength - 目标地点强度，非负数。
      * @property {Object.<string, number>} rewards - 成功收益字典；key 为资源 ID，value 为资源数量。
      * @property {string[]} captiveTypes - 可能获得的俘虏类型 ID 数组。
      * @property {number} relationPenalty - 掠夺后关系下降值，非负数。
@@ -205,7 +205,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 12;
+    var SAVE_VERSION = 14;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -414,15 +414,6 @@
             isVisibleAtStart: true,
             isCapacityLimited: false,
             description: game.text.TEXT_REGISTRY.resources.labor.description
-        },
-        {
-            id: "militaryPower",
-            name: game.text.TEXT_REGISTRY.resources.militaryPower.name,
-            category: "rare",
-            defaultMaxValue: 100,
-            isVisibleAtStart: false,
-            isCapacityLimited: true,
-            description: game.text.TEXT_REGISTRY.resources.militaryPower.description
         },
         {
             id: "crudeKnowledge",
@@ -864,7 +855,7 @@
             priceRatio: 1.15,
             effects: {
                 housingMax: 1,
-                militaryPowerMax: 50
+                raidStrengthRatio: 0.05
             },
             unlock: {
                 isDefault: false
@@ -1240,9 +1231,6 @@
             },
             unlock: {
                 isDefault: false,
-                tabs: [
-                    "diplomacy"
-                ],
                 resources: [
                     "coin"
                 ]
@@ -1258,7 +1246,7 @@
             ],
             priceRatio: 1.15,
             effects: {
-                militaryPowerMax: 100
+                raidStrengthRatio: 0.08
             },
             unlock: {
                 isDefault: false
@@ -1294,7 +1282,7 @@
             effects: {
                 laborUsage: 8,
                 lootMax: 100,
-                militaryPowerOutputRatio: 0.1
+                raidStrengthRatio: 0.1
             },
             unlock: {
                 isDefault: false,
@@ -1457,7 +1445,7 @@
             ],
             priceRatio: 1.2,
             effects: {
-                militaryPowerMax: 250,
+                raidStrengthRatio: 0.15,
                 lootMax: 250,
                 fortressAchievement: 1
             },
@@ -1476,7 +1464,7 @@
             priceRatio: 1.18,
             effects: {
                 housingMax: 2,
-                militaryPowerMax: 50
+                raidStrengthRatio: 0.05
             },
             unlock: {
                 isDefault: false
@@ -1514,8 +1502,7 @@
             priceRatio: 1.16,
             effects: {
                 laborUsage: 12,
-                militaryPowerMax: 150,
-                militaryPowerOutputRatio: 0.15,
+                raidStrengthRatio: 0.15,
                 lootMax: 150
             },
             unlock: {
@@ -1661,7 +1648,8 @@
                     "rotten_grove"
                 ],
                 technologies: [
-                    "woodcraft"
+                    "woodcraft",
+                    "big_club"
                 ]
             },
             unlock: {
@@ -1916,6 +1904,31 @@
             }
         },
         {
+            id: "big_club",
+            name: game.text.TEXT_REGISTRY.technologies.big_club.name,
+            description: game.text.TEXT_REGISTRY.technologies.big_club.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 45),
+                game.pricing.createPrice("rottenWood", 80)
+            ],
+            unlocks: {
+                jobs: [
+                    "raider"
+                ],
+                buildings: [
+                    "training_pit",
+                    "bad_wine_barrel",
+                    "captive_bed"
+                ],
+                resources: [
+                    "captive"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
             id: "crossbow",
             name: game.text.TEXT_REGISTRY.technologies.crossbow.name,
             description: game.text.TEXT_REGISTRY.technologies.crossbow.description,
@@ -1924,18 +1937,9 @@
                 game.pricing.createPrice("ironPlate", 5)
             ],
             unlocks: {
-                jobs: [
-                    "raider"
-                ],
                 buildings: [
-                    "training_pit",
                     "weapon_shed",
-                    "bad_wine_barrel",
-                    "barracks_cave",
-                    "captive_bed"
-                ],
-                resources: [
-                    "captive"
+                    "barracks_cave"
                 ]
             },
             unlock: {
@@ -2532,7 +2536,7 @@
                 cunning: 0.3
             },
             baseOutput: {
-                militaryPower: 0.025
+                loot: 0.001
             },
             unlock: {
                 isDefault: false
@@ -2648,7 +2652,6 @@
                 will: 0.3
             },
             baseOutput: {
-                militaryPower: 0.04,
                 loot: 0.006
             },
             unlock: {
@@ -2684,11 +2687,11 @@
             name: game.text.TEXT_REGISTRY.policies.trade_focus.name,
             description: game.text.TEXT_REGISTRY.policies.trade_focus.description,
             effectSummary: "贸易收益 +15%，交易关系变化 +1。",
-            costSummary: "掠夺成功率 -5%。",
+            costSummary: "掠夺队伍强度 -5%。",
             effects: {
                 tradeRewardRatio: 0.15,
                 tradeRelationBonus: 1,
-                raidPowerRatio: -0.05
+                raidStrengthRatio: -0.05
             },
             unlock: {
                 isDefault: false
@@ -2700,10 +2703,10 @@
             groupName: "扩张方式",
             name: game.text.TEXT_REGISTRY.policies.raid_focus.name,
             description: game.text.TEXT_REGISTRY.policies.raid_focus.description,
-            effectSummary: "掠夺军力倍率 +15%，战利品收益 +10%。",
+            effectSummary: "掠夺队伍强度 +15%，战利品收益 +10%。",
             costSummary: "贸易收益 -10%。",
             effects: {
-                raidPowerRatio: 0.15,
+                raidStrengthRatio: 0.15,
                 raidLootRatio: 0.1,
                 tradeRewardRatio: -0.1
             },
@@ -2781,11 +2784,11 @@
             name: game.text.TEXT_REGISTRY.policies.ancestor_veneration.name,
             description: game.text.TEXT_REGISTRY.policies.ancestor_veneration.description,
             effectSummary: "祖灵回响职业产出 +15%，事故概率 -5%。",
-            costSummary: "掠夺军力倍率 -5%。",
+            costSummary: "掠夺队伍强度 -5%。",
             effects: {
                 ancestralEchoOutputRatio: 0.15,
                 eventStabilityRatio: 0.05,
-                raidPowerRatio: -0.05
+                raidStrengthRatio: -0.05
             },
             unlock: {
                 isDefault: false
@@ -2866,10 +2869,10 @@
             groupName: "帝国路线",
             name: game.text.TEXT_REGISTRY.policies.warlord_autonomy.name,
             description: game.text.TEXT_REGISTRY.policies.warlord_autonomy.description,
-            effectSummary: "掠夺军力倍率 +15%，掠夺收益 +15%。",
+            effectSummary: "掠夺队伍强度 +15%，掠夺收益 +15%。",
             costSummary: "事故和内斗风险 +10%。",
             effects: {
-                raidPowerRatio: 0.15,
+                raidStrengthRatio: 0.15,
                 raidLootRatio: 0.15,
                 eventRiskRatio: 0.1
             },
@@ -3071,10 +3074,10 @@
             id: "war_pact",
             name: game.text.TEXT_REGISTRY.pacts.war_pact.name,
             description: game.text.TEXT_REGISTRY.pacts.war_pact.description,
-            effectSummary: "掠夺军力倍率 +20%，掠夺收益 +25%。",
+            effectSummary: "掠夺队伍强度 +20%，掠夺收益 +25%。",
             costSummary: "贸易收益 -15%，事故概率 +5%。",
             effects: {
-                raidPowerRatio: 0.2,
+                raidStrengthRatio: 0.2,
                 raidLootRatio: 0.25,
                 tradeRewardRatio: -0.15,
                 eventRiskRatio: 0.05
@@ -4135,11 +4138,8 @@
             name: game.text.TEXT_REGISTRY.raidTargets.fungus_farm_cave.name,
             description: game.text.TEXT_REGISTRY.raidTargets.fungus_farm_cave.description,
             factionId: "rat_caravan",
-            cost: [
-                game.pricing.createPrice("labor", 20),
-                game.pricing.createPrice("militaryPower", 10)
-            ],
-            defense: 15,
+            minRaiders: 1,
+            targetStrength: 15,
             rewards: {
                 fungus: 120,
                 loot: 3
@@ -4158,11 +4158,8 @@
             name: game.text.TEXT_REGISTRY.raidTargets.caravan_camp.name,
             description: game.text.TEXT_REGISTRY.raidTargets.caravan_camp.description,
             factionId: "goblin_black_market",
-            cost: [
-                game.pricing.createPrice("labor", 35),
-                game.pricing.createPrice("militaryPower", 25)
-            ],
-            defense: 30,
+            minRaiders: 2,
+            targetStrength: 30,
             rewards: {
                 coin: 20,
                 loot: 8
@@ -4181,11 +4178,8 @@
             name: game.text.TEXT_REGISTRY.raidTargets.mine_league_outpost.name,
             description: game.text.TEXT_REGISTRY.raidTargets.mine_league_outpost.description,
             factionId: "gray_dwarf_mine_league",
-            cost: [
-                game.pricing.createPrice("labor", 50),
-                game.pricing.createPrice("militaryPower", 40)
-            ],
-            defense: 45,
+            minRaiders: 3,
+            targetStrength: 45,
             rewards: {
                 ironOre: 80,
                 coalSlag: 40,
@@ -4205,11 +4199,8 @@
             name: game.text.TEXT_REGISTRY.raidTargets.surface_village.name,
             description: game.text.TEXT_REGISTRY.raidTargets.surface_village.description,
             factionId: "lizard_swamp_clan",
-            cost: [
-                game.pricing.createPrice("labor", 60),
-                game.pricing.createPrice("militaryPower", 55)
-            ],
-            defense: 55,
+            minRaiders: 4,
+            targetStrength: 55,
             rewards: {
                 fungus: 200,
                 leather: 20,
@@ -4231,11 +4222,8 @@
             name: game.text.TEXT_REGISTRY.raidTargets.noble_carriage.name,
             description: game.text.TEXT_REGISTRY.raidTargets.noble_carriage.description,
             factionId: "surface_border_city",
-            cost: [
-                game.pricing.createPrice("labor", 90),
-                game.pricing.createPrice("militaryPower", 90)
-            ],
-            defense: 90,
+            minRaiders: 6,
+            targetStrength: 90,
             rewards: {
                 coin: 80,
                 ledger: 20,
@@ -4256,11 +4244,8 @@
             name: game.text.TEXT_REGISTRY.raidTargets.surface_barracks.name,
             description: game.text.TEXT_REGISTRY.raidTargets.surface_barracks.description,
             factionId: "surface_border_city",
-            cost: [
-                game.pricing.createPrice("labor", 120),
-                game.pricing.createPrice("militaryPower", 130)
-            ],
-            defense: 130,
+            minRaiders: 8,
+            targetStrength: 130,
             rewards: {
                 steelIngot: 25,
                 warBanner: 2,
@@ -4281,11 +4266,8 @@
             name: game.text.TEXT_REGISTRY.raidTargets.ancient_ruin.name,
             description: game.text.TEXT_REGISTRY.raidTargets.ancient_ruin.description,
             factionId: "undead_lord",
-            cost: [
-                game.pricing.createPrice("labor", 100),
-                game.pricing.createPrice("militaryPower", 150)
-            ],
-            defense: 150,
+            minRaiders: 7,
+            targetStrength: 150,
             rewards: {
                 manaCrystal: 30,
                 runePlate: 8,

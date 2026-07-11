@@ -226,7 +226,12 @@
      * @property {string} id - 掠夺目标稳定 ID。
      * @property {string} name - 中文显示名。
      * @property {string} description - 中文说明。
-     * @property {Price[]} cost - 发起掠夺的资源成本数组。
+     * @property {string} factionId - 关联阵营 ID。
+     * @property {number} minRaiders - 发起掠夺需要派出的最低战斗职业哥布林数量，正整数。
+     * @property {number} targetStrength - 目标地点强度，非负数。
+     * @property {Object.<string, number>} rewards - 成功收益字典；key 为资源 ID，value 为资源数量。
+     * @property {string[]} captiveTypes - 可能获得的俘虏类型 ID 数组。
+     * @property {number} relationPenalty - 掠夺后关系下降基础值，非负整数。
      * @property {UnlockBundle} unlock - 显示该目标所需的解锁条件。
      */
 

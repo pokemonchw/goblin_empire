@@ -51,7 +51,7 @@
         var pactEffects = game.pacts ? game.pacts.getPactEffects(state) : {};
 
         // number 成功率：按队伍实力和路线难度钳制在 5%-95%。
-        var successChance = Math.max(0.05, Math.min(0.95, 0.5 + (teamPower - routeDefinition.difficulty) / 120 + (pactEffects.raidPowerRatio || 0) / 2));
+        var successChance = Math.max(0.05, Math.min(0.95, 0.5 + (teamPower - routeDefinition.difficulty) / 120 + (pactEffects.raidStrengthRatio || 0) / 2));
 
         // number 伤亡概率：难度越高越危险，队伍实力可压低风险。
         var casualtyChance = Math.max(0.05, Math.min(0.75, routeDefinition.casualtyChance + (routeDefinition.difficulty - teamPower) / 300));
@@ -63,7 +63,7 @@
             successChance: successChance,
             casualtyChance: casualtyChance,
             rewardSummary: formatRewardSummary(routeDefinition.rewards),
-            pactInfluence: pactEffects.raidPowerRatio ? "战争契约提高成功率" : "无契约修正"
+            pactInfluence: pactEffects.raidStrengthRatio ? "战争契约提高成功率" : "无契约修正"
         };
     }
 

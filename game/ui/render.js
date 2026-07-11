@@ -1812,7 +1812,7 @@
             return "制度";
         }
 
-        if (technologyId === "beast_pen" || technologyId === "crossbow" || technologyId === "surface_lore") {
+        if (technologyId === "beast_pen" || technologyId === "big_club" || technologyId === "crossbow" || technologyId === "surface_lore") {
             return "军工";
         }
 
@@ -3553,7 +3553,7 @@
      * 渲染外交标签页。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @param {HTMLElement} tabContentElement - 标签页内容容器，会被写入外交卡片和军力解锁后的掠夺区块。
+     * @param {HTMLElement} tabContentElement - 标签页内容容器，会被写入外交卡片和战斗职业解锁后的掠夺区块。
      * @returns {void} 无返回值。
      */
     function renderDiplomacyTab(state, tabContentElement) {
@@ -3575,7 +3575,6 @@
         }
 
         tabContentElement.appendChild(gridElement);
-        tabContentElement.appendChild(renderCaptiveSection(state));
 
         if (isRaidSectionVisible(state)) {
             tabContentElement.appendChild(renderRaidSection(state));
@@ -3586,13 +3585,10 @@
      * 判断外交页是否显示掠夺区块。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @returns {boolean} 是否显示掠夺区块；true 表示军力资源已经解锁并可见。
+     * @returns {boolean} 是否显示掠夺区块；true 表示抢掠兵或战争头目职业已经解锁。
      */
     function isRaidSectionVisible(state) {
-        // ResourceState 军力资源状态：用资源可见性作为掠夺入口解锁信号。
-        var militaryPowerState = state.resourcesById.militaryPower;
-
-        return Boolean(militaryPowerState && militaryPowerState.isVisible);
+        return game.jobs.isJobUnlocked(state, "raider") || game.jobs.isJobUnlocked(state, "war_chief");
     }
 
     /**
@@ -3606,7 +3602,7 @@
         var sectionElement = document.createElement("section");
 
         sectionElement.appendChild(createTextElement("h3", "掠夺行动"));
-        sectionElement.appendChild(createTextElement("p", "军力已成形后开放；每次掠夺都会显示成本、成功率、伤亡概率、关系下降和报复可能。"));
+        sectionElement.appendChild(createTextElement("p", "派出抢掠兵或战争头目即时结算；掠夺不消耗劳力，也不消耗资源。"));
         sectionElement.appendChild(renderRaidTargets(state));
         return sectionElement;
     }
@@ -3687,29 +3683,48 @@
         // HTMLElement 卡片元素：承载掠夺预览和执行按钮。
         var cardElement = document.createElement("div");
 
-        // Object.<string, number|string|Price[]|Object> 掠夺预览：包含成功率和风险。
-        var preview = game.raids.previewRaid(state, targetDefinition.id);
+        // Object.<string, number> 掠夺派出人数缓存：key 为掠夺目标 ID，value 为玩家输入的派出人数。
+        var raidMemberCountsByTargetId = game.runtime && game.runtime.raidMemberCountsByTargetId ? game.runtime.raidMemberCountsByTargetId : {};
+
+        // number 当前派出人数：优先使用玩家输入，缺省按目标最低人数预览。
+        var configuredRaiderCount = raidMemberCountsByTargetId[targetDefinition.id] || targetDefinition.minRaiders;
+
+        // Object.<string, number|string|boolean|Price[]|Object> 掠夺预览：包含队伍强度、成功率和风险。
+        var preview = game.raids.previewRaid(state, targetDefinition.id, configuredRaiderCount);
+
+        // HTMLLabelElement 派出人数标签：包裹数量输入，便于玩家调整队伍人数。
+        var inputLabelElement = document.createElement("label");
+
+        // HTMLInputElement 派出人数输入框：玩家指定本次掠夺派出的战斗职业人数。
+        var inputElement = document.createElement("input");
 
         // HTMLButtonElement 掠夺按钮：点击后执行掠夺。
         var buttonElement = document.createElement("button");
 
-        // string[] 缺口文本数组：资源不足时显示掠夺成本缺口。
-        var missingTexts = game.resources.getMissingResourceTexts(state, targetDefinition.cost);
-
         cardElement.className = "action-card";
+        inputLabelElement.className = "field-label";
+        inputLabelElement.textContent = "派出人数";
+        inputElement.type = "number";
+        inputElement.min = String(targetDefinition.minRaiders);
+        inputElement.max = String(preview.availableRaiderCount);
+        inputElement.step = "1";
+        inputElement.value = String(Math.min(Math.max(configuredRaiderCount, targetDefinition.minRaiders), Math.max(preview.availableRaiderCount, targetDefinition.minRaiders)));
+        inputElement.dataset.raidMemberInput = targetDefinition.id;
         buttonElement.type = "button";
         buttonElement.dataset.raidTargetId = targetDefinition.id;
         buttonElement.textContent = "掠夺";
-        buttonElement.disabled = state.isPaused || !game.resources.canAfford(state, targetDefinition.cost);
+        buttonElement.disabled = state.isPaused || !preview.canStart;
         cardElement.appendChild(createTextElement("h3", targetDefinition.name));
         cardElement.appendChild(createTextElement("p", targetDefinition.description));
-        cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.costPrefix + formatPriceList(targetDefinition.cost)));
-        cardElement.appendChild(createTextElement("p", "成功率：" + Math.round(preview.successChance * 100) + "%，伤亡概率：" + Math.round(preview.casualtyChance * 100) + "%"));
+        cardElement.appendChild(createTextElement("p", "最低队伍：" + targetDefinition.minRaiders + "，可派出：" + preview.availableRaiderCount + "，目标强度：" + targetDefinition.targetStrength));
+        cardElement.appendChild(createTextElement("p", "预览队伍强度：" + preview.teamStrength.toFixed(1) + "，成功率：" + Math.round(preview.successChance * 100) + "%"));
+        cardElement.appendChild(createTextElement("p", "伤亡概率：" + Math.round(preview.casualtyChance * 100) + "%，死亡概率：" + Math.round(preview.deathChance * 100) + "%"));
         cardElement.appendChild(createTextElement("p", "关系下降：" + preview.relationPenalty + "，报复可能：" + Math.round(preview.retaliationChance * 100) + "%"));
         cardElement.appendChild(createTextElement("p", "俘虏范围：" + preview.captiveTypes));
-        if (missingTexts.length > 0) {
-            cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.missingPrefix + missingTexts.join("，")));
-            appendPriceAvailabilityText(cardElement, state, targetDefinition.cost);
+        inputLabelElement.appendChild(inputElement);
+        cardElement.appendChild(inputLabelElement);
+        if (!preview.canStart) {
+            cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.missingPrefix + "战斗职业哥布林 " + Math.max(0, targetDefinition.minRaiders - preview.availableRaiderCount)));
         }
         cardElement.appendChild(buttonElement);
         return cardElement;

@@ -208,7 +208,6 @@
         applyResourceCapacityEffect(state, effects, "coalSlagMax", "coalSlag");
         applyResourceCapacityEffect(state, effects, "ironOreMax", "ironOre");
         applyResourceCapacityEffect(state, effects, "ironPlateMax", "ironPlate");
-        applyResourceCapacityEffect(state, effects, "militaryPowerMax", "militaryPower");
         applyResourceCapacityEffect(state, effects, "crudeKnowledgeMax", "crudeKnowledge");
         applyResourceCapacityEffect(state, effects, "obedienceMax", "obedience");
         applyResourceCapacityEffect(state, effects, "lootMax", "loot");
@@ -250,7 +249,6 @@
         removeResourceCapacityEffect(state, effects, "coalSlagMax", "coalSlag");
         removeResourceCapacityEffect(state, effects, "ironOreMax", "ironOre");
         removeResourceCapacityEffect(state, effects, "ironPlateMax", "ironPlate");
-        removeResourceCapacityEffect(state, effects, "militaryPowerMax", "militaryPower");
         removeResourceCapacityEffect(state, effects, "crudeKnowledgeMax", "crudeKnowledge");
         removeResourceCapacityEffect(state, effects, "obedienceMax", "obedience");
         removeResourceCapacityEffect(state, effects, "lootMax", "loot");

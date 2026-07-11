@@ -16,6 +16,7 @@
         var state = loadInitialRuntimeState();
 
         game.captivesSystem.syncCaptiveResource(state);
+        game.unlocks.applyPopulationUnlocks(state);
 
         // Object 运行时命名空间：保存当前状态引用，便于加载存档时替换。
         game.runtime = {
