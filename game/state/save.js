@@ -78,6 +78,9 @@
             };
         });
 
+        // DiplomacyMissionState[] 在途外交行动列表：按字段复制，避免存档对象共享运行时嵌套引用。
+        var diplomacyMissionStates = Array.isArray(state.activeDiplomacyMissions) ? state.activeDiplomacyMissions.map(copyDiplomacyMissionStateForSave) : [];
+
         return {
             version: state.version,
             timestamp: Date.now(),
@@ -96,6 +99,7 @@
             policies: Object.assign({}, state.policies),
             pacts: Object.assign({}, state.pacts),
             activeExpedition: state.activeExpedition ? Object.assign({}, state.activeExpedition) : null,
+            activeDiplomacyMissions: diplomacyMissionStates,
             challenges: {
                 runMode: state.challenges ? state.challenges.runMode : "undecided",
                 activeChallengeId: state.challenges ? state.challenges.activeChallengeId : null,
@@ -109,6 +113,25 @@
                 perks: state.prestige.perks.slice()
             },
             statistics: Object.assign({}, state.statistics)
+        };
+    }
+
+    /**
+     * 复制在途外交行动为可序列化存档项。
+     *
+     * @param {DiplomacyMissionState} mission - 在途外交行动状态，不会被修改。
+     * @returns {DiplomacyMissionState} 可写入存档的在途外交行动副本。
+     */
+    function copyDiplomacyMissionStateForSave(mission) {
+        return {
+            id: mission.id,
+            modeId: mission.modeId,
+            locationId: mission.locationId,
+            factionId: mission.factionId,
+            raiderIds: Array.isArray(mission.raiderIds) ? mission.raiderIds.slice() : [],
+            remainingSeconds: mission.remainingSeconds,
+            totalSeconds: mission.totalSeconds,
+            resultSnapshot: mission.resultSnapshot ? Object.assign({}, mission.resultSnapshot) : {}
         };
     }
 
@@ -284,6 +307,19 @@
             // v14 新 shape：掠夺由玩家输入战斗职业人数并按队伍强度结算，不再保存军力资源。
             // 迁移原因：移除军力设定，同时保留无法由战旗库存重建的旧装备强度收益。
             migrateMilitaryPowerRaidModelToRaidStrength(migratedSaveData);
+        }
+
+        if (sourceVersion < 15) {
+            // v14 旧 shape：没有恶名和善名资源，贸易与掠夺只受成本、队伍和关系影响。
+            // v15 新 shape：新增 infamy/goodwill 资源，由当前静态资源定义在恢复时补齐默认运行时状态。
+            // 迁移原因：让高级掠夺地点和高级贸易势力分别由恶名、善名门槛推进。
+        }
+
+        if (sourceVersion < 16) {
+            // v15 旧 shape：贸易和掠夺都是即时结算，没有返程中的外交行动列表。
+            // v16 新 shape：activeDiplomacyMissions 保存贸易队和掠夺队的剩余返程时间。
+            // 迁移原因：地点距离开始影响结算时间，旧存档默认没有在途行动。
+            migratedSaveData.activeDiplomacyMissions = [];
         }
 
         migratedSaveData.version = game.definitions.SAVE_VERSION;
@@ -488,6 +524,7 @@
         restoredState.policies = saveData.policies || {};
         restoredState.pacts = saveData.pacts || {};
         restoredState.activeExpedition = saveData.activeExpedition || null;
+        restoredState.activeDiplomacyMissions = normalizeSavedDiplomacyMissions(Array.isArray(saveData.activeDiplomacyMissions) ? saveData.activeDiplomacyMissions : []);
         restoredState.challenges = normalizeSavedChallenges(saveData.challenges);
         restoredState.calendar = game.calendar.normalizeCalendarState(saveData.calendar);
         restoredState.weather = game.weather.normalizeWeatherState(saveData.weather, restoredState.calendar);
@@ -591,6 +628,7 @@
         validateSavedIds(saveData.jobs, game.ids.ID_REGISTRY.jobs, "职业");
         validateDictionaryValues(saveData.policies, game.ids.ID_REGISTRY.policies, "政策");
         validateDictionaryKeys(saveData.pacts, getDefinitionIds(game.definitions.PACT_DEFINITIONS), "契约");
+        validateDiplomacyMissionIds(saveData.activeDiplomacyMissions);
 
         if (saveData.challenges) {
             validateRunMode(saveData.challenges.runMode);
@@ -701,6 +739,79 @@
             activeChallengeId: normalizedChallenges.activeChallengeId || null,
             completedById: normalizedChallenges.completedById || {}
         };
+    }
+
+    /**
+     * 规范化在途外交行动存档。
+     *
+     * @param {Object[]} savedMissions - 在途外交行动存档数组；缺失字段会被收敛为安全默认值。
+     * @returns {DiplomacyMissionState[]} 规范化后的在途外交行动数组。
+     */
+    function normalizeSavedDiplomacyMissions(savedMissions) {
+        // DiplomacyMissionState[] 规范化结果：只保留贸易或掠夺行动。
+        var normalizedMissions = [];
+
+        // number 循环索引：遍历外交行动存档数组的整数下标。
+        for (var missionIndex = 0; missionIndex < savedMissions.length; missionIndex += 1) {
+            // Object 当前行动存档：用于补齐返程时间和冻结结算字段。
+            var savedMission = savedMissions[missionIndex];
+
+            if (!savedMission || (savedMission.modeId !== "trade" && savedMission.modeId !== "raid")) {
+                continue;
+            }
+
+            normalizedMissions.push({
+                id: String(savedMission.id || ("diplomacy-mission-" + Date.now() + "-" + missionIndex)),
+                modeId: savedMission.modeId,
+                locationId: String(savedMission.locationId || ""),
+                factionId: String(savedMission.factionId || ""),
+                raiderIds: Array.isArray(savedMission.raiderIds) ? savedMission.raiderIds.slice() : [],
+                remainingSeconds: Math.max(0, Number(savedMission.remainingSeconds) || 0),
+                totalSeconds: Math.max(0, Number(savedMission.totalSeconds) || 0),
+                resultSnapshot: savedMission.resultSnapshot && typeof savedMission.resultSnapshot === "object" ? Object.assign({}, savedMission.resultSnapshot) : {}
+            });
+        }
+
+        return normalizedMissions;
+    }
+
+    /**
+     * 校验在途外交行动引用的静态 ID。
+     *
+     * @param {Object[]|undefined} savedMissions - 在途外交行动存档数组。
+     * @returns {void} 无返回值。
+     * @throws {Error} 发现未知阵营或掠夺目标 ID 时抛出错误。
+     */
+    function validateDiplomacyMissionIds(savedMissions) {
+        if (!Array.isArray(savedMissions)) {
+            return;
+        }
+
+        // string[] 阵营 ID 列表：用于校验贸易地点和行动势力。
+        var factionIds = getDefinitionIds(game.definitions.FACTION_DEFINITIONS);
+
+        // string[] 掠夺目标 ID 列表：用于校验掠夺行动地点。
+        var raidTargetIds = getDefinitionIds(game.definitions.RAID_TARGET_DEFINITIONS);
+
+        // number 循环索引：遍历外交行动存档数组的整数下标。
+        for (var missionIndex = 0; missionIndex < savedMissions.length; missionIndex += 1) {
+            // Object 当前行动存档：用于按行动类型校验地点 ID。
+            var savedMission = savedMissions[missionIndex];
+
+            if (!savedMission) {
+                continue;
+            }
+
+            validateNullableId(savedMission.factionId, factionIds, "外交行动势力");
+
+            if (savedMission.modeId === "trade") {
+                validateNullableId(savedMission.locationId, factionIds, "贸易地点");
+            } else if (savedMission.modeId === "raid") {
+                validateNullableId(savedMission.locationId, raidTargetIds, "掠夺地点");
+            } else {
+                throw new Error("未知外交行动类型：" + savedMission.modeId);
+            }
+        }
     }
 
     /**

@@ -206,6 +206,7 @@
             policies: {},
             pacts: {},
             activeExpedition: null,
+            activeDiplomacyMissions: [],
             challenges: {
                 runMode: "undecided",
                 activeChallengeId: null,

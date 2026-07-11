@@ -85,6 +85,44 @@
     }
 
     /**
+     * 按有符号数量调整资源并按容量截断。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会被直接修改。
+     * @param {ResourceId} resourceId - 资源稳定 ID。
+     * @param {number} deltaAmount - 资源变化数量；正数为获得，负数为损失。
+     * @returns {number} 实际变化的资源数量，可为负数、0 或正数。
+     */
+    function changeResource(state, resourceId, deltaAmount) {
+        // ResourceState 资源状态：用于写入变化后的数量和可见性。
+        var resourceState = state.resourcesById[resourceId];
+
+        // ResourceDefinition|null 资源定义：用于判断容量规则。
+        var resourceDefinition = getResourceDefinition(resourceId);
+
+        if (!resourceState || !resourceDefinition || !Number.isFinite(deltaAmount) || deltaAmount === 0) {
+            return 0;
+        }
+
+        if (deltaAmount > 0) {
+            return addResource(state, resourceId, deltaAmount);
+        }
+
+        // number 变化前数量：用于计算实际减少量。
+        var previousValue = resourceState.value;
+
+        // number 调整后数量：声望类资源不能低于 0。
+        var changedValue = Math.max(0, resourceState.value + deltaAmount);
+
+        resourceState.value = changedValue;
+
+        if (game.unlocks.shouldRevealResource(resourceState)) {
+            resourceState.isVisible = true;
+        }
+
+        return resourceState.value - previousValue;
+    }
+
+    /**
      * 读取永久资源收益倍率。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -428,6 +466,7 @@
     game.resources = {
         getResourceDefinition: getResourceDefinition,
         addResource: addResource,
+        changeResource: changeResource,
         canAfford: canAfford,
         getMissingResourceTexts: getMissingResourceTexts,
         getPriceWaitInfo: getPriceWaitInfo,

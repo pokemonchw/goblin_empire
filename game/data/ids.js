@@ -49,6 +49,8 @@
         "overseerWhip",
         "ledger",
         "loot",
+        "infamy",
+        "goodwill",
         "captive",
         "ancestralEcho",
         "tar",

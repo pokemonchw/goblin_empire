@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="blueprint.css">
 </head>
 <body>
-    <!-- 外交页：表现贸易、关系和战斗职业解锁后的独立掠夺行动；俘虏处置保留在氏族页。 -->
+            <!-- 外交页：表现贸易、关系和战斗职业解锁后的掠夺子标签；俘虏处置保留在氏族页。 -->
     <header class="global-topbar" aria-label="全局工具栏">
         <div class="brand-mark">
             <strong>哥布林帝国</strong>
@@ -29,6 +29,8 @@
                 <h2>外交资源</h2>
                 <div class="resource-row"><strong>金币</strong><span>18 / 50</span><span class="positive">+0.02/s</span></div>
                 <div class="resource-row"><strong>战利品</strong><span>6 / 100</span><span>掠夺</span></div>
+                <div class="resource-row"><strong>恶名</strong><span>8 / 100</span><span>掠夺成功</span></div>
+                <div class="resource-row"><strong>善名</strong><span>4 / 100</span><span>交易</span></div>
                 <div class="resource-row"><strong>劳力</strong><span>130 / 225</span><span class="positive">+0.1/s</span></div>
             </div>
             <div class="section">
@@ -39,11 +41,11 @@
                 <div class="compact-row"><strong>亡灵领主</strong><span class="negative">-0.25</span></div>
             </div>
         </aside>
-        <main class="workspace">
+        <div class="workspace">
             <div class="topline">
                 <div class="title-block">
                     <h1>外交</h1>
-                    <p>首次拥有存活哥布林后解锁，覆盖贸易和关系；同步开放大木棒研究，抢掠兵解锁后追加独立掠夺行动卡片。</p>
+                <p>首次拥有存活哥布林后解锁，覆盖贸易、关系、善名和恶名；同步开放大木棒研究，抢掠兵解锁后开放“掠夺”子标签。</p>
                 </div>
                 <a class="tab" href="index.html">总览</a>
             </div>
@@ -58,35 +60,66 @@
                 <a class="tab" href="08-abyss.html">深渊</a>
             </nav>
             <section class="section">
-                <h2>贸易对象</h2>
-                <table class="table">
-                    <thead><tr><th>对象</th><th>收购</th><th>出售</th><th>特点</th><th>操作</th></tr></thead>
-                    <tbody>
-                        <tr><td>鼠人商队</td><td>菌菇 50</td><td>金币 5 ±25%</td><td>早期金币来源，关系 +2</td><td><button class="btn">贸易</button></td></tr>
-                        <tr><td>灰矮人矿盟</td><td>铁矿 20</td><td>金币 8 ±20%</td><td>矿业贸易对象，关系 +2</td><td><button class="btn">贸易</button></td></tr>
-                        <tr><td>地精黑市</td><td>战利品 5</td><td>金币 12 ±45%</td><td>缺少：战利品 -1；可用倒计时：不可用</td><td><button class="btn disabled">货物不足</button></td></tr>
-                    </tbody>
-                </table>
+                <h2>子标签</h2>
+                <div class="tabs" aria-label="外交子标签">
+                    <button class="tab active" type="button">外交</button>
+                    <button class="tab" type="button">掠夺</button>
+                </div>
             </section>
             <section class="section">
-                <h2>掠夺行动（战斗职业解锁后显示）</h2>
-                <p class="note">该区块位于外交页，但不属于研究卡片；派出抢掠兵或战争头目即时结算，不消耗劳力或资源。</p>
-                <div class="button-list">
-                    <div class="action danger">
-                        <div><div class="action-title">菌菇农洞 <span>成功率 82%</span><span>低风险</span></div><p>最低派出：1；目标强度：15；队伍强度预览：31。收益：菌菇 120、战利品 3。风险：鼠人商队关系 -8。</p><p>派出人数：<input type="number" value="1" min="1" max="3"></p></div>
-                        <button class="btn">掠夺</button>
-                    </div>
-                    <div class="action danger">
-                        <div><div class="action-title">商队营地 <span>成功率 58%</span><span>中风险</span></div><p>最低派出：2；目标强度：30；队伍强度预览：38。收益：金币 20、战利品 8，可能获得商队账房或工匠俘虏。</p><p>派出人数：<input type="number" value="2" min="2" max="3"></p></div>
-                        <button class="btn">掠夺</button>
-                    </div>
-                    <div class="action locked">
-                        <div><div class="action-title">地表村落 <span>地表学后解锁</span></div><p>最低派出：4；目标强度：55。收益：菌菇 200、皮革 20、战利品 18。</p><p>可用倒计时：不可用。</p></div>
-                        <button class="btn" disabled>未解锁</button>
+                <h2>外交地点（按世界与势力分组）</h2>
+                <p class="note">地点使用资源列表式行展示；成本、收益、关系、善名和缺口在悬停浮窗中查看。</p>
+                <h3>地底</h3>
+                <h4>鼠人商队</h4>
+                <div class="resource-row has-tooltip"><strong>鼠人商队</strong><span>消耗：菌菇 50</span><span>金币 5-6</span><button class="btn">交易</button>
+                    <div class="resource-tooltip"><h4>鼠人商队</h4><dl><div><dt>说明</dt><dd>早期金币来源，适合把富余菌菇换成货币。</dd></div><div><dt>关系</dt><dd>+0.25，交易成功关系 +2。</dd></div><div><dt>善名</dt><dd>门槛 0，成功 +2。</dd></div><div><dt>成功率</dt><dd>100%；收益受 ±25% 波动。</dd></div></dl></div>
+                </div>
+                <h4>灰矮人矿盟</h4>
+                <div class="resource-row has-tooltip"><strong>灰矮人矿盟</strong><span>消耗：铁矿 20</span><span>金币 6-10</span><button class="btn">交易</button>
+                    <div class="resource-tooltip"><h4>灰矮人矿盟</h4><dl><div><dt>说明</dt><dd>矿业贸易对象，把铁矿换成城邦货币。</dd></div><div><dt>关系</dt><dd>-0.10，交易成功关系 +2。</dd></div><div><dt>善名</dt><dd>门槛 0，成功 +2。</dd></div><div><dt>成功率</dt><dd>100%；收益受 ±20% 波动。</dd></div></dl></div>
+                </div>
+                <h4>地精黑市</h4>
+                <div class="resource-row has-tooltip"><strong>地精黑市</strong><span>缺少：战利品</span><span>金币 7-17</span><button class="btn disabled" disabled>货物不足</button>
+                    <div class="resource-tooltip"><h4>地精黑市</h4><dl><div><dt>说明</dt><dd>用战利品换金币，高波动高回报。</dd></div><div><dt>消耗</dt><dd>战利品 5。</dd></div><div><dt>善名</dt><dd>门槛 5，当前 4，成功 +1。</dd></div><div><dt>缺少</dt><dd>战利品和善名；倒计时不可用。</dd></div></dl></div>
+                </div>
+                <h3>地表</h3>
+                <h4>地表边境城邦</h4>
+                <div class="resource-row has-tooltip"><strong>地表边境城邦</strong><span>善名门槛 40</span><span>符文板 2-6</span><button class="btn disabled" disabled>未达门槛</button>
+                    <div class="resource-tooltip"><h4>地表边境城邦</h4><dl><div><dt>说明</dt><dd>后期外交网络，出售符文板并要求较高善名。</dd></div><div><dt>消耗</dt><dd>金币 60，战利品 20。</dd></div><div><dt>关系</dt><dd>成功关系 +1，善名 +3。</dd></div></dl></div>
+                </div>
+                <h3>深渊</h3>
+                <h4>深渊使者</h4>
+                <div class="resource-row has-tooltip"><strong>深渊使者</strong><span>善名门槛 35</span><span>深渊回响 27-63</span><button class="btn disabled" disabled>未达门槛</button>
+                    <div class="resource-tooltip"><h4>深渊使者</h4><dl><div><dt>说明</dt><dd>深渊资源贸易入口，成本高且依赖魔晶与黑铁。</dd></div><div><dt>消耗</dt><dd>黑铁 20，魔晶 10。</dd></div><div><dt>收益</dt><dd>深渊回响 45 ±40%。</dd></div></dl></div>
+                </div>
+            </section>
+            <section class="section">
+                <h2>掠夺地点（掠夺子标签）</h2>
+                <p class="note">该子标签位于外交页，但不属于研究卡片；派出人数使用和职业分配相同的减号、加号、最大分配按钮，即时结算不消耗劳力或资源。地点同样按世界和势力分组，详情在浮窗中显示。</p>
+                <h3>地底</h3>
+                <h4>鼠人商队</h4>
+                <div class="resource-row has-tooltip"><strong>菌菇农洞</strong><span>强度 15</span><span>成功率 82%</span><span><button class="btn" disabled>-</button> 派出 1 <button class="btn">+</button> <button class="btn">最大分配</button></span><button class="btn">掠夺</button>
+                    <div class="resource-tooltip"><h4>菌菇农洞</h4><dl><div><dt>势力</dt><dd>鼠人商队</dd></div><div><dt>队伍</dt><dd>最低 1，可派出 3，目标强度 15。</dd></div><div><dt>风险</dt><dd>伤亡概率 12%，死亡概率 3%，报复可能 8%。</dd></div><div><dt>收益</dt><dd>菌菇 120，战利品 3；成功恶名 +3、善名 -1。</dd></div></dl></div>
+                </div>
+                <h4>地精黑市</h4>
+                <div class="resource-row has-tooltip"><strong>商队营地</strong><span>强度 30</span><span>成功率 58%</span><span><button class="btn" disabled>-</button> 派出 2 <button class="btn">+</button> <button class="btn">最大分配</button></span><button class="btn">掠夺</button>
+                    <div class="resource-tooltip"><h4>商队营地</h4><dl><div><dt>势力</dt><dd>地精黑市</dd></div><div><dt>队伍</dt><dd>最低 2，可派出 3，目标强度 30。</dd></div><div><dt>风险</dt><dd>伤亡概率 19%，死亡概率 5%，关系下降 12。</dd></div><div><dt>收益</dt><dd>金币 20，战利品 8；可能获得账房或工匠俘虏。</dd></div></dl></div>
+                </div>
+                <h3>地表</h3>
+                <h4>蜥蜴人沼部</h4>
+                <div class="resource-row has-tooltip"><strong>地表村落</strong><span>强度 55</span><span>缺少：恶名 7</span><span><button class="btn" disabled>-</button> 派出 4 <button class="btn" disabled>+</button> <button class="btn" disabled>最大分配</button></span><button class="btn" disabled>未解锁</button>
+                    <div class="resource-tooltip"><h4>地表村落</h4><dl><div><dt>势力</dt><dd>蜥蜴人沼部</dd></div><div><dt>门槛</dt><dd>恶名 15，当前 8。</dd></div><div><dt>风险</dt><dd>高风险，关系下降 20，报复可能随强度劣势提高。</dd></div><div><dt>收益</dt><dd>菌菇 200，皮革 20，战利品 18。</dd></div></dl></div>
+                </div>
+                <h3>深渊</h3>
+                <h4>亡灵领主</h4>
+                <div class="resource-row has-tooltip"><strong>古代遗迹</strong><span>强度 150</span><span>恶名门槛 55</span><span><button class="btn" disabled>-</button> 派出 7 <button class="btn" disabled>+</button> <button class="btn" disabled>最大分配</button></span><button class="btn" disabled>未解锁</button>
+                    <div class="resource-tooltip"><h4>古代遗迹</h4><dl><div><dt>势力</dt><dd>亡灵领主</dd></div><div><dt>风险</dt><dd>终局高强度地点，关系下降 45，失败恶名 -8。</dd></div><div><dt>收益</dt><dd>魔晶 30，符文板 8，战利品 50；可能获得魔法或深渊倾向俘虏。</dd></div></dl></div>
+                </div>
+            </section>
                     </div>
                 </div>
             </section>
-        </main>
+        </div>
         <aside class="right-rail">
             <div class="section">
                 <h2>风险公式</h2>
@@ -97,8 +130,8 @@
             <div class="section">
                 <h2>外交日志</h2>
                 <div class="log-list">
-                    <div class="log">哥布林历1年3月12日(夏) - 鼠人商队接受了菌菇换金币的交易。</div>
-                    <div class="log alert">哥布林历1年3月13日(夏) - 灰矮人矿盟因掠夺哨站而降低关系。</div>
+                    <div class="log">哥布林历1年3月12日(夏) - 鼠人商队接受了菌菇换金币的交易，善名 +2。</div>
+                    <div class="log alert">哥布林历1年3月13日(夏) - 灰矮人矿盟因掠夺哨站而降低关系，恶名 +7，善名 -2。</div>
                 </div>
             </div>
         </aside>

@@ -348,6 +348,14 @@
             name: "战利品",
             description: "掠夺和献祭都会消耗的粗暴财富。"
         },
+        infamy: {
+            name: "恶名",
+            description: "掠夺成功后积累的凶名；失败会折损，用于威吓并开启更高级的掠夺地点。"
+        },
+        goodwill: {
+            name: "善名",
+            description: "通过稳定交易积累的信誉；掠夺成功会损害它，用于接触更高级的贸易势力。"
+        },
         captive: {
             name: "俘虏",
             description: "掠夺带回的特殊人口资源；详细处置仍由俘虏列表记录。"

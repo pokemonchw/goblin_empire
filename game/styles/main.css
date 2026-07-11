@@ -341,6 +341,100 @@ h3 {
     padding: 4px 8px;
 }
 
+.diplomacy-subtabs {
+    margin-bottom: 10px;
+}
+
+.location-world-list {
+    display: grid;
+    gap: 14px;
+}
+
+.location-world-section,
+.location-faction-section {
+    display: grid;
+    gap: 8px;
+}
+
+.location-world-section h3,
+.location-faction-section h4 {
+    margin: 0;
+}
+
+.location-faction-section h4 {
+    color: var(--color-muted);
+    font-size: 13px;
+}
+
+.location-list {
+    display: grid;
+    gap: 4px;
+}
+
+.location-row {
+    display: grid;
+    grid-template-columns: minmax(130px, 1fr) minmax(120px, 0.9fr) minmax(120px, 0.9fr) minmax(86px, 0.55fr) minmax(110px, 0.8fr) auto;
+    align-items: center;
+    min-height: 42px;
+    font-size: 13px;
+}
+
+.raid-location-row {
+    grid-template-columns: minmax(130px, 1fr) minmax(82px, 0.5fr) minmax(86px, 0.6fr) minmax(96px, 0.65fr) minmax(86px, 0.55fr) minmax(110px, 0.8fr) minmax(190px, 1.1fr) auto;
+}
+
+.location-main {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.location-main strong,
+.location-main span,
+.location-row > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.location-main span,
+.location-row > span,
+.location-row .field-label {
+    color: var(--color-muted);
+}
+
+.location-row .field-label {
+    margin: 0;
+}
+
+.location-row .field-label input {
+    width: 86px;
+}
+
+.location-tooltip {
+    width: min(420px, 76vw);
+    max-width: 420px;
+}
+
+.raid-member-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.raid-member-controls button {
+    min-width: 34px;
+    padding: 4px 8px;
+}
+
+.raid-member-count {
+    color: var(--color-muted);
+    white-space: nowrap;
+}
+
 .building-list {
     display: grid;
     gap: 6px;
@@ -597,7 +691,9 @@ h3 {
         align-items: stretch;
     }
 
-    .research-row {
+    .research-row,
+    .location-row,
+    .raid-location-row {
         grid-template-columns: 1fr;
     }
 

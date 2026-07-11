@@ -12,6 +12,9 @@
         "war_chief"
     ];
 
+    // number 掠夺口粮单价：每派出 1 名战斗哥布林立即消耗的菌菇数量，单位为菌菇/哥布林。
+    var RAID_FUNGUS_COST_PER_GOBLIN = 100;
+
     /**
      * 取得掠夺目标定义。
      *
@@ -30,6 +33,30 @@
         }
 
         return null;
+    }
+
+    /**
+     * 格式化掠夺目标可能带回的俘虏类型。
+     *
+     * @param {string[]} captiveTypeIds - 俘虏类型稳定 ID 数组。
+     * @returns {string} 俘虏类型中文名列表；缺失定义时回退显示稳定 ID。
+     */
+    function formatCaptiveTypeNames(captiveTypeIds) {
+        // string[] 俘虏类型中文名列表：用于外交页掠夺地点浮窗展示。
+        var captiveTypeNames = [];
+
+        // number 循环索引：遍历俘虏类型 ID 数组的整数下标。
+        for (var captiveTypeIndex = 0; captiveTypeIndex < captiveTypeIds.length; captiveTypeIndex += 1) {
+            // string 俘虏类型 ID：来自掠夺目标定义的稳定英文 ID。
+            var captiveTypeId = captiveTypeIds[captiveTypeIndex];
+
+            // CaptiveTypeDefinition|null 俘虏类型定义：用于把稳定 ID 转成中文显示名。
+            var captiveTypeDefinition = game.captivesSystem.getCaptiveTypeDefinition(captiveTypeId);
+
+            captiveTypeNames.push(captiveTypeDefinition ? captiveTypeDefinition.name : captiveTypeId);
+        }
+
+        return captiveTypeNames.join(" / ");
     }
 
     /**
@@ -84,34 +111,59 @@
         // number 关系下降倍率：强队更容易制造恐慌，弱队失败也更容易激怒目标。
         var relationPenaltyRatio = Math.max(0.75, Math.min(1.5, 1 + strengthAdvantage / 250));
 
+        // ResourceState|null 恶名资源状态：用于判断高级掠夺地点门槛。
+        var infamyState = state.resourcesById.infamy || null;
+
+        // number 当前恶名：未解锁或旧存档缺失时按 0 处理。
+        var infamyAmount = infamyState ? infamyState.value : 0;
+
+        // number 恶名门槛：越高级的地点要求越高恶名。
+        var requiredInfamy = targetDefinition.requiredInfamy || 0;
+
+        // Price[] 掠夺菌菇成本：按本次实际派出人数计算，执行前必须支付。
+        var raidCost = getRaidCost(raiderCount);
+
+        // boolean 菌菇是否足够：用于按钮置灰和执行前拦截。
+        var canStartByCost = game.resources.canAfford(state, raidCost);
+
         return {
             availableRaiderCount: availableRaiders.length,
             requestedRaiderCount: normalizedRequestedCount,
             raiderCount: raiderCount,
             minRaiders: targetDefinition.minRaiders,
-            canStart: raiderCount >= targetDefinition.minRaiders,
+            canStartByRaiders: raiderCount >= targetDefinition.minRaiders,
+            canStartByInfamy: infamyAmount >= requiredInfamy,
+            canStartByCost: canStartByCost,
+            canStart: raiderCount >= targetDefinition.minRaiders && infamyAmount >= requiredInfamy && canStartByCost,
+            cost: raidCost,
+            infamyAmount: infamyAmount,
+            requiredInfamy: requiredInfamy,
             targetStrength: targetDefinition.targetStrength,
             teamStrength: teamStrength,
             strengthAdvantage: strengthAdvantage,
             strengthRatio: strengthRatio,
             rewards: targetDefinition.rewards,
             lootRatio: (policyEffects.raidLootRatio || 0) + (ritualEffects.raidLootRatio || 0) + (pactEffects.raidLootRatio || 0),
+            infamyReward: targetDefinition.infamyReward || 0,
+            infamyFailurePenalty: targetDefinition.infamyFailurePenalty || 0,
+            goodwillPenalty: targetDefinition.goodwillPenalty || 0,
+            distanceSeconds: targetDefinition.distanceSeconds || 0,
             successChance: Math.max(0.05, Math.min(0.95, 0.5 + strengthAdvantage / 100)),
             casualtyChance: Math.max(0.03, Math.min(0.55, 0.22 - strengthAdvantage / 280 - (state.statistics.raidCasualtyReductionRatio || 0))),
             deathChance: Math.max(0.01, Math.min(0.18, 0.05 - strengthAdvantage / 600)),
             relationPenalty: Math.max(0, Math.round(targetDefinition.relationPenalty * relationPenaltyRatio * (1 + (policyEffects.raidRelationPenaltyRatio || 0)))),
             retaliationChance: Math.min(0.75, Math.max(0, targetDefinition.relationPenalty / 100 + Math.max(0, -strengthAdvantage) / 200)),
-            captiveTypes: targetDefinition.captiveTypes.join(" / ")
+            captiveTypes: formatCaptiveTypeNames(targetDefinition.captiveTypes)
         };
     }
 
     /**
-     * 执行掠夺。
+     * 发起掠夺行动，扣除口粮并等待队伍按距离返程后结算。
      *
      * @param {GameState} state - 当前游戏状态对象，会被直接修改。
      * @param {string} targetId - 掠夺目标稳定 ID。
      * @param {number} requestedRaiderCount - 玩家输入的派出人数，正整数。
-     * @returns {boolean} 是否执行成功；true 表示已按队伍强度结算结果。
+     * @returns {boolean} 是否发起成功；true 表示已扣成本并加入在途掠夺队。
      */
     function executeRaid(state, targetId, requestedRaiderCount) {
         if (state.isPaused) {
@@ -128,16 +180,99 @@
         // Object.<string, number|string|boolean|Price[]|Object> 掠夺预览：用于本次成功率和风险。
         var preview = previewRaid(state, targetId, requestedRaiderCount);
 
-        if (!preview.canStart) {
+        if (!preview.canStartByRaiders) {
             game.simulation.addLog(state, "warning", "掠夺队伍不足：" + targetDefinition.name + " 至少需要 " + targetDefinition.minRaiders + " 名抢掠兵或战争头目。");
             return false;
         }
 
-        // Goblin[] 本次掠夺队伍：重新选择当前最强的指定人数。
+        if (!preview.canStartByInfamy) {
+            game.simulation.addLog(state, "warning", "恶名不足：" + targetDefinition.name + " 需要恶名 " + preview.requiredInfamy + "。");
+            return false;
+        }
+
+        if (!preview.canStartByCost) {
+            game.simulation.addLog(state, "warning", "菌菇不足：" + targetDefinition.name + " 派出 " + preview.raiderCount + " 名战斗哥布林需要 " + (preview.raiderCount * RAID_FUNGUS_COST_PER_GOBLIN).toFixed(0) + " 菌菇。");
+            return false;
+        }
+
+        if (!game.resources.spendResources(state, preview.cost)) {
+            return false;
+        }
+
+        // Goblin[] 本次掠夺队伍：重新选择当前最强的指定人数，并在返程前锁定。
         var raidParty = getAvailableRaiders(state).slice(0, preview.raiderCount);
 
-        // boolean 是否成功：按预览成功率随机结算。
-        var isSuccess = Math.random() < preview.successChance;
+        // DiplomacyMissionState 掠夺行动状态：保存出战成员、返程倒计时和冻结结算数值。
+        var mission = {
+            id: game.diplomacy.createMissionId("raid", targetDefinition.id),
+            modeId: "raid",
+            locationId: targetDefinition.id,
+            factionId: targetDefinition.factionId,
+            raiderIds: getGoblinIds(raidParty),
+            remainingSeconds: preview.distanceSeconds,
+            totalSeconds: preview.distanceSeconds,
+            resultSnapshot: {
+                raiderCount: preview.raiderCount,
+                teamStrength: preview.teamStrength,
+                lootRatio: preview.lootRatio,
+                infamyReward: preview.infamyReward,
+                infamyFailurePenalty: preview.infamyFailurePenalty,
+                goodwillPenalty: preview.goodwillPenalty,
+                successChance: preview.successChance,
+                casualtyChance: preview.casualtyChance,
+                deathChance: preview.deathChance,
+                relationPenalty: preview.relationPenalty,
+                retaliationChance: preview.retaliationChance
+            }
+        };
+
+        if (!Array.isArray(state.activeDiplomacyMissions)) {
+            state.activeDiplomacyMissions = [];
+        }
+
+        state.activeDiplomacyMissions.push(mission);
+        game.simulation.addLog(state, "important", "掠夺队出发：" + targetDefinition.name + "，派出 " + preview.raiderCount + " 名战斗哥布林，预计 " + Math.ceil(preview.distanceSeconds) + " 秒后返回。");
+        return true;
+    }
+
+    /**
+     * 结算完成返程的掠夺行动。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会写入资源、声名、关系和伤亡。
+     * @param {DiplomacyMissionState} mission - 已完成返程的掠夺行动。
+     * @returns {void} 无返回值。
+     */
+    function resolveRaidMission(state, mission) {
+        // RaidTargetDefinition|null 目标定义：用于读取收益、关系和中文名称。
+        var targetDefinition = getRaidTargetDefinition(mission.locationId);
+
+        if (!targetDefinition) {
+            game.simulation.addLog(state, "warning", "掠夺队返程失败：未知目标 " + mission.locationId + "。");
+            return;
+        }
+
+        // Object.<string, number> 结算快照：使用出发时冻结的成功率和风险数值。
+        var resultSnapshot = mission.resultSnapshot || {};
+
+        // Object.<string, number|string|boolean|Price[]|Object> 掠夺预览兼容对象：复用现有成功/失败结算函数需要的字段。
+        var preview = {
+            raiderCount: Number(resultSnapshot.raiderCount) || mission.raiderIds.length,
+            teamStrength: Number(resultSnapshot.teamStrength) || 0,
+            lootRatio: Number(resultSnapshot.lootRatio) || 0,
+            infamyReward: Number(resultSnapshot.infamyReward) || 0,
+            infamyFailurePenalty: Number(resultSnapshot.infamyFailurePenalty) || 0,
+            goodwillPenalty: Number(resultSnapshot.goodwillPenalty) || 0,
+            casualtyChance: Number(resultSnapshot.casualtyChance) || 0,
+            deathChance: Number(resultSnapshot.deathChance) || 0,
+            relationPenalty: Number(resultSnapshot.relationPenalty) || 0,
+            retaliationChance: Number(resultSnapshot.retaliationChance) || 0
+        };
+
+        // Goblin[] 掠夺队伍：按出发时锁定的 ID 找回当前仍存活的队员。
+        var raidParty = getRaidPartyByIds(state, mission.raiderIds);
+
+        // boolean 是否成功：按出发时冻结的成功率随机结算。
+        var isSuccess = Math.random() < (Number(resultSnapshot.successChance) || 0);
 
         game.diplomacy.applyRaidPenalty(state, targetDefinition.factionId, preview.relationPenalty);
         applyRaidCasualties(state, targetDefinition, raidParty, isSuccess ? preview.casualtyChance * 0.35 : preview.casualtyChance, preview.deathChance);
@@ -147,8 +282,6 @@
         } else {
             applyRaidFailure(state, targetDefinition, preview);
         }
-
-        return true;
     }
 
     /**
@@ -166,13 +299,107 @@
             // Goblin 当前哥布林对象：用于检查是否属于战斗职业。
             var goblin = state.goblins[goblinIndex];
 
-            if (goblin.isAlive && RAID_JOB_IDS.indexOf(goblin.jobId) !== -1) {
+            if (goblin.isAlive && RAID_JOB_IDS.indexOf(goblin.jobId) !== -1 && !isGoblinOnActiveRaidMission(state, goblin.id)) {
                 availableRaiders.push(goblin);
             }
         }
 
         availableRaiders.sort(compareRaidersByStrength);
         return availableRaiders;
+    }
+
+    /**
+     * 读取哥布林 ID 列表。
+     *
+     * @param {Goblin[]} goblins - 哥布林对象数组。
+     * @returns {string[]} 哥布林 ID 数组。
+     */
+    function getGoblinIds(goblins) {
+        // string[] 哥布林 ID 数组：用于在途掠夺行动锁定成员。
+        var goblinIds = [];
+
+        // number 循环索引：遍历哥布林对象数组的整数下标。
+        for (var goblinIndex = 0; goblinIndex < goblins.length; goblinIndex += 1) {
+            // Goblin 当前哥布林对象：用于读取稳定 ID。
+            var goblin = goblins[goblinIndex];
+
+            goblinIds.push(goblin.id);
+        }
+
+        return goblinIds;
+    }
+
+    /**
+     * 判断哥布林是否已经在返程中的掠夺队里。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} goblinId - 哥布林稳定 ID。
+     * @returns {boolean} 是否正在掠夺返程；true 表示不能再次派出。
+     */
+    function isGoblinOnActiveRaidMission(state, goblinId) {
+        if (!Array.isArray(state.activeDiplomacyMissions)) {
+            return false;
+        }
+
+        // number 行动循环索引：遍历在途外交行动数组的整数下标。
+        for (var missionIndex = 0; missionIndex < state.activeDiplomacyMissions.length; missionIndex += 1) {
+            // DiplomacyMissionState 当前行动：用于检查掠夺队成员。
+            var mission = state.activeDiplomacyMissions[missionIndex];
+
+            if (mission.modeId === "raid" && Array.isArray(mission.raiderIds) && mission.raiderIds.indexOf(goblinId) !== -1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 按 ID 找回掠夺队成员。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string[]} goblinIds - 出发时锁定的哥布林 ID 数组。
+     * @returns {Goblin[]} 当前仍存活的掠夺队成员数组。
+     */
+    function getRaidPartyByIds(state, goblinIds) {
+        // Goblin[] 掠夺队成员数组：只包含当前仍存活的成员。
+        var raidParty = [];
+
+        // number ID 循环索引：遍历出发时锁定的哥布林 ID 数组。
+        for (var idIndex = 0; idIndex < goblinIds.length; idIndex += 1) {
+            // string 哥布林 ID：用于匹配当前状态中的对象。
+            var goblinId = goblinIds[idIndex];
+
+            // Goblin|null 当前哥布林对象：找到后用于结算伤亡。
+            var goblin = findGoblinById(state, goblinId);
+
+            if (goblin && goblin.isAlive) {
+                raidParty.push(goblin);
+            }
+        }
+
+        return raidParty;
+    }
+
+    /**
+     * 按 ID 查找哥布林对象。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} goblinId - 哥布林稳定 ID。
+     * @returns {Goblin|null} 匹配的哥布林对象；不存在时返回 null。
+     */
+    function findGoblinById(state, goblinId) {
+        // number 循环索引：遍历哥布林数组的整数下标。
+        for (var goblinIndex = 0; goblinIndex < state.goblins.length; goblinIndex += 1) {
+            // Goblin 当前哥布林对象：用于匹配稳定 ID。
+            var goblin = state.goblins[goblinIndex];
+
+            if (goblin.id === goblinId) {
+                return goblin;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -202,6 +429,21 @@
         }
 
         return Math.max(1, Math.floor(numericCount));
+    }
+
+    /**
+     * 计算本次掠夺需要支付的菌菇口粮。
+     *
+     * @param {number} raiderCount - 本次实际派出的战斗哥布林数量，非负整数。
+     * @returns {Price[]} 掠夺成本数组；每名战斗哥布林固定消耗 100 菌菇。
+     */
+    function getRaidCost(raiderCount) {
+        // number 成本人数：用于把异常输入收敛为非负整数。
+        var normalizedRaiderCount = Math.max(0, Math.floor(Number(raiderCount) || 0));
+
+        return [
+            game.pricing.createPrice("fungus", normalizedRaiderCount * RAID_FUNGUS_COST_PER_GOBLIN)
+        ];
     }
 
     /**
@@ -348,8 +590,10 @@
             game.resources.addResource(state, resourceId, rewardAmount);
         }
 
+        game.resources.changeResource(state, "infamy", preview.infamyReward);
+        game.resources.changeResource(state, "goodwill", -preview.goodwillPenalty);
         addRaidCaptive(state, targetDefinition);
-        game.simulation.addLog(state, "important", "掠夺成功：" + targetDefinition.name + "，派出 " + preview.raiderCount + " 名战斗哥布林，队伍强度 " + preview.teamStrength.toFixed(1) + "。");
+        game.simulation.addLog(state, "important", "掠夺成功：" + targetDefinition.name + "，派出 " + preview.raiderCount + " 名战斗哥布林，队伍强度 " + preview.teamStrength.toFixed(1) + "，恶名 +" + preview.infamyReward + "，善名 -" + preview.goodwillPenalty + "。");
     }
 
     /**
@@ -361,7 +605,8 @@
      * @returns {void} 无返回值。
      */
     function applyRaidFailure(state, targetDefinition, preview) {
-        game.simulation.addLog(state, "warning", "掠夺失败：" + targetDefinition.name + "，派出 " + preview.raiderCount + " 名战斗哥布林，队伍强度 " + preview.teamStrength.toFixed(1) + "，关系下降。");
+        game.resources.changeResource(state, "infamy", -preview.infamyFailurePenalty);
+        game.simulation.addLog(state, "warning", "掠夺失败：" + targetDefinition.name + "，派出 " + preview.raiderCount + " 名战斗哥布林，队伍强度 " + preview.teamStrength.toFixed(1) + "，关系下降，恶名 -" + preview.infamyFailurePenalty + "。");
     }
 
     /**
@@ -428,6 +673,8 @@
         getRaidTargetDefinition: getRaidTargetDefinition,
         previewRaid: previewRaid,
         executeRaid: executeRaid,
-        getAvailableRaiders: getAvailableRaiders
+        resolveRaidMission: resolveRaidMission,
+        getAvailableRaiders: getAvailableRaiders,
+        getRaidCost: getRaidCost
     };
 })(window.GoblinEmpire);

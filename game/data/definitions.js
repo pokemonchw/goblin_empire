@@ -79,15 +79,26 @@
      */
 
     /**
+     * @typedef {Object} DiplomacyWorldDefinition
+     * @property {string} id - 世界层级稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} description - 中文说明。
+     */
+
+    /**
      * @typedef {Object} FactionTradeDefinition
      * @property {string} id - 阵营稳定 ID。
      * @property {string} name - 中文显示名。
      * @property {string} description - 中文说明。
+     * @property {string} worldId - 所属世界 ID，必须对应 DiplomacyWorldDefinition.id。
      * @property {Price[]} cost - 单次贸易消耗。
      * @property {ResourceId} rewardResource - 收益资源 ID。
      * @property {number} baseReward - 基础收益数量。
      * @property {number} randomWidth - 收益波动比例，范围 0-1。
      * @property {number} relationChange - 成功贸易后的关系变化值。
+     * @property {number} goodwillReward - 成功贸易后获得的善名数量，非负资源数量。
+     * @property {number} requiredGoodwill - 执行贸易所需善名门槛，非负资源数量。
+     * @property {number} distanceSeconds - 贸易队往返所需时间，非负秒数。
      * @property {UnlockBundle} unlock - 显示该阵营所需的解锁条件。
      */
 
@@ -97,11 +108,17 @@
      * @property {string} name - 中文显示名。
      * @property {string} description - 中文说明。
      * @property {string} factionId - 关联阵营 ID。
+     * @property {string} worldId - 所属世界 ID，必须对应 DiplomacyWorldDefinition.id。
      * @property {number} minRaiders - 发起掠夺需要派出的最低战斗职业哥布林数量，正整数。
      * @property {number} targetStrength - 目标地点强度，非负数。
      * @property {Object.<string, number>} rewards - 成功收益字典；key 为资源 ID，value 为资源数量。
      * @property {string[]} captiveTypes - 可能获得的俘虏类型 ID 数组。
      * @property {number} relationPenalty - 掠夺后关系下降值，非负数。
+     * @property {number} infamyReward - 掠夺成功后获得的恶名数量，非负资源数量。
+     * @property {number} infamyFailurePenalty - 掠夺失败后损失的恶名数量，非负资源数量。
+     * @property {number} goodwillPenalty - 掠夺成功后损失的善名数量，非负资源数量。
+     * @property {number} requiredInfamy - 发起掠夺所需恶名门槛，非负资源数量。
+     * @property {number} distanceSeconds - 掠夺队往返所需时间，非负秒数。
      * @property {UnlockBundle} unlock - 显示该目标所需的解锁条件。
      */
 
@@ -205,7 +222,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 14;
+    var SAVE_VERSION = 16;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -612,6 +629,24 @@
             isVisibleAtStart: false,
             isCapacityLimited: true,
             description: game.text.TEXT_REGISTRY.resources.loot.description
+        },
+        {
+            id: "infamy",
+            name: game.text.TEXT_REGISTRY.resources.infamy.name,
+            category: "rare",
+            defaultMaxValue: 100,
+            isVisibleAtStart: false,
+            isCapacityLimited: true,
+            description: game.text.TEXT_REGISTRY.resources.infamy.description
+        },
+        {
+            id: "goodwill",
+            name: game.text.TEXT_REGISTRY.resources.goodwill.name,
+            category: "rare",
+            defaultMaxValue: 100,
+            isVisibleAtStart: false,
+            isCapacityLimited: true,
+            description: game.text.TEXT_REGISTRY.resources.goodwill.description
         },
         {
             id: "captive",
@@ -4003,12 +4038,32 @@
         }
     ];
 
+    // DiplomacyWorldDefinition[] 外交世界定义列表：地点和势力先按三层世界分组。
+    var DIPLOMACY_WORLD_DEFINITIONS = [
+        {
+            id: "underground",
+            name: "地底",
+            description: "地穴、矿盟和黑市构成的地下贸易与冲突网络。"
+        },
+        {
+            id: "surface",
+            name: "地表",
+            description: "沼部、边境城邦和地表道路，提供高风险财富与军工资源。"
+        },
+        {
+            id: "abyss",
+            name: "深渊",
+            description: "亡灵、遗迹和深渊使者相关的危险地点。"
+        }
+    ];
+
     // FactionTradeDefinition[] 外交对象定义列表：版本三基础贸易入口。
     var FACTION_DEFINITIONS = [
         {
             id: "rat_caravan",
             name: game.text.TEXT_REGISTRY.factions.rat_caravan.name,
             description: game.text.TEXT_REGISTRY.factions.rat_caravan.description,
+            worldId: "underground",
             cost: [
                 game.pricing.createPrice("fungus", 50)
             ],
@@ -4016,6 +4071,9 @@
             baseReward: 5,
             randomWidth: 0.25,
             relationChange: 2,
+            goodwillReward: 2,
+            requiredGoodwill: 0,
+            distanceSeconds: 20,
             unlock: {
                 isDefault: true
             }
@@ -4024,6 +4082,7 @@
             id: "gray_dwarf_mine_league",
             name: game.text.TEXT_REGISTRY.factions.gray_dwarf_mine_league.name,
             description: game.text.TEXT_REGISTRY.factions.gray_dwarf_mine_league.description,
+            worldId: "underground",
             cost: [
                 game.pricing.createPrice("ironOre", 20)
             ],
@@ -4031,6 +4090,9 @@
             baseReward: 8,
             randomWidth: 0.2,
             relationChange: 2,
+            goodwillReward: 2,
+            requiredGoodwill: 0,
+            distanceSeconds: 30,
             unlock: {
                 isDefault: true
             }
@@ -4039,6 +4101,7 @@
             id: "lizard_swamp_clan",
             name: game.text.TEXT_REGISTRY.factions.lizard_swamp_clan.name,
             description: game.text.TEXT_REGISTRY.factions.lizard_swamp_clan.description,
+            worldId: "surface",
             cost: [
                 game.pricing.createPrice("leather", 5)
             ],
@@ -4046,6 +4109,9 @@
             baseReward: 6,
             randomWidth: 0.35,
             relationChange: 2,
+            goodwillReward: 2,
+            requiredGoodwill: 0,
+            distanceSeconds: 45,
             unlock: {
                 isDefault: true
             }
@@ -4054,6 +4120,7 @@
             id: "goblin_black_market",
             name: game.text.TEXT_REGISTRY.factions.goblin_black_market.name,
             description: game.text.TEXT_REGISTRY.factions.goblin_black_market.description,
+            worldId: "underground",
             cost: [
                 game.pricing.createPrice("loot", 5)
             ],
@@ -4061,6 +4128,9 @@
             baseReward: 12,
             randomWidth: 0.45,
             relationChange: 1,
+            goodwillReward: 1,
+            requiredGoodwill: 5,
+            distanceSeconds: 35,
             unlock: {
                 isDefault: true
             }
@@ -4069,6 +4139,7 @@
             id: "undead_lord",
             name: game.text.TEXT_REGISTRY.factions.undead_lord.name,
             description: game.text.TEXT_REGISTRY.factions.undead_lord.description,
+            worldId: "abyss",
             cost: [
                 game.pricing.createPrice("loot", 30),
                 game.pricing.createPrice("manaCrystal", 5)
@@ -4077,6 +4148,9 @@
             baseReward: 35,
             randomWidth: 0.35,
             relationChange: 1,
+            goodwillReward: 2,
+            requiredGoodwill: 20,
+            distanceSeconds: 75,
             unlock: {
                 isDefault: true
             }
@@ -4085,6 +4159,7 @@
             id: "abyss_emissary",
             name: game.text.TEXT_REGISTRY.factions.abyss_emissary.name,
             description: game.text.TEXT_REGISTRY.factions.abyss_emissary.description,
+            worldId: "abyss",
             cost: [
                 game.pricing.createPrice("blackIron", 20),
                 game.pricing.createPrice("manaCrystal", 10)
@@ -4093,6 +4168,9 @@
             baseReward: 45,
             randomWidth: 0.4,
             relationChange: 1,
+            goodwillReward: 2,
+            requiredGoodwill: 35,
+            distanceSeconds: 90,
             unlock: {
                 isDefault: true
             }
@@ -4101,6 +4179,7 @@
             id: "deep_gray_dwarf_court",
             name: game.text.TEXT_REGISTRY.factions.deep_gray_dwarf_court.name,
             description: game.text.TEXT_REGISTRY.factions.deep_gray_dwarf_court.description,
+            worldId: "underground",
             cost: [
                 game.pricing.createPrice("coin", 40),
                 game.pricing.createPrice("ledger", 10)
@@ -4109,6 +4188,9 @@
             baseReward: 8,
             randomWidth: 0.2,
             relationChange: 1,
+            goodwillReward: 2,
+            requiredGoodwill: 25,
+            distanceSeconds: 60,
             unlock: {
                 isDefault: true
             }
@@ -4117,6 +4199,7 @@
             id: "surface_border_city",
             name: game.text.TEXT_REGISTRY.factions.surface_border_city.name,
             description: game.text.TEXT_REGISTRY.factions.surface_border_city.description,
+            worldId: "surface",
             cost: [
                 game.pricing.createPrice("coin", 60),
                 game.pricing.createPrice("loot", 20)
@@ -4125,6 +4208,9 @@
             baseReward: 4,
             randomWidth: 0.45,
             relationChange: 1,
+            goodwillReward: 3,
+            requiredGoodwill: 40,
+            distanceSeconds: 70,
             unlock: {
                 isDefault: true
             }
@@ -4138,6 +4224,7 @@
             name: game.text.TEXT_REGISTRY.raidTargets.fungus_farm_cave.name,
             description: game.text.TEXT_REGISTRY.raidTargets.fungus_farm_cave.description,
             factionId: "rat_caravan",
+            worldId: "underground",
             minRaiders: 1,
             targetStrength: 15,
             rewards: {
@@ -4149,6 +4236,11 @@
                 "herbalist"
             ],
             relationPenalty: 8,
+            infamyReward: 3,
+            infamyFailurePenalty: 1,
+            goodwillPenalty: 1,
+            requiredInfamy: 0,
+            distanceSeconds: 25,
             unlock: {
                 isDefault: true
             }
@@ -4158,6 +4250,7 @@
             name: game.text.TEXT_REGISTRY.raidTargets.caravan_camp.name,
             description: game.text.TEXT_REGISTRY.raidTargets.caravan_camp.description,
             factionId: "goblin_black_market",
+            worldId: "underground",
             minRaiders: 2,
             targetStrength: 30,
             rewards: {
@@ -4169,6 +4262,11 @@
                 "artisan"
             ],
             relationPenalty: 12,
+            infamyReward: 5,
+            infamyFailurePenalty: 2,
+            goodwillPenalty: 2,
+            requiredInfamy: 0,
+            distanceSeconds: 35,
             unlock: {
                 isDefault: true
             }
@@ -4178,6 +4276,7 @@
             name: game.text.TEXT_REGISTRY.raidTargets.mine_league_outpost.name,
             description: game.text.TEXT_REGISTRY.raidTargets.mine_league_outpost.description,
             factionId: "gray_dwarf_mine_league",
+            worldId: "underground",
             minRaiders: 3,
             targetStrength: 45,
             rewards: {
@@ -4190,6 +4289,11 @@
                 "ascetic"
             ],
             relationPenalty: 15,
+            infamyReward: 7,
+            infamyFailurePenalty: 3,
+            goodwillPenalty: 2,
+            requiredInfamy: 8,
+            distanceSeconds: 45,
             unlock: {
                 isDefault: true
             }
@@ -4199,6 +4303,7 @@
             name: game.text.TEXT_REGISTRY.raidTargets.surface_village.name,
             description: game.text.TEXT_REGISTRY.raidTargets.surface_village.description,
             factionId: "lizard_swamp_clan",
+            worldId: "surface",
             minRaiders: 4,
             targetStrength: 55,
             rewards: {
@@ -4213,6 +4318,11 @@
                 "ascetic"
             ],
             relationPenalty: 20,
+            infamyReward: 9,
+            infamyFailurePenalty: 4,
+            goodwillPenalty: 3,
+            requiredInfamy: 15,
+            distanceSeconds: 60,
             unlock: {
                 isDefault: true
             }
@@ -4222,6 +4332,7 @@
             name: game.text.TEXT_REGISTRY.raidTargets.noble_carriage.name,
             description: game.text.TEXT_REGISTRY.raidTargets.noble_carriage.description,
             factionId: "surface_border_city",
+            worldId: "surface",
             minRaiders: 6,
             targetStrength: 90,
             rewards: {
@@ -4235,6 +4346,11 @@
                 "shrine_acolyte"
             ],
             relationPenalty: 30,
+            infamyReward: 12,
+            infamyFailurePenalty: 5,
+            goodwillPenalty: 5,
+            requiredInfamy: 30,
+            distanceSeconds: 75,
             unlock: {
                 isDefault: true
             }
@@ -4244,6 +4360,7 @@
             name: game.text.TEXT_REGISTRY.raidTargets.surface_barracks.name,
             description: game.text.TEXT_REGISTRY.raidTargets.surface_barracks.description,
             factionId: "surface_border_city",
+            worldId: "surface",
             minRaiders: 8,
             targetStrength: 130,
             rewards: {
@@ -4257,6 +4374,11 @@
                 "ascetic"
             ],
             relationPenalty: 40,
+            infamyReward: 15,
+            infamyFailurePenalty: 7,
+            goodwillPenalty: 7,
+            requiredInfamy: 45,
+            distanceSeconds: 90,
             unlock: {
                 isDefault: true
             }
@@ -4266,6 +4388,7 @@
             name: game.text.TEXT_REGISTRY.raidTargets.ancient_ruin.name,
             description: game.text.TEXT_REGISTRY.raidTargets.ancient_ruin.description,
             factionId: "undead_lord",
+            worldId: "abyss",
             minRaiders: 7,
             targetStrength: 150,
             rewards: {
@@ -4280,6 +4403,11 @@
                 "shrine_acolyte"
             ],
             relationPenalty: 45,
+            infamyReward: 18,
+            infamyFailurePenalty: 8,
+            goodwillPenalty: 8,
+            requiredInfamy: 55,
+            distanceSeconds: 100,
             unlock: {
                 isDefault: true
             }
@@ -4439,6 +4567,7 @@
         EVENT_DEFINITIONS: EVENT_DEFINITIONS,
         CAPTIVE_TYPE_DEFINITIONS: CAPTIVE_TYPE_DEFINITIONS,
         CAPTIVE_QUALITY_DEFINITIONS: CAPTIVE_QUALITY_DEFINITIONS,
+        DIPLOMACY_WORLD_DEFINITIONS: DIPLOMACY_WORLD_DEFINITIONS,
         FACTION_DEFINITIONS: FACTION_DEFINITIONS,
         RAID_TARGET_DEFINITIONS: RAID_TARGET_DEFINITIONS,
         GOBLIN_NAME_POOL: GOBLIN_NAME_POOL

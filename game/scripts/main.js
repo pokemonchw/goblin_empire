@@ -26,6 +26,12 @@
                 trait: "",
                 wound: ""
             },
+            // string 外交子标签 ID：diplomacy 显示贸易地点，raid 显示掠夺地点。
+            activeDiplomacySubtab: "diplomacy",
+            // Object.<string, string> 外交世界子标签状态：key 为 diplomacy 或 raid，value 为世界 ID。
+            activeDiplomacyWorldByModeId: {},
+            // Object.<string, string> 外交势力子标签状态：key 为 行动类型 + 世界 ID，value 为势力 ID。
+            activeDiplomacyFactionByScopeId: {},
             // boolean 交互按压状态：true 表示玩家正按住标签栏或内容区元素。
             isPointerPressingInteractiveDom: false,
             // Element|null 指针按压起点：用于判断自动刷新是否会替换当前交互目标。

@@ -218,7 +218,22 @@
      * @property {string} id - 阵营稳定 ID。
      * @property {string} name - 中文显示名。
      * @property {string} description - 中文说明。
+     * @property {string} worldId - 所属世界 ID，必须对应 DiplomacyWorldDefinition.id。
+     * @property {Price[]} cost - 单次贸易消耗数组。
+     * @property {ResourceId} rewardResource - 单次贸易收益资源 ID。
+     * @property {number} baseReward - 基础收益数量，非负资源数量。
+     * @property {number} randomWidth - 收益波动比例，范围 0-1。
+     * @property {number} relationChange - 成功贸易后的关系变化值。
+     * @property {number} goodwillReward - 成功贸易后获得的善名数量，非负资源数量。
+     * @property {number} requiredGoodwill - 执行贸易所需善名门槛，非负资源数量。
      * @property {UnlockBundle} unlock - 显示该阵营所需的解锁条件。
+     */
+
+    /**
+     * @typedef {Object} DiplomacyWorldDefinition
+     * @property {string} id - 世界层级稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} description - 中文说明。
      */
 
     /**
@@ -227,11 +242,16 @@
      * @property {string} name - 中文显示名。
      * @property {string} description - 中文说明。
      * @property {string} factionId - 关联阵营 ID。
+     * @property {string} worldId - 所属世界 ID，必须对应 DiplomacyWorldDefinition.id。
      * @property {number} minRaiders - 发起掠夺需要派出的最低战斗职业哥布林数量，正整数。
      * @property {number} targetStrength - 目标地点强度，非负数。
      * @property {Object.<string, number>} rewards - 成功收益字典；key 为资源 ID，value 为资源数量。
      * @property {string[]} captiveTypes - 可能获得的俘虏类型 ID 数组。
      * @property {number} relationPenalty - 掠夺后关系下降基础值，非负整数。
+     * @property {number} infamyReward - 掠夺成功后获得的恶名数量，非负资源数量。
+     * @property {number} infamyFailurePenalty - 掠夺失败后损失的恶名数量，非负资源数量。
+     * @property {number} goodwillPenalty - 掠夺成功后损失的善名数量，非负资源数量。
+     * @property {number} requiredInfamy - 发起掠夺所需恶名门槛，非负资源数量。
      * @property {UnlockBundle} unlock - 显示该目标所需的解锁条件。
      */
 
@@ -294,6 +314,18 @@
      */
 
     /**
+     * @typedef {Object} DiplomacyMissionState
+     * @property {string} id - 外交行动运行 ID。
+     * @property {"trade"|"raid"} modeId - 行动类型；trade 表示贸易，raid 表示掠夺。
+     * @property {string} locationId - 贸易阵营 ID 或掠夺目标 ID。
+     * @property {string} factionId - 关联势力 ID。
+     * @property {string[]} raiderIds - 出战哥布林 ID 数组；贸易行动为空数组。
+     * @property {number} remainingSeconds - 剩余返程时间，非负秒数。
+     * @property {number} totalSeconds - 起始往返时间，非负秒数。
+     * @property {Object.<string, number>} resultSnapshot - 发起时冻结的结算数值；key 为收益、风险或声名字段 ID。
+     */
+
+    /**
      * @typedef {Object} CalendarState
      * @property {number} elapsedDays - 已经过的完整游戏日，非负整数天。
      * @property {number} dayProgressSeconds - 当前游戏日已推进秒数，非负浮点秒。
@@ -327,6 +359,7 @@
      * @property {Object.<string, string>} policies - 政策选择字典；key 为政策组 ID，value 为政策 ID。
      * @property {Object.<string, boolean>} pacts - 深渊契约选择字典；key 为契约 ID，value 表示是否启用。
      * @property {ExpeditionState|null} activeExpedition - 当前远征状态；没有远征时为 null。
+     * @property {DiplomacyMissionState[]} activeDiplomacyMissions - 在途外交/掠夺行动数组；返程完成后结算并移除。
      * @property {{runMode: "undecided"|"normal"|"challenge", activeChallengeId: string|null, completedById: Object.<string, boolean>}} challenges - 挑战状态；runMode 为本局模式选择，activeChallengeId 为当前挑战 ID，completedById 为永久完成标记。
      * @property {CalendarState} calendar - 日期运行时状态；保存季节日序、历法解锁状态和纪元日。
      * @property {WeatherState} weather - 天气运行时状态；保存当前天气和下次变化日。
@@ -356,6 +389,7 @@
      * @property {Object.<string, string>} policies - 政策选择字典。
      * @property {Object.<string, boolean>} pacts - 深渊契约选择字典。
      * @property {ExpeditionState|null} activeExpedition - 当前远征存档状态；没有时为 null。
+     * @property {DiplomacyMissionState[]} activeDiplomacyMissions - 在途外交/掠夺行动存档数组。
      * @property {{runMode: "undecided"|"normal"|"challenge", activeChallengeId: string|null, completedById: Object.<string, boolean>}} challenges - 挑战存档状态；runMode 为新局入口选择结果。
      * @property {CalendarState} calendar - 日期存档状态；保存季节日序、历法解锁状态和纪元日。
      * @property {WeatherState} weather - 天气存档状态；保存当前天气和下次变化日。

@@ -3574,72 +3574,602 @@
      * 渲染外交标签页。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @param {HTMLElement} tabContentElement - 标签页内容容器，会被写入外交卡片和战斗职业解锁后的掠夺区块。
+     * @param {HTMLElement} tabContentElement - 标签页内容容器，会被写入外交或掠夺子标签列表。
      * @returns {void} 无返回值。
      */
     function renderDiplomacyTab(state, tabContentElement) {
         // HTMLElement 标题元素：显示外交标签页名称。
         var headingElement = createTextElement("h2", game.text.TEXT_REGISTRY.tabs.diplomacy.name);
 
-        // HTMLElement 网格元素：承载所有外交对象卡片。
-        var gridElement = document.createElement("div");
+        // string 当前外交子标签 ID：运行时界面状态，默认显示外交。
+        var activeSubtabId = getActiveDiplomacySubtab();
 
         tabContentElement.appendChild(headingElement);
-        gridElement.className = "action-grid";
+        tabContentElement.appendChild(renderDiplomacySubtabButtons(state, activeSubtabId));
+        tabContentElement.appendChild(renderActiveDiplomacyMissionList(state));
 
-        // number 循环索引：遍历阵营定义数组的整数下标。
-        for (var factionIndex = 0; factionIndex < game.definitions.FACTION_DEFINITIONS.length; factionIndex += 1) {
-            // FactionTradeDefinition 当前阵营定义：用于渲染贸易卡片。
-            var factionDefinition = game.definitions.FACTION_DEFINITIONS[factionIndex];
-
-            gridElement.appendChild(renderFactionCard(state, factionDefinition));
+        if (activeSubtabId === "raid") {
+            tabContentElement.appendChild(renderRaidSubtab(state));
+            return;
         }
 
-        tabContentElement.appendChild(gridElement);
-
-        if (isRaidSectionVisible(state)) {
-            tabContentElement.appendChild(renderRaidSection(state));
-        }
+        tabContentElement.appendChild(renderTradeSubtab(state));
     }
 
     /**
-     * 判断外交页是否显示掠夺区块。
+     * 读取当前外交子标签。
      *
-     * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @returns {boolean} 是否显示掠夺区块；true 表示抢掠兵或战争头目职业已经解锁。
+     * @returns {string} 外交子标签 ID；取值为 diplomacy 或 raid。
      */
-    function isRaidSectionVisible(state) {
-        return game.jobs.isJobUnlocked(state, "raider") || game.jobs.isJobUnlocked(state, "war_chief");
+    function getActiveDiplomacySubtab() {
+        if (!game.runtime || game.runtime.activeDiplomacySubtab !== "raid") {
+            return "diplomacy";
+        }
+
+        return "raid";
     }
 
     /**
-     * 渲染外交页中的独立掠夺区块。
+     * 渲染外交页的二级标签按钮。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @returns {HTMLElement} 掠夺区块元素。
+     * @param {string} activeSubtabId - 当前外交子标签 ID。
+     * @returns {HTMLElement} 子标签按钮容器。
      */
-    function renderRaidSection(state) {
-        // HTMLElement 区块元素：承载掠夺标题、说明和目标卡片。
+    function renderDiplomacySubtabButtons(state, activeSubtabId) {
+        // HTMLElement 子标签容器：承载外交和掠夺两个二级标签。
+        var subtabListElement = document.createElement("div");
+
+        // HTMLButtonElement 外交按钮：切换到贸易与关系地点列表。
+        var diplomacyButtonElement = createDiplomacySubtabButton("diplomacy", "外交", activeSubtabId === "diplomacy", false);
+
+        // HTMLButtonElement 掠夺按钮：切换到军事地点列表，未解锁战斗职业时置灰。
+        var raidButtonElement = createDiplomacySubtabButton("raid", "掠夺", activeSubtabId === "raid", !isRaidSubtabUnlocked(state));
+
+        subtabListElement.className = "tab-list diplomacy-subtabs";
+        subtabListElement.setAttribute("role", "tablist");
+        subtabListElement.appendChild(diplomacyButtonElement);
+        subtabListElement.appendChild(raidButtonElement);
+        return subtabListElement;
+    }
+
+    /**
+     * 渲染在途外交行动列表。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 在途行动区块。
+     */
+    function renderActiveDiplomacyMissionList(state) {
+        // HTMLElement 区块元素：承载返程中的贸易队和掠夺队。
         var sectionElement = document.createElement("section");
 
-        sectionElement.appendChild(createTextElement("h3", "掠夺行动"));
-        sectionElement.appendChild(createTextElement("p", "派出抢掠兵或战争头目即时结算；掠夺不消耗劳力，也不消耗资源。"));
-        sectionElement.appendChild(renderRaidTargets(state));
+        // HTMLElement 列表元素：按紧凑行显示在途行动。
+        var listElement = document.createElement("div");
+
+        sectionElement.className = "active-mission-section";
+        listElement.className = "location-list";
+        sectionElement.appendChild(createTextElement("h3", "在途行动"));
+
+        if (!Array.isArray(state.activeDiplomacyMissions) || state.activeDiplomacyMissions.length <= 0) {
+            sectionElement.appendChild(createTextElement("p", "当前没有返程中的贸易队或掠夺队。"));
+            return sectionElement;
+        }
+
+        // number 行动循环索引：遍历在途外交行动数组的整数下标。
+        for (var missionIndex = 0; missionIndex < state.activeDiplomacyMissions.length; missionIndex += 1) {
+            // DiplomacyMissionState 当前行动：用于渲染返程状态行。
+            var mission = state.activeDiplomacyMissions[missionIndex];
+
+            listElement.appendChild(renderActiveDiplomacyMissionRow(mission));
+        }
+
+        sectionElement.appendChild(listElement);
         return sectionElement;
     }
 
     /**
-     * 渲染单个外交对象卡片。
+     * 渲染单个在途外交行动行。
+     *
+     * @param {DiplomacyMissionState} mission - 在途外交行动状态，不会被修改。
+     * @returns {HTMLElement} 在途行动行元素。
+     */
+    function renderActiveDiplomacyMissionRow(mission) {
+        // HTMLElement 行元素：显示行动类型、地点和剩余时间。
+        var rowElement = document.createElement("div");
+
+        // string 行动类型文本：区分贸易队和掠夺队。
+        var modeText = mission.modeId === "raid" ? "掠夺队" : "贸易队";
+
+        rowElement.className = "resource-row location-row active-mission-row";
+        rowElement.appendChild(createLocationMainElement(getDiplomacyMissionName(mission), modeText));
+        rowElement.appendChild(createTextElement("span", "剩余 " + formatSecondsText(mission.remainingSeconds)));
+        rowElement.appendChild(createTextElement("span", "总程 " + formatSecondsText(mission.totalSeconds)));
+        rowElement.appendChild(createTextElement("span", mission.modeId === "raid" ? "成员 " + mission.raiderIds.length : "商队返程"));
+        return rowElement;
+    }
+
+    /**
+     * 获取在途外交行动的中文地点名。
+     *
+     * @param {DiplomacyMissionState} mission - 在途外交行动状态，不会被修改。
+     * @returns {string} 中文地点名；缺失定义时回退显示稳定 ID。
+     */
+    function getDiplomacyMissionName(mission) {
+        if (mission.modeId === "raid") {
+            // RaidTargetDefinition|null 掠夺目标定义：用于显示中文地点名。
+            var raidTargetDefinition = game.raids.getRaidTargetDefinition(mission.locationId);
+
+            return raidTargetDefinition ? raidTargetDefinition.name : mission.locationId;
+        }
+
+        // FactionTradeDefinition|null 阵营定义：用于显示中文贸易地点名。
+        var factionDefinition = game.diplomacy.getFactionDefinition(mission.locationId);
+
+        return factionDefinition ? factionDefinition.name : mission.locationId;
+    }
+
+    /**
+     * 创建外交二级标签按钮。
+     *
+     * @param {string} subtabId - 子标签稳定 ID。
+     * @param {string} labelText - 按钮中文显示文本。
+     * @param {boolean} isSelected - 是否为当前选中子标签；true 表示高亮。
+     * @param {boolean} isDisabled - 是否禁用；true 表示当前不可切换。
+     * @returns {HTMLButtonElement} 子标签按钮元素。
+     */
+    function createDiplomacySubtabButton(subtabId, labelText, isSelected, isDisabled) {
+        // HTMLButtonElement 按钮元素：写入子标签切换数据属性。
+        var buttonElement = document.createElement("button");
+
+        buttonElement.type = "button";
+        buttonElement.dataset.diplomacySubtab = subtabId;
+        buttonElement.textContent = labelText;
+        buttonElement.disabled = isDisabled;
+        buttonElement.setAttribute("role", "tab");
+        buttonElement.setAttribute("aria-selected", String(isSelected));
+        return buttonElement;
+    }
+
+    /**
+     * 判断掠夺子标签是否解锁。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否解锁；true 表示抢掠兵或战争头目职业已经解锁。
+     */
+    function isRaidSubtabUnlocked(state) {
+        return game.jobs.isJobUnlocked(state, "raider") || game.jobs.isJobUnlocked(state, "war_chief");
+    }
+
+    /**
+     * 渲染外交子标签内容。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 外交地点子标签区块。
+     */
+    function renderTradeSubtab(state) {
+        // HTMLElement 区块元素：承载贸易地点的世界和势力子标签。
+        var sectionElement = document.createElement("section");
+
+        sectionElement.appendChild(createTextElement("h3", "外交地点"));
+        sectionElement.appendChild(renderDiplomacyLocationGroups(state, "diplomacy"));
+        return sectionElement;
+    }
+
+    /**
+     * 渲染掠夺子标签内容。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 掠夺地点子标签区块。
+     */
+    function renderRaidSubtab(state) {
+        // HTMLElement 区块元素：承载掠夺地点的世界和势力子标签。
+        var sectionElement = document.createElement("section");
+
+        sectionElement.appendChild(createTextElement("h3", "掠夺地点"));
+        sectionElement.appendChild(createTextElement("p", "派出抢掠兵或战争头目，按地点距离返程后结算；掠夺不消耗劳力，每名战斗哥布林消耗 100 菌菇。"));
+
+        if (!isRaidSubtabUnlocked(state)) {
+            sectionElement.appendChild(createTextElement("p", "需要解锁抢掠兵或战争头目后才能发起掠夺。"));
+            return sectionElement;
+        }
+
+        sectionElement.appendChild(renderDiplomacyLocationGroups(state, "raid"));
+        return sectionElement;
+    }
+
+    /**
+     * 渲染外交或掠夺地点的世界与势力子标签。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @returns {HTMLElement} 地点分组容器。
+     */
+    function renderDiplomacyLocationGroups(state, modeId) {
+        // HTMLElement 容器元素：承载世界子标签、势力子标签和当前地点列表。
+        var containerElement = document.createElement("div");
+
+        // DiplomacyWorldDefinition|null 当前世界定义：由子标签状态或可用地点推断。
+        var activeWorldDefinition = getActiveDiplomacyWorldDefinition(modeId);
+
+        containerElement.className = "location-world-list";
+        containerElement.appendChild(renderDiplomacyWorldSubtabs(modeId, activeWorldDefinition));
+
+        if (!activeWorldDefinition) {
+            containerElement.appendChild(createTextElement("p", "暂无可用地点。"));
+            return containerElement;
+        }
+
+        // FactionTradeDefinition|null 当前势力定义：由子标签状态或当前世界第一个可用势力推断。
+        var activeFactionDefinition = getActiveDiplomacyFactionDefinition(modeId, activeWorldDefinition.id);
+
+        containerElement.appendChild(renderDiplomacyFactionSubtabs(modeId, activeWorldDefinition.id, activeFactionDefinition));
+
+        if (!activeFactionDefinition) {
+            containerElement.appendChild(createTextElement("p", "当前世界暂无可用势力。"));
+            return containerElement;
+        }
+
+        containerElement.appendChild(renderDiplomacyFactionSection(state, modeId, activeFactionDefinition));
+        return containerElement;
+    }
+
+    /**
+     * 读取当前模式的世界子标签定义。
+     *
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @returns {DiplomacyWorldDefinition|null} 当前世界定义；没有可用地点时返回 null。
+     */
+    function getActiveDiplomacyWorldDefinition(modeId) {
+        // DiplomacyWorldDefinition[] 可用世界定义数组：只包含当前模式有地点的世界。
+        var availableWorldDefinitions = getAvailableDiplomacyWorldDefinitions(modeId);
+
+        if (availableWorldDefinitions.length <= 0) {
+            return null;
+        }
+
+        // string|null 当前世界 ID：读取运行时 UI 状态。
+        var activeWorldId = game.runtime && game.runtime.activeDiplomacyWorldByModeId ? game.runtime.activeDiplomacyWorldByModeId[modeId] : null;
+
+        // number 世界循环索引：遍历可用世界定义数组的整数下标。
+        for (var worldIndex = 0; worldIndex < availableWorldDefinitions.length; worldIndex += 1) {
+            // DiplomacyWorldDefinition 当前世界定义：用于匹配运行时选中状态。
+            var worldDefinition = availableWorldDefinitions[worldIndex];
+
+            if (worldDefinition.id === activeWorldId) {
+                return worldDefinition;
+            }
+        }
+
+        return availableWorldDefinitions[0];
+    }
+
+    /**
+     * 获取当前模式下有地点的世界定义。
+     *
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @returns {DiplomacyWorldDefinition[]} 可用世界定义数组。
+     */
+    function getAvailableDiplomacyWorldDefinitions(modeId) {
+        // DiplomacyWorldDefinition[] 可用世界定义数组：用于渲染世界子标签。
+        var availableWorldDefinitions = [];
+
+        // number 世界循环索引：遍历固定三世界定义的整数下标。
+        for (var worldIndex = 0; worldIndex < game.definitions.DIPLOMACY_WORLD_DEFINITIONS.length; worldIndex += 1) {
+            // DiplomacyWorldDefinition 当前世界定义：用于检查是否存在当前模式地点。
+            var worldDefinition = game.definitions.DIPLOMACY_WORLD_DEFINITIONS[worldIndex];
+
+            if (getAvailableDiplomacyFactionDefinitions(modeId, worldDefinition.id).length > 0) {
+                availableWorldDefinitions.push(worldDefinition);
+            }
+        }
+
+        return availableWorldDefinitions;
+    }
+
+    /**
+     * 渲染世界子标签按钮。
+     *
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @param {DiplomacyWorldDefinition|null} activeWorldDefinition - 当前世界定义。
+     * @returns {HTMLElement} 世界子标签容器。
+     */
+    function renderDiplomacyWorldSubtabs(modeId, activeWorldDefinition) {
+        // HTMLElement 子标签容器：承载地底、地表和深渊按钮。
+        var subtabListElement = document.createElement("div");
+
+        // DiplomacyWorldDefinition[] 可用世界定义数组：只渲染当前模式有地点的世界。
+        var availableWorldDefinitions = getAvailableDiplomacyWorldDefinitions(modeId);
+
+        subtabListElement.className = "tab-list diplomacy-subtabs location-subtabs";
+        subtabListElement.setAttribute("role", "tablist");
+
+        // number 世界循环索引：遍历可用世界定义数组的整数下标。
+        for (var worldIndex = 0; worldIndex < availableWorldDefinitions.length; worldIndex += 1) {
+            // DiplomacyWorldDefinition 当前世界定义：用于创建子标签按钮。
+            var worldDefinition = availableWorldDefinitions[worldIndex];
+
+            subtabListElement.appendChild(createDiplomacyWorldSubtabButton(modeId, worldDefinition, activeWorldDefinition && activeWorldDefinition.id === worldDefinition.id));
+        }
+
+        return subtabListElement;
+    }
+
+    /**
+     * 创建世界子标签按钮。
+     *
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @param {DiplomacyWorldDefinition} worldDefinition - 世界定义对象。
+     * @param {boolean} isSelected - 是否为当前选中世界。
+     * @returns {HTMLButtonElement} 世界子标签按钮。
+     */
+    function createDiplomacyWorldSubtabButton(modeId, worldDefinition, isSelected) {
+        // HTMLButtonElement 按钮元素：写入世界子标签切换数据属性。
+        var buttonElement = document.createElement("button");
+
+        buttonElement.type = "button";
+        buttonElement.dataset.diplomacyMode = modeId;
+        buttonElement.dataset.diplomacyWorldSubtab = worldDefinition.id;
+        buttonElement.textContent = worldDefinition.name;
+        buttonElement.setAttribute("role", "tab");
+        buttonElement.setAttribute("aria-selected", String(isSelected));
+        return buttonElement;
+    }
+
+    /**
+     * 读取当前世界下的势力子标签定义。
+     *
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @param {string} worldId - 世界稳定 ID。
+     * @returns {FactionTradeDefinition|null} 当前势力定义；没有可用势力时返回 null。
+     */
+    function getActiveDiplomacyFactionDefinition(modeId, worldId) {
+        // FactionTradeDefinition[] 可用势力定义数组：只包含当前世界有地点的势力。
+        var availableFactionDefinitions = getAvailableDiplomacyFactionDefinitions(modeId, worldId);
+
+        if (availableFactionDefinitions.length <= 0) {
+            return null;
+        }
+
+        // string 子标签作用域 ID：区分外交/掠夺和世界。
+        var scopeId = modeId + "_" + worldId;
+
+        // string|null 当前势力 ID：读取运行时 UI 状态。
+        var activeFactionId = game.runtime && game.runtime.activeDiplomacyFactionByScopeId ? game.runtime.activeDiplomacyFactionByScopeId[scopeId] : null;
+
+        // number 势力循环索引：遍历可用势力定义数组的整数下标。
+        for (var factionIndex = 0; factionIndex < availableFactionDefinitions.length; factionIndex += 1) {
+            // FactionTradeDefinition 当前势力定义：用于匹配运行时选中状态。
+            var factionDefinition = availableFactionDefinitions[factionIndex];
+
+            if (factionDefinition.id === activeFactionId) {
+                return factionDefinition;
+            }
+        }
+
+        return availableFactionDefinitions[0];
+    }
+
+    /**
+     * 获取当前世界下有地点的势力定义。
+     *
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @param {string} worldId - 世界稳定 ID。
+     * @returns {FactionTradeDefinition[]} 可用势力定义数组。
+     */
+    function getAvailableDiplomacyFactionDefinitions(modeId, worldId) {
+        // FactionTradeDefinition[] 可用势力定义数组：用于渲染势力子标签。
+        var availableFactionDefinitions = [];
+
+        // number 势力循环索引：遍历阵营定义数组的整数下标。
+        for (var factionIndex = 0; factionIndex < game.definitions.FACTION_DEFINITIONS.length; factionIndex += 1) {
+            // FactionTradeDefinition 当前势力定义：用于判断世界和当前模式地点。
+            var factionDefinition = game.definitions.FACTION_DEFINITIONS[factionIndex];
+
+            if (factionDefinition.worldId === worldId && hasDiplomacyLocationForFaction(modeId, factionDefinition.id)) {
+                availableFactionDefinitions.push(factionDefinition);
+            }
+        }
+
+        return availableFactionDefinitions;
+    }
+
+    /**
+     * 判断势力在当前模式下是否存在地点。
+     *
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @param {string} factionId - 势力稳定 ID。
+     * @returns {boolean} 是否存在可显示地点。
+     */
+    function hasDiplomacyLocationForFaction(modeId, factionId) {
+        if (modeId === "diplomacy") {
+            return Boolean(game.diplomacy.getFactionDefinition(factionId));
+        }
+
+        // number 掠夺目标循环索引：遍历掠夺目标定义数组的整数下标。
+        for (var targetIndex = 0; targetIndex < game.definitions.RAID_TARGET_DEFINITIONS.length; targetIndex += 1) {
+            // RaidTargetDefinition 当前掠夺目标定义：用于匹配势力 ID。
+            var targetDefinition = game.definitions.RAID_TARGET_DEFINITIONS[targetIndex];
+
+            if (targetDefinition.factionId === factionId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 渲染势力子标签按钮。
+     *
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @param {string} worldId - 世界稳定 ID。
+     * @param {FactionTradeDefinition|null} activeFactionDefinition - 当前势力定义。
+     * @returns {HTMLElement} 势力子标签容器。
+     */
+    function renderDiplomacyFactionSubtabs(modeId, worldId, activeFactionDefinition) {
+        // HTMLElement 子标签容器：承载当前世界下的势力按钮。
+        var subtabListElement = document.createElement("div");
+
+        // FactionTradeDefinition[] 可用势力定义数组：只渲染当前世界有地点的势力。
+        var availableFactionDefinitions = getAvailableDiplomacyFactionDefinitions(modeId, worldId);
+
+        subtabListElement.className = "tab-list diplomacy-subtabs location-subtabs";
+        subtabListElement.setAttribute("role", "tablist");
+
+        // number 势力循环索引：遍历可用势力定义数组的整数下标。
+        for (var factionIndex = 0; factionIndex < availableFactionDefinitions.length; factionIndex += 1) {
+            // FactionTradeDefinition 当前势力定义：用于创建子标签按钮。
+            var factionDefinition = availableFactionDefinitions[factionIndex];
+
+            subtabListElement.appendChild(createDiplomacyFactionSubtabButton(modeId, worldId, factionDefinition, activeFactionDefinition && activeFactionDefinition.id === factionDefinition.id));
+        }
+
+        return subtabListElement;
+    }
+
+    /**
+     * 创建势力子标签按钮。
+     *
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @param {string} worldId - 世界稳定 ID。
+     * @param {FactionTradeDefinition} factionDefinition - 势力定义对象。
+     * @param {boolean} isSelected - 是否为当前选中势力。
+     * @returns {HTMLButtonElement} 势力子标签按钮。
+     */
+    function createDiplomacyFactionSubtabButton(modeId, worldId, factionDefinition, isSelected) {
+        // HTMLButtonElement 按钮元素：写入势力子标签切换数据属性。
+        var buttonElement = document.createElement("button");
+
+        buttonElement.type = "button";
+        buttonElement.dataset.diplomacyMode = modeId;
+        buttonElement.dataset.diplomacyWorldId = worldId;
+        buttonElement.dataset.diplomacyFactionSubtab = factionDefinition.id;
+        buttonElement.textContent = factionDefinition.name;
+        buttonElement.setAttribute("role", "tab");
+        buttonElement.setAttribute("aria-selected", String(isSelected));
+        return buttonElement;
+    }
+
+    /**
+     * 渲染单个世界下的势力分组。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @param {DiplomacyWorldDefinition} worldDefinition - 世界定义对象。
+     * @returns {HTMLElement|null} 世界区块；没有地点时返回 null。
+     */
+    function renderDiplomacyWorldSection(state, modeId, worldDefinition) {
+        // HTMLElement 世界区块元素：显示地底、地表或深渊标题。
+        var sectionElement = document.createElement("section");
+
+        // number 已渲染势力数：用于判断该世界是否存在当前模式地点。
+        var renderedFactionCount = 0;
+
+        sectionElement.className = "location-world-section";
+        sectionElement.appendChild(createTextElement("h3", worldDefinition.name));
+
+        // number 势力循环索引：遍历阵营定义数组的整数下标。
+        for (var factionIndex = 0; factionIndex < game.definitions.FACTION_DEFINITIONS.length; factionIndex += 1) {
+            // FactionTradeDefinition 当前势力定义：用于二级分组标题和地点归属。
+            var factionDefinition = game.definitions.FACTION_DEFINITIONS[factionIndex];
+
+            if (factionDefinition.worldId !== worldDefinition.id) {
+                continue;
+            }
+
+            // HTMLElement|null 势力区块：没有当前模式地点时返回 null。
+            var factionSectionElement = renderDiplomacyFactionSection(state, modeId, factionDefinition);
+
+            if (factionSectionElement) {
+                renderedFactionCount += 1;
+                sectionElement.appendChild(factionSectionElement);
+            }
+        }
+
+        if (renderedFactionCount === 0) {
+            return null;
+        }
+
+        return sectionElement;
+    }
+
+    /**
+     * 渲染单个势力下的地点列表。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} modeId - 地点模式 ID；diplomacy 表示贸易地点，raid 表示掠夺地点。
+     * @param {FactionTradeDefinition} factionDefinition - 阵营定义对象。
+     * @returns {HTMLElement|null} 势力区块；没有当前模式地点时返回 null。
+     */
+    function renderDiplomacyFactionSection(state, modeId, factionDefinition) {
+        // HTMLElement 势力区块元素：承载同一势力下的地点列表。
+        var sectionElement = document.createElement("section");
+
+        // HTMLElement 列表元素：使用资源列表风格展示地点行。
+        var listElement = document.createElement("div");
+
+        // number 已渲染地点数：用于判断是否返回该势力区块。
+        var renderedLocationCount = 0;
+
+        sectionElement.className = "location-faction-section";
+        listElement.className = "location-list";
+        sectionElement.appendChild(createTextElement("h4", factionDefinition.name));
+
+        if (modeId === "diplomacy") {
+            listElement.appendChild(renderFactionLocationRow(state, factionDefinition));
+            renderedLocationCount += 1;
+        } else {
+            renderedLocationCount = appendRaidTargetRowsForFaction(state, factionDefinition, listElement);
+        }
+
+        if (renderedLocationCount === 0) {
+            return null;
+        }
+
+        sectionElement.appendChild(listElement);
+        return sectionElement;
+    }
+
+    /**
+     * 按势力追加掠夺地点行。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {FactionTradeDefinition} factionDefinition - 阵营定义对象。
-     * @returns {HTMLElement} 外交对象卡片元素。
+     * @param {HTMLElement} listElement - 地点列表元素，会被追加掠夺行。
+     * @returns {number} 已追加的地点行数量，非负整数。
      */
-    function renderFactionCard(state, factionDefinition) {
-        // HTMLElement 卡片元素：承载贸易预览和执行按钮。
-        var cardElement = document.createElement("div");
+    function appendRaidTargetRowsForFaction(state, factionDefinition, listElement) {
+        // number 已追加地点数：统计当前势力下的掠夺目标。
+        var renderedLocationCount = 0;
 
-        // Object.<string, number|string|Price[]> 贸易预览：包含成本、收益范围和关系变化。
+        // number 掠夺目标循环索引：遍历掠夺目标定义数组的整数下标。
+        for (var targetIndex = 0; targetIndex < game.definitions.RAID_TARGET_DEFINITIONS.length; targetIndex += 1) {
+            // RaidTargetDefinition 当前掠夺目标定义：用于匹配势力和渲染列表行。
+            var targetDefinition = game.definitions.RAID_TARGET_DEFINITIONS[targetIndex];
+
+            if (targetDefinition.factionId !== factionDefinition.id) {
+                continue;
+            }
+
+            renderedLocationCount += 1;
+            listElement.appendChild(renderRaidTargetLocationRow(state, targetDefinition, factionDefinition));
+        }
+
+        return renderedLocationCount;
+    }
+
+    /**
+     * 渲染单个外交地点行。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {FactionTradeDefinition} factionDefinition - 阵营定义对象。
+     * @returns {HTMLElement} 外交地点列表行。
+     */
+    function renderFactionLocationRow(state, factionDefinition) {
+        // HTMLElement 行元素：资源列表风格的贸易地点入口。
+        var rowElement = document.createElement("div");
+
+        // Object.<string, number|string|boolean|Price[]> 贸易预览：包含成本、收益范围、关系变化和善名门槛。
         var preview = game.diplomacy.previewTrade(state, factionDefinition.id);
 
         // ResourceDefinition|null 收益资源定义：用于显示中文资源名。
@@ -3651,104 +4181,358 @@
         // string[] 缺口文本数组：资源不足时显示贸易缺口。
         var missingTexts = game.resources.getMissingResourceTexts(state, factionDefinition.cost);
 
-        cardElement.className = "action-card";
+        // number 在途贸易队数量：显示同一地点尚未返程的行动数量。
+        var activeMissionCount = game.diplomacy.countActiveMissionsForLocation(state, "trade", factionDefinition.id);
+
+        rowElement.className = "resource-row location-row";
+        rowElement.tabIndex = 0;
         buttonElement.type = "button";
         buttonElement.dataset.tradeFactionId = factionDefinition.id;
-        buttonElement.textContent = "交易";
-        buttonElement.disabled = state.isPaused || !game.resources.canAfford(state, factionDefinition.cost) || (game.challengesSystem && game.challengesSystem.isTradeDisabled(state));
-        cardElement.appendChild(createTextElement("h3", factionDefinition.name));
-        cardElement.appendChild(createTextElement("p", factionDefinition.description));
-        cardElement.appendChild(createTextElement("p", "关系：" + game.diplomacy.getRelation(state, factionDefinition.id)));
-        cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.costPrefix + formatPriceList(factionDefinition.cost)));
-        cardElement.appendChild(createTextElement("p", "收益：" + (rewardDefinition ? rewardDefinition.name : factionDefinition.rewardResource) + " " + preview.minReward.toFixed(1) + "-" + preview.maxReward.toFixed(1)));
-        cardElement.appendChild(createTextElement("p", "成功率：" + Math.round(preview.successChance * 100) + "%，关系 " + (preview.relationChange >= 0 ? "+" : "") + preview.relationChange));
-        if (missingTexts.length > 0) {
-            cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.missingPrefix + missingTexts.join("，")));
-            appendPriceAvailabilityText(cardElement, state, factionDefinition.cost);
-        }
-        cardElement.appendChild(buttonElement);
-        return cardElement;
+        buttonElement.textContent = "派出";
+        buttonElement.disabled = state.isPaused || !preview.canTradeByGoodwill || !game.resources.canAfford(state, factionDefinition.cost) || (game.challengesSystem && game.challengesSystem.isTradeDisabled(state));
+
+        rowElement.appendChild(createLocationMainElement(factionDefinition.name, "关系 " + game.diplomacy.getRelation(state, factionDefinition.id)));
+        rowElement.appendChild(createTextElement("span", "消耗：" + formatPriceList(factionDefinition.cost)));
+        rowElement.appendChild(createTextElement("span", "收益：" + (rewardDefinition ? rewardDefinition.name : factionDefinition.rewardResource) + " " + preview.minReward.toFixed(1) + "-" + preview.maxReward.toFixed(1)));
+        rowElement.appendChild(createTextElement("span", "距离 " + formatSecondsText(preview.distanceSeconds)));
+        rowElement.appendChild(createTextElement("span", missingTexts.length > 0 ? game.text.TEXT_REGISTRY.ui.missingPrefix + missingTexts.join("，") : (activeMissionCount > 0 ? "在途 " + activeMissionCount : "可派出")));
+        rowElement.appendChild(buttonElement);
+        rowElement.appendChild(renderFactionLocationTooltip(state, factionDefinition, preview, rewardDefinition, missingTexts));
+        return rowElement;
     }
 
     /**
-     * 渲染掠夺目标列表。
+     * 创建地点行左侧主信息。
      *
-     * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @returns {HTMLElement} 掠夺目标网格元素。
+     * @param {string} nameText - 地点或势力中文名称。
+     * @param {string} detailText - 右侧短说明文本。
+     * @returns {HTMLElement} 主信息元素。
      */
-    function renderRaidTargets(state) {
-        // HTMLElement 网格元素：承载掠夺目标卡片。
-        var gridElement = document.createElement("div");
+    function createLocationMainElement(nameText, detailText) {
+        // HTMLElement 主信息元素：包含名称和短状态。
+        var mainElement = document.createElement("span");
 
-        gridElement.className = "action-grid";
+        // HTMLElement 名称元素：显示地点或势力名称。
+        var nameElement = document.createElement("strong");
 
-        // number 循环索引：遍历掠夺目标定义数组的整数下标。
-        for (var targetIndex = 0; targetIndex < game.definitions.RAID_TARGET_DEFINITIONS.length; targetIndex += 1) {
-            // RaidTargetDefinition 当前掠夺目标定义：用于渲染预览卡片。
-            var targetDefinition = game.definitions.RAID_TARGET_DEFINITIONS[targetIndex];
+        // HTMLElement 详情元素：显示关系、强度等短状态。
+        var detailElement = document.createElement("span");
 
-            gridElement.appendChild(renderRaidTargetCard(state, targetDefinition));
-        }
-
-        return gridElement;
+        mainElement.className = "location-main";
+        nameElement.textContent = nameText;
+        detailElement.textContent = detailText;
+        mainElement.appendChild(nameElement);
+        mainElement.appendChild(detailElement);
+        return mainElement;
     }
 
     /**
-     * 渲染单个掠夺目标卡片。
+     * 格式化地点距离秒数。
+     *
+     * @param {number} seconds - 距离对应的返程秒数，非负浮点数。
+     * @returns {string} 秒数中文文本；低于 60 秒显示秒，达到 60 秒显示约几分钟。
+     */
+    function formatSecondsText(seconds) {
+        // number 标准秒数：把异常输入收敛为非负整数秒。
+        var normalizedSeconds = Math.max(0, Math.ceil(Number(seconds) || 0));
+
+        if (normalizedSeconds < 60) {
+            return normalizedSeconds + " 秒";
+        }
+
+        return "约 " + Math.ceil(normalizedSeconds / 60) + " 分钟";
+    }
+
+    /**
+     * 渲染单个掠夺地点行。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {RaidTargetDefinition} targetDefinition - 掠夺目标定义对象。
-     * @returns {HTMLElement} 掠夺目标卡片元素。
+     * @param {FactionTradeDefinition} factionDefinition - 阵营定义对象。
+     * @returns {HTMLElement} 掠夺地点列表行。
      */
-    function renderRaidTargetCard(state, targetDefinition) {
-        // HTMLElement 卡片元素：承载掠夺预览和执行按钮。
-        var cardElement = document.createElement("div");
+    function renderRaidTargetLocationRow(state, targetDefinition, factionDefinition) {
+        // HTMLElement 行元素：资源列表风格的掠夺地点入口。
+        var rowElement = document.createElement("div");
 
-        // Object.<string, number> 掠夺派出人数缓存：key 为掠夺目标 ID，value 为玩家输入的派出人数。
+        // Object.<string, number> 掠夺派出人数缓存：key 为掠夺目标 ID，value 为玩家通过按钮选择的派出人数。
         var raidMemberCountsByTargetId = game.runtime && game.runtime.raidMemberCountsByTargetId ? game.runtime.raidMemberCountsByTargetId : {};
 
-        // number 当前派出人数：优先使用玩家输入，缺省按目标最低人数预览。
+        // number 当前派出人数：优先使用玩家按钮选择值，缺省按目标最低人数预览。
         var configuredRaiderCount = raidMemberCountsByTargetId[targetDefinition.id] || targetDefinition.minRaiders;
 
         // Object.<string, number|string|boolean|Price[]|Object> 掠夺预览：包含队伍强度、成功率和风险。
         var preview = game.raids.previewRaid(state, targetDefinition.id, configuredRaiderCount);
 
-        // HTMLLabelElement 派出人数标签：包裹数量输入，便于玩家调整队伍人数。
-        var inputLabelElement = document.createElement("label");
+        // number 当前可显示派出人数：限制在最低需求和可用战斗职业人数之间。
+        var displayedRaiderCount = Math.min(Math.max(configuredRaiderCount, targetDefinition.minRaiders), Math.max(preview.availableRaiderCount, targetDefinition.minRaiders));
 
-        // HTMLInputElement 派出人数输入框：玩家指定本次掠夺派出的战斗职业人数。
-        var inputElement = document.createElement("input");
+        // HTMLElement 派出人数控件：使用与职业分配一致的按钮加减模式。
+        var memberControlElement = renderRaidMemberControls(state, targetDefinition, preview, displayedRaiderCount);
+
+        // string[] 掠夺成本缺口文本：菌菇不足时用于行内摘要和浮窗。
+        var missingCostTexts = game.resources.getMissingResourceTexts(state, preview.cost);
+
+        // number 在途掠夺队数量：显示同一目标尚未返程的行动数量。
+        var activeMissionCount = game.diplomacy.countActiveMissionsForLocation(state, "raid", targetDefinition.id);
 
         // HTMLButtonElement 掠夺按钮：点击后执行掠夺。
         var buttonElement = document.createElement("button");
 
-        cardElement.className = "action-card";
-        inputLabelElement.className = "field-label";
-        inputLabelElement.textContent = "派出人数";
-        inputElement.type = "number";
-        inputElement.min = String(targetDefinition.minRaiders);
-        inputElement.max = String(preview.availableRaiderCount);
-        inputElement.step = "1";
-        inputElement.value = String(Math.min(Math.max(configuredRaiderCount, targetDefinition.minRaiders), Math.max(preview.availableRaiderCount, targetDefinition.minRaiders)));
-        inputElement.dataset.raidMemberInput = targetDefinition.id;
+        rowElement.className = "resource-row location-row raid-location-row";
+        rowElement.tabIndex = 0;
+        rowElement.dataset.raidMemberCount = String(displayedRaiderCount);
         buttonElement.type = "button";
         buttonElement.dataset.raidTargetId = targetDefinition.id;
-        buttonElement.textContent = "掠夺";
+        buttonElement.textContent = "派出";
         buttonElement.disabled = state.isPaused || !preview.canStart;
-        cardElement.appendChild(createTextElement("h3", targetDefinition.name));
-        cardElement.appendChild(createTextElement("p", targetDefinition.description));
-        cardElement.appendChild(createTextElement("p", "最低队伍：" + targetDefinition.minRaiders + "，可派出：" + preview.availableRaiderCount + "，目标强度：" + targetDefinition.targetStrength));
-        cardElement.appendChild(createTextElement("p", "预览队伍强度：" + preview.teamStrength.toFixed(1) + "，成功率：" + Math.round(preview.successChance * 100) + "%"));
-        cardElement.appendChild(createTextElement("p", "伤亡概率：" + Math.round(preview.casualtyChance * 100) + "%，死亡概率：" + Math.round(preview.deathChance * 100) + "%"));
-        cardElement.appendChild(createTextElement("p", "关系下降：" + preview.relationPenalty + "，报复可能：" + Math.round(preview.retaliationChance * 100) + "%"));
-        cardElement.appendChild(createTextElement("p", "俘虏范围：" + preview.captiveTypes));
-        inputLabelElement.appendChild(inputElement);
-        cardElement.appendChild(inputLabelElement);
-        if (!preview.canStart) {
-            cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.missingPrefix + "战斗职业哥布林 " + Math.max(0, targetDefinition.minRaiders - preview.availableRaiderCount)));
+        rowElement.appendChild(createLocationMainElement(targetDefinition.name, factionDefinition.name));
+        rowElement.appendChild(createTextElement("span", "强度 " + targetDefinition.targetStrength));
+        rowElement.appendChild(createTextElement("span", "消耗：" + formatRaidCostText(preview)));
+        rowElement.appendChild(createTextElement("span", "成功率 " + Math.round(preview.successChance * 100) + "%"));
+        rowElement.appendChild(createTextElement("span", "距离 " + formatSecondsText(preview.distanceSeconds)));
+        rowElement.appendChild(createTextElement("span", preview.canStart ? (activeMissionCount > 0 ? "在途 " + activeMissionCount : "可派出") : getRaidMissingSummary(preview, targetDefinition, missingCostTexts)));
+        rowElement.appendChild(memberControlElement);
+        rowElement.appendChild(buttonElement);
+        rowElement.appendChild(renderRaidTargetLocationTooltip(state, targetDefinition, factionDefinition, preview, missingCostTexts));
+        return rowElement;
+    }
+
+    /**
+     * 渲染掠夺派出人数按钮控件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {RaidTargetDefinition} targetDefinition - 掠夺目标定义对象。
+     * @param {Object.<string, number|string|boolean|Price[]|Object>} preview - 掠夺预览对象。
+     * @param {number} displayedRaiderCount - 当前显示的派出人数，正整数。
+     * @returns {HTMLElement} 派出人数按钮控件元素。
+     */
+    function renderRaidMemberControls(state, targetDefinition, preview, displayedRaiderCount) {
+        // HTMLElement 控件元素：承载减号、数量、加号和最大按钮。
+        var controlElement = document.createElement("div");
+
+        // HTMLElement 数量元素：显示本次将派出的战斗职业人数。
+        var countElement = document.createElement("span");
+
+        controlElement.className = "raid-member-controls";
+        countElement.className = "raid-member-count";
+        countElement.textContent = "派出 " + displayedRaiderCount;
+        controlElement.appendChild(createRaidMemberButton(targetDefinition.id, "remove", "-", state.isPaused || displayedRaiderCount <= targetDefinition.minRaiders));
+        controlElement.appendChild(countElement);
+        controlElement.appendChild(createRaidMemberButton(targetDefinition.id, "add", "+", state.isPaused || preview.availableRaiderCount < targetDefinition.minRaiders || displayedRaiderCount >= preview.availableRaiderCount));
+        controlElement.appendChild(createRaidMemberButton(targetDefinition.id, "max", "最大分配", state.isPaused || preview.availableRaiderCount < targetDefinition.minRaiders || displayedRaiderCount >= preview.availableRaiderCount));
+        return controlElement;
+    }
+
+    /**
+     * 创建掠夺派出人数操作按钮。
+     *
+     * @param {string} targetId - 掠夺目标稳定 ID。
+     * @param {string} actionId - 派出人数操作 ID；remove、add 或 max。
+     * @param {string} labelText - 按钮中文显示文本。
+     * @param {boolean} isDisabled - 是否禁用；true 表示当前不可执行。
+     * @returns {HTMLButtonElement} 派出人数操作按钮。
+     */
+    function createRaidMemberButton(targetId, actionId, labelText, isDisabled) {
+        // HTMLButtonElement 按钮元素：调整单个掠夺目标的派出人数。
+        var buttonElement = document.createElement("button");
+
+        buttonElement.type = "button";
+        buttonElement.dataset.raidMemberTargetId = targetId;
+        buttonElement.dataset.raidMemberAction = actionId;
+        buttonElement.textContent = labelText;
+        buttonElement.disabled = isDisabled;
+        return buttonElement;
+    }
+
+    /**
+     * 格式化掠夺成本显示文本。
+     *
+     * @param {Object.<string, number|string|boolean|Price[]|Object>} preview - 掠夺预览对象；读取 cost、canStartByRaiders 和 canStartByInfamy。
+     * @returns {string} 掠夺成本中文文本；非资源原因导致暂时不可掠夺时数量显示为“不可用”。
+     */
+    function formatRaidCostText(preview) {
+        // boolean 是否为暂时不可掠夺地点：战斗职业或恶名不足时不显示误导性的菌菇数量。
+        var isTemporarilyUnavailable = !preview.canStartByRaiders || !preview.canStartByInfamy;
+
+        if (isTemporarilyUnavailable) {
+            // Price|null 菌菇成本项：用于保留“菌菇”资源名，只把数量替换为不可用。
+            var fungusPriceEntry = getPriceEntryByResourceId(preview.cost, "fungus");
+
+            // ResourceDefinition|null 菌菇资源定义：缺失时回退显示稳定 ID。
+            var fungusDefinition = game.resources.getResourceDefinition("fungus");
+
+            if (fungusPriceEntry) {
+                return (fungusDefinition ? fungusDefinition.name : fungusPriceEntry.resource) + " 不可用";
+            }
+
+            return "不可用";
         }
-        cardElement.appendChild(buttonElement);
-        return cardElement;
+
+        return formatPriceList(preview.cost);
+    }
+
+    /**
+     * 从价格数组中查找指定资源价格项。
+     *
+     * @param {Price[]} price - 价格数组；amount 为非负资源数量。
+     * @param {string} resourceId - 资源稳定 ID。
+     * @returns {Price|null} 匹配的价格项；不存在时返回 null。
+     */
+    function getPriceEntryByResourceId(price, resourceId) {
+        // number 循环索引：遍历价格数组的整数下标。
+        for (var priceIndex = 0; priceIndex < price.length; priceIndex += 1) {
+            // Price 当前价格项：用于匹配指定资源 ID。
+            var priceEntry = price[priceIndex];
+
+            if (priceEntry.resource === resourceId) {
+                return priceEntry;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 获取掠夺地点行的缺口摘要。
+     *
+     * @param {Object.<string, number|string|boolean|Price[]|Object>} preview - 掠夺预览对象。
+     * @param {RaidTargetDefinition} targetDefinition - 掠夺目标定义对象。
+     * @param {string[]} missingCostTexts - 菌菇成本缺口文本数组。
+     * @returns {string} 缺口摘要文本。
+     */
+    function getRaidMissingSummary(preview, targetDefinition, missingCostTexts) {
+        if (!preview.canStartByRaiders) {
+            return game.text.TEXT_REGISTRY.ui.missingPrefix + "战斗职业 " + Math.max(0, targetDefinition.minRaiders - preview.availableRaiderCount);
+        }
+
+        if (!preview.canStartByInfamy) {
+            return game.text.TEXT_REGISTRY.ui.missingPrefix + "恶名 " + Math.max(0, preview.requiredInfamy - preview.infamyAmount).toFixed(0);
+        }
+
+        if (!preview.canStartByCost && missingCostTexts.length > 0) {
+            return game.text.TEXT_REGISTRY.ui.missingPrefix + missingCostTexts.join("，");
+        }
+
+        return "不可发起";
+    }
+
+    /**
+     * 渲染外交地点悬浮详情。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {FactionTradeDefinition} factionDefinition - 阵营定义对象。
+     * @param {Object.<string, number|string|boolean|Price[]>} preview - 贸易预览对象。
+     * @param {ResourceDefinition|null} rewardDefinition - 收益资源定义；缺失时显示资源 ID。
+     * @param {string[]} missingTexts - 资源缺口文本数组。
+     * @returns {HTMLElement} 外交地点悬浮框元素。
+     */
+    function renderFactionLocationTooltip(state, factionDefinition, preview, rewardDefinition, missingTexts) {
+        // HTMLElement 浮窗元素：显示贸易地点完整详情。
+        var tooltipElement = document.createElement("div");
+
+        // HTMLElement 明细列表：承载描述、成本、收益、声名和缺口。
+        var listElement = document.createElement("dl");
+
+        tooltipElement.className = "resource-tooltip location-tooltip";
+        tooltipElement.setAttribute("role", "tooltip");
+        tooltipElement.appendChild(createTextElement("h4", factionDefinition.name));
+        appendDefinitionDetail(listElement, "说明", factionDefinition.description);
+        appendDefinitionDetail(listElement, "关系", String(game.diplomacy.getRelation(state, factionDefinition.id)));
+        appendDefinitionDetail(listElement, "消耗", formatPriceList(factionDefinition.cost));
+        appendDefinitionDetail(listElement, "距离", formatSecondsText(preview.distanceSeconds) + " 后返程结算");
+        appendDefinitionDetail(listElement, "善名", "门槛 " + preview.requiredGoodwill + "，当前 " + preview.goodwillAmount.toFixed(1) + "，交易成功 +" + preview.goodwillReward);
+        appendDefinitionDetail(listElement, "收益", (rewardDefinition ? rewardDefinition.name : factionDefinition.rewardResource) + " " + preview.minReward.toFixed(1) + "-" + preview.maxReward.toFixed(1));
+        appendDefinitionDetail(listElement, "成功率", Math.round(preview.successChance * 100) + "%，关系 " + (preview.relationChange >= 0 ? "+" : "") + preview.relationChange);
+
+        if (!preview.canTradeByGoodwill) {
+            appendDefinitionDetail(listElement, "缺少", "善名 " + Math.max(0, preview.requiredGoodwill - preview.goodwillAmount).toFixed(0));
+        }
+
+        if (missingTexts.length > 0) {
+            appendDefinitionDetail(listElement, "缺少", missingTexts.join("，"));
+            appendDefinitionDetail(listElement, "倒计时", game.resources.formatPriceAvailabilityText(state, factionDefinition.cost));
+        }
+
+        tooltipElement.appendChild(listElement);
+        return tooltipElement;
+    }
+
+    /**
+     * 渲染掠夺地点悬浮详情。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {RaidTargetDefinition} targetDefinition - 掠夺目标定义对象。
+     * @param {FactionTradeDefinition} factionDefinition - 阵营定义对象。
+     * @param {Object.<string, number|string|boolean|Price[]|Object>} preview - 掠夺预览对象。
+     * @param {string[]} missingCostTexts - 菌菇成本缺口文本数组。
+     * @returns {HTMLElement} 掠夺地点悬浮框元素。
+     */
+    function renderRaidTargetLocationTooltip(state, targetDefinition, factionDefinition, preview, missingCostTexts) {
+        // HTMLElement 浮窗元素：显示掠夺地点完整详情。
+        var tooltipElement = document.createElement("div");
+
+        // HTMLElement 明细列表：承载风险、收益、声名和缺口。
+        var listElement = document.createElement("dl");
+
+        tooltipElement.className = "resource-tooltip location-tooltip";
+        tooltipElement.setAttribute("role", "tooltip");
+        tooltipElement.appendChild(createTextElement("h4", targetDefinition.name));
+        appendDefinitionDetail(listElement, "势力", factionDefinition.name);
+        appendDefinitionDetail(listElement, "说明", targetDefinition.description);
+        appendDefinitionDetail(listElement, "队伍", "最低 " + targetDefinition.minRaiders + "，可派出 " + preview.availableRaiderCount + "，目标强度 " + targetDefinition.targetStrength);
+        appendDefinitionDetail(listElement, "消耗", formatRaidCostText(preview));
+        appendDefinitionDetail(listElement, "距离", formatSecondsText(preview.distanceSeconds) + " 后返程结算");
+        appendDefinitionDetail(listElement, "恶名", "门槛 " + preview.requiredInfamy + "，当前 " + preview.infamyAmount.toFixed(1));
+        appendDefinitionDetail(listElement, "强度", "队伍 " + preview.teamStrength.toFixed(1) + "，成功率 " + Math.round(preview.successChance * 100) + "%");
+        appendDefinitionDetail(listElement, "伤亡", "受伤 " + Math.round(preview.casualtyChance * 100) + "%，死亡 " + Math.round(preview.deathChance * 100) + "%");
+        appendDefinitionDetail(listElement, "关系", "下降 " + preview.relationPenalty + "，报复可能 " + Math.round(preview.retaliationChance * 100) + "%");
+        appendDefinitionDetail(listElement, "声名", "成功恶名 +" + preview.infamyReward + "、善名 -" + preview.goodwillPenalty + "；失败恶名 -" + preview.infamyFailurePenalty);
+        appendDefinitionDetail(listElement, "收益", formatRewardDictionary(targetDefinition.rewards));
+        appendDefinitionDetail(listElement, "俘虏", String(preview.captiveTypes));
+
+        if (!preview.canStartByRaiders) {
+            appendDefinitionDetail(listElement, "缺少", "战斗职业哥布林 " + Math.max(0, targetDefinition.minRaiders - preview.availableRaiderCount));
+        }
+
+        if (!preview.canStartByInfamy) {
+            appendDefinitionDetail(listElement, "缺少", "恶名 " + Math.max(0, preview.requiredInfamy - preview.infamyAmount).toFixed(0));
+        }
+
+        if (!preview.canStartByCost && missingCostTexts.length > 0) {
+            appendDefinitionDetail(listElement, "缺少", missingCostTexts.join("，"));
+            appendDefinitionDetail(listElement, "倒计时", game.resources.formatPriceAvailabilityText(state, preview.cost));
+        }
+
+        tooltipElement.appendChild(listElement);
+        return tooltipElement;
+    }
+
+    /**
+     * 格式化资源奖励字典。
+     *
+     * @param {Object.<string, number>} rewardsByResourceId - 奖励字典；key 为资源 ID，value 为资源数量。
+     * @returns {string} 中文奖励列表。
+     */
+    function formatRewardDictionary(rewardsByResourceId) {
+        // string[] 奖励文本数组：逐资源保存中文名称和数量。
+        var rewardTexts = [];
+
+        // string[] 奖励资源 ID 数组：Object.keys 返回奖励字典的稳定 ID。
+        var resourceIds = Object.keys(rewardsByResourceId);
+
+        // number 循环索引：遍历奖励资源 ID 数组的整数下标。
+        for (var resourceIndex = 0; resourceIndex < resourceIds.length; resourceIndex += 1) {
+            // string 资源 ID：当前奖励资源稳定 ID。
+            var resourceId = resourceIds[resourceIndex];
+
+            // ResourceDefinition|null 资源定义：用于把资源 ID 转成中文名称。
+            var resourceDefinition = game.resources.getResourceDefinition(resourceId);
+
+            rewardTexts.push((resourceDefinition ? resourceDefinition.name : resourceId) + " " + rewardsByResourceId[resourceId]);
+        }
+
+        return rewardTexts.join("，");
     }
 
     /**
