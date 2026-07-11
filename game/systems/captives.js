@@ -364,7 +364,10 @@
         }
 
         if (dispositionId === "modify") {
-            return !state || game.resources.canAfford(state, calculateBrainwashPrice(state));
+            // boolean 洗脑是否未满：true 表示洗脑程度低于 100%，仍允许继续改造。
+            var isBrainwashIncomplete = getCaptiveBrainwashRatio(captive) < 1;
+
+            return isBrainwashIncomplete && (!state || game.resources.canAfford(state, calculateBrainwashPrice(state)));
         }
 
         return dispositionId === "food";
