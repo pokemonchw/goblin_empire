@@ -26,7 +26,9 @@
                 value: 0,
                 maxValue: resourceDefinition.defaultMaxValue,
                 isVisible: resourceDefinition.isVisibleAtStart,
-                perSecond: 0
+                perSecond: 0,
+                grossGainThisTick: 0,
+                actualGainThisTick: 0
             };
         }
 

@@ -74,9 +74,10 @@
         game.calendar.updateCalendar(state, deltaSeconds);
         game.weather.updateWeather(state);
         game.jobs.resetResourceRates(state);
-        game.population.updatePopulation(state, deltaSeconds);
+        game.population.updateLaborFromPopulation(state);
         game.jobs.applyJobProduction(state, deltaSeconds);
         game.production.updateProduction(state, deltaSeconds);
+        game.population.consumeFungusForPopulation(state, deltaSeconds);
         game.crafting.updateAutoCrafting(state, deltaSeconds);
         game.captivesSystem.updateCaptives(state, deltaSeconds);
         game.eventsSystem.updateEvents(state, deltaSeconds);

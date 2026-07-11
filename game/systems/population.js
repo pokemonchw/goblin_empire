@@ -445,10 +445,16 @@
         // number 菌菇消耗：本次模拟需要扣除的菌菇数量。
         var fungusCost = fungusCostPerSecond * deltaSeconds;
 
-        // boolean 是否断粮：本次口粮消耗超过当前菌菇库存，true 表示需要累计断粮惩罚时间。
-        var isStarving = fungusCost > fungusState.value;
+        // number 本轮菌菇溢出产出：满仓时被容量截断、但仍可先作为口粮吃掉的资源数量。
+        var clippedFungusGain = Math.max(0, (fungusState.grossGainThisTick || 0) - (fungusState.actualGainThisTick || 0));
 
-        fungusState.value = Math.max(0, fungusState.value - fungusCost);
+        // number 可用菌菇：当前库存加上本轮被容量截掉的菌菇产出，代表同一结算段内可用于口粮的总量。
+        var availableFungus = fungusState.value + clippedFungusGain;
+
+        // boolean 是否断粮：本次口粮消耗超过本轮可用菌菇，true 表示需要累计断粮惩罚时间。
+        var isStarving = fungusCost > availableFungus;
+
+        fungusState.value = Math.min(fungusState.maxValue, Math.max(0, availableFungus - fungusCost));
         fungusState.perSecond -= fungusCostPerSecond;
 
         if (isStarving && !state.statistics.hasWarnedFoodShortage) {
@@ -633,6 +639,7 @@
         calculateFungusConsumptionPerSecond: calculateFungusConsumptionPerSecond,
         createGoblin: createGoblin,
         updateLaborFromPopulation: updateLaborFromPopulation,
+        consumeFungusForPopulation: consumeFungusForPopulation,
         analyzeLaborBreakdown: analyzeLaborBreakdown,
         calculateBuildingLaborUsage: calculateBuildingLaborUsage,
         calculateLaborUsageReductionRatio: calculateLaborUsageReductionRatio,

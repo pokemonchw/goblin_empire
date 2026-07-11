@@ -70,6 +70,9 @@
         // number 实际增加数量：用于返回和历史统计。
         var actualGain = resourceState.value - previousValue;
 
+        resourceState.grossGainThisTick = (resourceState.grossGainThisTick || 0) + adjustedAmount;
+        resourceState.actualGainThisTick = (resourceState.actualGainThisTick || 0) + actualGain;
+
         if (resourceId === "crudeKnowledge" && actualGain > 0) {
             state.statistics.totalCrudeKnowledgeEarned = (state.statistics.totalCrudeKnowledgeEarned || 0) + actualGain;
         }

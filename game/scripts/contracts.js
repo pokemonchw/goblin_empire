@@ -128,6 +128,8 @@
      * @property {number} maxValue - 当前资源容量上限，非负浮点数。
      * @property {boolean} isVisible - 是否已经显示；true 表示初始可见或玩家见过。
      * @property {number} perSecond - 每秒变化量，有符号浮点数。
+     * @property {number=} grossGainThisTick - 本次模拟尝试增加的资源总量，非负资源数量；临时字段，不进入存档。
+     * @property {number=} actualGainThisTick - 本次模拟实际入库的资源总量，非负资源数量；临时字段，不进入存档。
      */
 
     /**

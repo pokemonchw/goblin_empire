@@ -8,6 +8,7 @@
 - 职业产出：创建已解锁职业和具体哥布林，调用 `game.jobs.assignWorker` 与 `game.jobs.updateJobs`，确认资源每秒变化和职业技能经验同步增长。
 - 技能等级：给哥布林写入不同技能经验，确认职业适配和远征评分随技能经验提高。
 - 苗床繁育：创建普通俘虏并调用 `game.captivesSystem.applyDisposition(state, captiveId, "bed")`，确认俘虏进入 `breedingState = "gestating"` 且不会弹确认框；推进一个月后按失败概率结算，成功时生成 1 个 `origin = "captive_bed"` 的新哥布林，随后进入 `resting`；休养期间确认 `培育新生` 不可执行，但 `洗脑改造` 和 `做成食物` 可执行；再推进一个月后回到 `idle`，同一俘虏可再次培育；随后调用 `game.population.updatePopulation`，确认不会因空住房和菌菇自动新增人口。
+- 满仓口粮：设置 1 个存活哥布林、5 个启用 `fungus_bed`、菌菇达到容量上限，调用 `game.simulation.updateGame` 推进 60 秒，确认不会产生断粮计时或饿死日志；再设置无菌菇且无菌菇产出，推进超过 3 秒，确认真实断粮仍会杀死哥布林。
 - 日期速度：调用 `game.calendar.updateCalendar(state, 1)` 后，确认 `state.calendar.elapsedDays` 增加 1；调用 `game.calendar.calculateDaysFromSeconds(30)` 后，确认返回 30。
 - 暂停门控：将 `state.isPaused` 置为 `true` 后调用 `game.simulation.updateGame`，确认返回 `0` 且资源、人口、事件、自动制作和远征不推进。
 - 存档迁移：用 v1 存档文本调用 `game.save.loadFromText`，确认版本迁移到当前 `SAVE_VERSION`，缺失的契约、远征、挑战、威望、日期和开局俘虏字段被补齐。

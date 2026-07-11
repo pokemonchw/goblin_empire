@@ -492,6 +492,8 @@
             var resourceId = resourceIds[resourceIndex];
 
             state.resourcesById[resourceId].perSecond = 0;
+            state.resourcesById[resourceId].grossGainThisTick = 0;
+            state.resourcesById[resourceId].actualGainThisTick = 0;
         }
     }
 
