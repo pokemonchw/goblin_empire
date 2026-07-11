@@ -1116,6 +1116,27 @@
     }
 
     /**
+     * 格式化俘虏来源。
+     *
+     * @param {string} sourceId - 俘虏来源 ID 或中文事件名；掠夺来源通常为 RaidTargetDefinition.id。
+     * @returns {string} 中文来源文本；未知旧存档来源保留原值便于排查。
+     */
+    function formatCaptiveSource(sourceId) {
+        if (!sourceId) {
+            return "未知来源";
+        }
+
+        // RaidTargetDefinition|null 掠夺目标定义：用于把存档中的英文目标 ID 转成中文地点名。
+        var raidTargetDefinition = game.raids ? game.raids.getRaidTargetDefinition(sourceId) : null;
+
+        if (raidTargetDefinition) {
+            return raidTargetDefinition.name;
+        }
+
+        return sourceId;
+    }
+
+    /**
      * 追加俘虏处置按钮。
      *
      * @param {HTMLElement} actionsElement - 处置按钮组元素，会被追加按钮。
@@ -1183,7 +1204,7 @@
         tooltipElement.setAttribute("role", "tooltip");
         tooltipElement.appendChild(createTextElement("h4", captive.name || captive.id));
         appendDefinitionDetail(listElement, "种类", (qualityDefinition ? qualityDefinition.name : captive.quality) + " " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type));
-        appendDefinitionDetail(listElement, "来源", captive.source || "未知来源");
+        appendDefinitionDetail(listElement, "来源", formatCaptiveSource(captive.source));
         appendDefinitionDetail(listElement, "倾向", formatCaptiveTraitHint(captive.traitHint));
         appendDefinitionDetail(listElement, "洗脑程度", Math.round(Number(captive.brainwashLevel) || 0) + "%");
         appendDefinitionDetail(listElement, "洗脑消耗", "菌菇 " + brainwashPrice[0].amount + (canPayBrainwash ? "" : "（不足）"));
