@@ -132,7 +132,6 @@
         applyResourceCapacityEffect(state, effects, "coalSlagMax", "coalSlag");
         applyResourceCapacityEffect(state, effects, "ironOreMax", "ironOre");
         applyResourceCapacityEffect(state, effects, "ironPlateMax", "ironPlate");
-        applyResourceCapacityEffect(state, effects, "laborMax", "labor");
         applyResourceCapacityEffect(state, effects, "militaryPowerMax", "militaryPower");
         applyResourceCapacityEffect(state, effects, "crudeKnowledgeMax", "crudeKnowledge");
         applyResourceCapacityEffect(state, effects, "obedienceMax", "obedience");

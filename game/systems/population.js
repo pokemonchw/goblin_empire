@@ -272,10 +272,47 @@
         // number 人口派生劳力：存活哥布林提供的基础劳力数量，非负整数。
         var populationLabor = countAliveGoblins(state) * 10;
 
-        // number 容量限制劳力：住房、居所和工具提供的劳力上限，非负资源数量。
-        var cappedLabor = Math.min(laborState.maxValue, populationLabor);
+        laborState.value = Math.max(0, populationLabor - buildingLaborUsage);
+    }
 
-        laborState.value = Math.max(0, cappedLabor - buildingLaborUsage);
+    /**
+     * 分析劳力来源和建筑占用，用于资源卡片浮窗展示。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {LaborBreakdown} 劳力派生、占用减免和逐建筑占用明细。
+     */
+    function analyzeLaborBreakdown(state) {
+        // number 存活哥布林数量：每个存活个体提供固定基础劳力。
+        var aliveGoblinCount = countAliveGoblins(state);
+
+        // number 人口派生劳力：存活哥布林提供的基础劳力数量，非负资源数量。
+        var populationLabor = aliveGoblinCount * 10;
+
+        // LaborUsageEntry[] 建筑占用条目：逐建筑记录启用数量和减免前后占用。
+        var buildingUsageEntries = collectBuildingLaborUsageEntries(state);
+
+        // number 减免前建筑占用总量：所有启用生产建筑的原始占用之和。
+        var rawBuildingUsageTotal = sumRawLaborUsage(buildingUsageEntries);
+
+        // number 劳力占用减免比例：绞盘和监工设施降低生产建筑占用，上限为 75%。
+        var reductionRatio = calculateLaborUsageReductionRatio(state);
+
+        // number 循环索引：遍历建筑占用条目的整数下标。
+        for (var entryIndex = 0; entryIndex < buildingUsageEntries.length; entryIndex += 1) {
+            // LaborUsageEntry 当前建筑占用条目：用于写入减免后的占用数量。
+            var usageEntry = buildingUsageEntries[entryIndex];
+
+            usageEntry.adjustedUsage = usageEntry.rawUsage * (1 - reductionRatio);
+        }
+
+        return {
+            aliveGoblinCount: aliveGoblinCount,
+            populationLabor: populationLabor,
+            rawBuildingUsageTotal: rawBuildingUsageTotal,
+            reductionRatio: reductionRatio,
+            adjustedBuildingUsageTotal: rawBuildingUsageTotal * (1 - reductionRatio),
+            buildingUsageEntries: buildingUsageEntries
+        };
     }
 
     /**
@@ -285,8 +322,27 @@
      * @returns {number} 建筑占用劳力数量，非负浮点数。
      */
     function calculateBuildingLaborUsage(state) {
-        // number 占用劳力总量：按启用建筑数量乘单建筑占用累加。
-        var rawLaborUsage = 0;
+        // LaborUsageEntry[] 建筑占用条目：用于统计减免前占用总量。
+        var buildingUsageEntries = collectBuildingLaborUsageEntries(state);
+
+        // number 占用劳力总量：按启用建筑数量乘单建筑占用累加，非负资源数量。
+        var rawLaborUsage = sumRawLaborUsage(buildingUsageEntries);
+
+        // number 劳力占用减免比例：绞盘和监工设施降低生产建筑占用，上限防止完全免费自动化。
+        var reductionRatio = calculateLaborUsageReductionRatio(state);
+
+        return rawLaborUsage * (1 - reductionRatio);
+    }
+
+    /**
+     * 收集逐建筑劳力占用条目。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {LaborUsageEntry[]} 逐建筑占用明细数组。
+     */
+    function collectBuildingLaborUsageEntries(state) {
+        // LaborUsageEntry[] 占用条目数组：保存每类启用生产建筑的劳力占用。
+        var usageEntries = [];
 
         // number 循环索引：遍历建筑定义数组的整数下标。
         for (var buildingIndex = 0; buildingIndex < game.definitions.BUILDING_DEFINITIONS.length; buildingIndex += 1) {
@@ -300,13 +356,41 @@
                 continue;
             }
 
-            rawLaborUsage += buildingDefinition.effects.laborUsage * buildingState.active;
+            // number 减免前占用：单座劳力占用乘启用数量，非负资源数量。
+            var rawUsage = buildingDefinition.effects.laborUsage * buildingState.active;
+
+            usageEntries.push({
+                buildingId: buildingDefinition.id,
+                buildingName: buildingDefinition.name,
+                activeCount: buildingState.active,
+                laborUsagePerBuilding: buildingDefinition.effects.laborUsage,
+                rawUsage: rawUsage,
+                adjustedUsage: rawUsage
+            });
         }
 
-        // number 劳力占用减免比例：绞盘和监工设施降低生产建筑占用，上限防止完全免费自动化。
-        var reductionRatio = calculateLaborUsageReductionRatio(state);
+        return usageEntries;
+    }
 
-        return rawLaborUsage * (1 - reductionRatio);
+    /**
+     * 汇总减免前建筑劳力占用。
+     *
+     * @param {LaborUsageEntry[]} usageEntries - 逐建筑占用明细数组。
+     * @returns {number} 减免前劳力占用总量，非负资源数量。
+     */
+    function sumRawLaborUsage(usageEntries) {
+        // number 占用总量：累加所有建筑条目的减免前劳力占用。
+        var rawUsageTotal = 0;
+
+        // number 循环索引：遍历建筑占用条目的整数下标。
+        for (var entryIndex = 0; entryIndex < usageEntries.length; entryIndex += 1) {
+            // LaborUsageEntry 当前建筑占用条目：用于读取减免前占用。
+            var usageEntry = usageEntries[entryIndex];
+
+            rawUsageTotal += usageEntry.rawUsage;
+        }
+
+        return rawUsageTotal;
     }
 
     /**
@@ -549,6 +633,7 @@
         calculateFungusConsumptionPerSecond: calculateFungusConsumptionPerSecond,
         createGoblin: createGoblin,
         updateLaborFromPopulation: updateLaborFromPopulation,
+        analyzeLaborBreakdown: analyzeLaborBreakdown,
         calculateBuildingLaborUsage: calculateBuildingLaborUsage,
         calculateLaborUsageReductionRatio: calculateLaborUsageReductionRatio,
         updatePopulation: updatePopulation,

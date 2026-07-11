@@ -412,7 +412,7 @@
             category: "basic",
             defaultMaxValue: 0,
             isVisibleAtStart: true,
-            isCapacityLimited: true,
+            isCapacityLimited: false,
             description: game.text.TEXT_REGISTRY.resources.labor.description
         },
         {
@@ -793,8 +793,7 @@
             ],
             priceRatio: 2.5,
             effects: {
-                housingMax: 2,
-                laborMax: 75
+                housingMax: 2
             },
             unlock: {
                 isDefault: true,
@@ -847,8 +846,7 @@
             ],
             priceRatio: 1.15,
             effects: {
-                housingMax: 1,
-                laborMax: 50
+                housingMax: 1
             },
             unlock: {
                 isDefault: false
@@ -1017,7 +1015,6 @@
             ],
             priceRatio: 1.14,
             effects: {
-                laborMax: 40,
                 rubbleOutputRatio: 0.05
             },
             unlock: {
@@ -1105,7 +1102,6 @@
             ],
             priceRatio: 1.16,
             effects: {
-                laborMax: 100,
                 laborUsageReductionRatio: 0.03
             },
             unlock: {
@@ -1262,7 +1258,6 @@
             ],
             priceRatio: 1.15,
             effects: {
-                laborMax: 50,
                 militaryPowerMax: 100
             },
             unlock: {
@@ -1280,7 +1275,6 @@
             ],
             priceRatio: 1.15,
             effects: {
-                laborMax: 50,
                 obedienceMax: 20,
                 laborUsageReductionRatio: 0.04
             },
@@ -1482,7 +1476,6 @@
             priceRatio: 1.18,
             effects: {
                 housingMax: 2,
-                laborMax: 100,
                 militaryPowerMax: 50
             },
             unlock: {
@@ -2539,7 +2532,6 @@
                 cunning: 0.3
             },
             baseOutput: {
-                labor: 0.06,
                 militaryPower: 0.025
             },
             unlock: {

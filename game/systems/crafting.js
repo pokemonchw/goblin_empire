@@ -323,7 +323,6 @@
         }
 
         if (resourceId === "gear") {
-            state.resourcesById.labor.maxValue += 20 * craftedAmount;
             state.statistics.autoCraftRatio = (state.statistics.autoCraftRatio || 0) + 0.05 * craftedAmount;
         }
 

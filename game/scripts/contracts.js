@@ -78,6 +78,26 @@
      */
 
     /**
+     * @typedef {Object} LaborUsageEntry
+     * @property {BuildingId} buildingId - 建筑稳定 ID，必须对应 BuildingDefinition.id。
+     * @property {string} buildingName - 建筑中文显示名。
+     * @property {number} activeCount - 当前启用建筑数量，非负整数。
+     * @property {number} laborUsagePerBuilding - 单座启用建筑占用劳力数量，非负资源数量。
+     * @property {number} rawUsage - 减免前劳力占用数量，非负资源数量。
+     * @property {number} adjustedUsage - 应用总减免后的劳力占用数量，非负资源数量。
+     */
+
+    /**
+     * @typedef {Object} LaborBreakdown
+     * @property {number} aliveGoblinCount - 当前存活哥布林数量，非负整数。
+     * @property {number} populationLabor - 存活哥布林派生劳力数量，非负资源数量。
+     * @property {number} rawBuildingUsageTotal - 减免前建筑占用劳力总量，非负资源数量。
+     * @property {number} reductionRatio - 建筑劳力占用减免比例，范围为 0-0.75。
+     * @property {number} adjustedBuildingUsageTotal - 减免后建筑占用劳力总量，非负资源数量。
+     * @property {LaborUsageEntry[]} buildingUsageEntries - 逐建筑占用明细数组。
+     */
+
+    /**
      * @typedef {Object} UnlockBundle
      * @property {string[]=} tabs - 要解锁的标签页 ID 数组。
      * @property {ResourceId[]=} resources - 要解锁的资源 ID 数组。

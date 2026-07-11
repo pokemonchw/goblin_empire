@@ -146,9 +146,13 @@
 
                 rowElement.className = "resource-row";
                 rowElement.tabIndex = 0;
-                rowElement.classList.toggle("is-full", resourceState.value >= resourceState.maxValue);
+
+                // boolean 是否达到容量：无容量资源不触发爆仓样式。
+                var isResourceFull = Boolean(resourceDefinition.isCapacityLimited && resourceState.value >= resourceState.maxValue);
+
+                rowElement.classList.toggle("is-full", isResourceFull);
                 rowElement.appendChild(createTextElement("span", resourceDefinition.name));
-                rowElement.appendChild(createTextElement("span", formatResourceValue(resourceState)));
+                rowElement.appendChild(createTextElement("span", formatResourceValue(resourceState, resourceDefinition)));
 
                 if (Math.abs(resourceState.perSecond) >= 0.001) {
                     // HTMLElement 每秒变化元素：用正负颜色提示资源趋势。
@@ -192,12 +196,28 @@
 
         appendTooltipDefinition(listElement, "总产出速度", formatRate(flowSummary.totalOutputPerSecond));
         appendTooltipDefinition(listElement, "产出明细", formatFlowEntries(flowSummary.outputEntries));
+
+        // boolean 是否为劳力资源：劳力浮窗只展示人口来源和建筑占用，不展示常规消耗/净产出字段。
+        var isLaborResource = resourceDefinition.id === "labor";
+
+        if (isLaborResource) {
+            // LaborBreakdown 劳力摘要：用于显示人口派生来源和建筑占用明细。
+            var laborBreakdown = game.population.analyzeLaborBreakdown(state);
+
+            appendTooltipDefinition(listElement, "劳力来源", formatLaborSourceText(laborBreakdown));
+            appendTooltipDefinition(listElement, "建筑占用", formatLaborUsageEntries(laborBreakdown.buildingUsageEntries));
+            appendTooltipDefinition(listElement, "占用减免", formatLaborReductionText(laborBreakdown));
+        }
+
         appendTooltipDefinition(listElement, "加成", formatBonusEntries(flowSummary.bonusEntries));
-        appendTooltipDefinition(listElement, "总消耗", formatRate(flowSummary.totalConsumptionPerSecond));
-        appendTooltipDefinition(listElement, "消耗明细", formatFlowEntries(flowSummary.consumptionEntries));
         appendTooltipDefinition(listElement, "buff 明细", flowSummary.buffTexts.length > 0 ? flowSummary.buffTexts.join("；") : "无");
-        appendTooltipDefinition(listElement, "最终产出", formatSignedNumber(flowSummary.finalPerSecond) + "/秒");
-        appendTooltipDefinition(listElement, "库存爆仓时间", flowSummary.timeToFullText);
+
+        if (!isLaborResource) {
+            appendTooltipDefinition(listElement, "总消耗", formatRate(flowSummary.totalConsumptionPerSecond));
+            appendTooltipDefinition(listElement, "消耗明细", formatFlowEntries(flowSummary.consumptionEntries));
+            appendTooltipDefinition(listElement, "最终产出", formatSignedNumber(flowSummary.finalPerSecond) + "/秒");
+            appendTooltipDefinition(listElement, "库存爆仓时间", flowSummary.timeToFullText);
+        }
 
         tooltipElement.appendChild(listElement);
         return tooltipElement;
@@ -254,6 +274,64 @@
     }
 
     /**
+     * 格式化劳力来源文本。
+     *
+     * @param {LaborBreakdown} laborBreakdown - 劳力派生和占用摘要对象。
+     * @returns {string} 劳力来源中文文本。
+     */
+    function formatLaborSourceText(laborBreakdown) {
+        // string[] 来源文本数组：保存人口派生劳力说明。
+        var sourceTexts = [];
+
+        sourceTexts.push("存活哥布林 " + laborBreakdown.aliveGoblinCount + " x 10 = " + formatNumber(laborBreakdown.populationLabor));
+
+        return sourceTexts.join("；");
+    }
+
+    /**
+     * 格式化建筑劳力占用明细。
+     *
+     * @param {LaborUsageEntry[]} usageEntries - 逐建筑占用明细数组。
+     * @returns {string} 建筑劳力占用中文文本。
+     */
+    function formatLaborUsageEntries(usageEntries) {
+        if (usageEntries.length === 0) {
+            return "无";
+        }
+
+        // string[] 占用文本数组：逐项保存建筑名称、启用数量和减免后占用。
+        var usageTexts = [];
+
+        // number 循环索引：遍历建筑占用条目的整数下标。
+        for (var entryIndex = 0; entryIndex < usageEntries.length; entryIndex += 1) {
+            // LaborUsageEntry 当前建筑占用条目：用于显示单项占用。
+            var usageEntry = usageEntries[entryIndex];
+
+            usageTexts.push(usageEntry.buildingName + " x" + usageEntry.activeCount + "：" + formatNumber(usageEntry.laborUsagePerBuilding) + "/座，合计 -" + formatNumber(usageEntry.adjustedUsage));
+        }
+
+        return usageTexts.join("；");
+    }
+
+    /**
+     * 格式化建筑劳力占用减免文本。
+     *
+     * @param {LaborBreakdown} laborBreakdown - 劳力派生和占用摘要对象。
+     * @returns {string} 建筑劳力减免中文文本。
+     */
+    function formatLaborReductionText(laborBreakdown) {
+        if (laborBreakdown.rawBuildingUsageTotal <= 0) {
+            return "无建筑占用";
+        }
+
+        if (laborBreakdown.reductionRatio <= 0) {
+            return "无减免，当前占用 -" + formatNumber(laborBreakdown.adjustedBuildingUsageTotal);
+        }
+
+        return "减免前 -" + formatNumber(laborBreakdown.rawBuildingUsageTotal) + "，减免 " + Math.round(laborBreakdown.reductionRatio * 100) + "%，当前占用 -" + formatNumber(laborBreakdown.adjustedBuildingUsageTotal);
+    }
+
+    /**
      * 格式化加成条目列表。
      *
      * @param {ResourceBonusEntry[]} bonusEntries - 加成条目数组；每项包含 label 和 value。
@@ -289,12 +367,27 @@
     }
 
     /**
+     * 格式化普通资源数量。
+     *
+     * @param {number} amount - 资源数量，非负或有符号浮点数。
+     * @returns {string} 去掉多余尾零的资源数量文本。
+     */
+    function formatNumber(amount) {
+        return amount.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    }
+
+    /**
      * 格式化资源数量和容量。
      *
      * @param {ResourceState} resourceState - 资源状态对象，包含当前值、容量和每秒变化。
+     * @param {ResourceDefinition} resourceDefinition - 资源定义对象，用于判断是否显示容量。
      * @returns {string} 资源数量显示文本。
      */
-    function formatResourceValue(resourceState) {
+    function formatResourceValue(resourceState, resourceDefinition) {
+        if (!resourceDefinition.isCapacityLimited) {
+            return resourceState.value.toFixed(1);
+        }
+
         return resourceState.value.toFixed(1) + " / " + resourceState.maxValue.toFixed(0);
     }
 
@@ -832,7 +925,7 @@
         cardElement.className = "action-card";
         cardElement.appendChild(createTextElement("h3", "人口状态"));
         cardElement.appendChild(createTextElement("p", "哥布林：" + aliveCount + "，空闲：" + game.population.countIdleGoblins(state) + "，固定职业：" + pinnedCount + "，伤病：" + woundedCount));
-        cardElement.appendChild(createTextElement("p", "劳力：" + (laborState ? laborState.value.toFixed(1) + " / " + laborState.maxValue.toFixed(0) : "未解锁")));
+        cardElement.appendChild(createTextElement("p", "劳力：" + (laborState ? laborState.value.toFixed(1) : "未解锁")));
         cardElement.appendChild(createProgressBar("服从度", obedienceState ? obedienceState.value / Math.max(1, obedienceState.maxValue) : 0));
         cardElement.appendChild(createProgressBar("拥挤度", crowdingRatio));
         return cardElement;

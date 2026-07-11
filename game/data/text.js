@@ -157,7 +157,6 @@
         weatherNegativeMitigationRatio: "恶劣天气削弱",
         weatherPositiveAmplificationRatio: "有利天气放大",
         housingMax: "人口上限",
-        laborMax: "劳力上限",
         crudeKnowledgeMax: "粗识上限",
         crudeKnowledgeOutputRatio: "粗识产出倍率",
         fungusMax: "菌菇上限",
@@ -259,7 +258,7 @@
         },
         labor: {
             name: "劳力",
-            description: "由存活哥布林和建筑容量派生的行动资源。"
+            description: "由存活哥布林派生，并被启用生产建筑占用的行动资源。"
         },
         militaryPower: {
             name: "军力",
@@ -423,7 +422,7 @@
         },
         mud_hut: {
             name: "窝棚",
-            description: "歪斜但能住的泥木棚屋，提高人口上限和劳力上限。"
+            description: "歪斜但能住的泥木棚屋，提高人口上限。"
         },
         cave_room: {
             name: "洞室",
@@ -471,7 +470,7 @@
         },
         hauling_post: {
             name: "搬运桩",
-            description: "把背篓、绳子和碎石路径固定成粗糙搬运点，提高可调度劳力。"
+            description: "把背篓、绳子和碎石路径固定成粗糙搬运点，提高碎石搬运效率。"
         },
         shallow_mine: {
             name: "浅矿井",
@@ -519,7 +518,7 @@
         },
         training_pit: {
             name: "训练坑",
-            description: "让抢掠兵互相殴打，积累军力和劳力。"
+            description: "让抢掠兵互相殴打，积累军力。"
         },
         overseer_platform: {
             name: "监工台",
@@ -771,7 +770,7 @@
         },
         raider: {
             name: "抢掠兵",
-            description: "积累劳力和军势，为后续掠夺系统准备。"
+            description: "积累军势，为后续掠夺系统准备。"
         },
         artisan: {
             name: "工匠",
