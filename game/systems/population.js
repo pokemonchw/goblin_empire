@@ -266,7 +266,75 @@
             return;
         }
 
-        laborState.value = Math.min(laborState.maxValue, countAliveGoblins(state) * 10);
+        // number 建筑劳力占用：所有启用生产建筑保留的劳力数量，非负浮点数。
+        var buildingLaborUsage = calculateBuildingLaborUsage(state);
+
+        // number 人口派生劳力：存活哥布林提供的基础劳力数量，非负整数。
+        var populationLabor = countAliveGoblins(state) * 10;
+
+        // number 容量限制劳力：住房、居所和工具提供的劳力上限，非负资源数量。
+        var cappedLabor = Math.min(laborState.maxValue, populationLabor);
+
+        laborState.value = Math.max(0, cappedLabor - buildingLaborUsage);
+    }
+
+    /**
+     * 统计启用生产建筑占用的劳力。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 建筑占用劳力数量，非负浮点数。
+     */
+    function calculateBuildingLaborUsage(state) {
+        // number 占用劳力总量：按启用建筑数量乘单建筑占用累加。
+        var rawLaborUsage = 0;
+
+        // number 循环索引：遍历建筑定义数组的整数下标。
+        for (var buildingIndex = 0; buildingIndex < game.definitions.BUILDING_DEFINITIONS.length; buildingIndex += 1) {
+            // BuildingDefinition 当前建筑定义：用于读取劳力占用效果。
+            var buildingDefinition = game.definitions.BUILDING_DEFINITIONS[buildingIndex];
+
+            // BuildingState 当前建筑状态：用于读取启用数量。
+            var buildingState = state.buildingsById[buildingDefinition.id];
+
+            if (!buildingState || buildingState.active <= 0 || !buildingDefinition.effects.laborUsage) {
+                continue;
+            }
+
+            rawLaborUsage += buildingDefinition.effects.laborUsage * buildingState.active;
+        }
+
+        // number 劳力占用减免比例：绞盘和监工设施降低生产建筑占用，上限防止完全免费自动化。
+        var reductionRatio = calculateLaborUsageReductionRatio(state);
+
+        return rawLaborUsage * (1 - reductionRatio);
+    }
+
+    /**
+     * 计算生产建筑劳力占用减免比例。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 劳力占用减免比例，范围为 0-0.75。
+     */
+    function calculateLaborUsageReductionRatio(state) {
+        // number 减免比例总和：按拥有建筑数量乘减免效果累加。
+        var reductionRatio = 0;
+
+        // number 循环索引：遍历建筑定义数组的整数下标。
+        for (var buildingIndex = 0; buildingIndex < game.definitions.BUILDING_DEFINITIONS.length; buildingIndex += 1) {
+            // BuildingDefinition 当前建筑定义：用于读取劳力占用减免效果。
+            var buildingDefinition = game.definitions.BUILDING_DEFINITIONS[buildingIndex];
+
+            // BuildingState 当前建筑状态：用于读取拥有数量。
+            var buildingState = state.buildingsById[buildingDefinition.id];
+
+            if (!buildingState || buildingState.owned <= 0 || !buildingDefinition.effects.laborUsageReductionRatio) {
+                continue;
+            }
+
+            reductionRatio += buildingDefinition.effects.laborUsageReductionRatio * buildingState.owned;
+        }
+
+        return Math.min(0.75, Math.max(0, reductionRatio));
     }
 
     /**
@@ -480,6 +548,9 @@
         calculateCrowdingRatio: calculateCrowdingRatio,
         calculateFungusConsumptionPerSecond: calculateFungusConsumptionPerSecond,
         createGoblin: createGoblin,
+        updateLaborFromPopulation: updateLaborFromPopulation,
+        calculateBuildingLaborUsage: calculateBuildingLaborUsage,
+        calculateLaborUsageReductionRatio: calculateLaborUsageReductionRatio,
         updatePopulation: updatePopulation,
         prepareStarvationConsequence: prepareStarvationConsequence,
         updateStarvationConsequence: updateStarvationConsequence,

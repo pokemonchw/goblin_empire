@@ -148,6 +148,8 @@
     // Object.<string, string> 建筑效果文案字典：key 为效果 ID，value 为中文标签。
     var EFFECT_TEXT = {
         fungusPerTick: "菌菇基础产出/tick",
+        laborUsage: "劳力占用",
+        laborUsageReductionRatio: "劳力占用减免",
         rottenWoodPerTick: "朽木基础产出/tick",
         foodConsumptionReductionRatio: "菌菇消耗减免",
         fungusOutputRatio: "菌菇产出倍率",
@@ -457,6 +459,10 @@
             name: "木架仓",
             description: "用木梁和石板搭起分层仓架，提高基础材料容量。"
         },
+        hauling_post: {
+            name: "搬运桩",
+            description: "把背篓、绳子和碎石路径固定成粗糙搬运点，提高可调度劳力。"
+        },
         shallow_mine: {
             name: "浅矿井",
             description: "向地穴侧壁挖出浅井，带来碎石加成和煤渣入口。"
@@ -468,6 +474,10 @@
         crude_furnace: {
             name: "粗熔炉",
             description: "用朽木和碎石维持低劣炉火，缓慢烧出铁矿和铁片。"
+        },
+        pulley_gallery: {
+            name: "绞盘廊",
+            description: "沿矿道装上木轴和绳轮，让少数哥布林拖动更多矿车和炉料。"
         },
         rubble_yard: {
             name: "碎石场",
@@ -496,6 +506,10 @@
         training_pit: {
             name: "训练坑",
             description: "让抢掠兵互相殴打，积累军力和劳力。"
+        },
+        overseer_platform: {
+            name: "监工台",
+            description: "让监工站在高台上挥鞭点名，压低生产建筑的劳力占用。"
         },
         weapon_shed: {
             name: "兵器坊",
@@ -589,6 +603,10 @@
             name: "窝棚搭建",
             description: "让窝棚不再完全靠运气站住。"
         },
+        labor_rosters: {
+            name: "劳力名册",
+            description: "把空闲哥布林、搬石工和临时苦役刻进同一张调度名单。"
+        },
         woodcraft: {
             name: "木架工艺",
             description: "学会晾晒、捆扎和堆放朽木，让木料链能支撑后续建筑。"
@@ -605,6 +623,10 @@
             name: "闷炭术",
             description: "用泥窑控制朽木慢烧，把不稳的燃料转成可用煤渣。"
         },
+        pulley_systems: {
+            name: "绞盘系统",
+            description: "用木梁、铁片和绳轮把重复搬运交给矿道机械。"
+        },
         beast_pen: {
             name: "兽栏",
             description: "把洞穴小兽从食物变成可管理的材料来源。"
@@ -620,6 +642,10 @@
         clan_rules: {
             name: "氏族规矩",
             description: "把吼叫、惩罚和分赃写成粗糙规矩。"
+        },
+        overseer_drills: {
+            name: "监工操典",
+            description: "规定站岗、换班和鞭打节奏，让生产建筑少拖走空闲劳力。"
         },
         census: {
             name: "人口普查",

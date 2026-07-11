@@ -183,7 +183,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 8;
+    var SAVE_VERSION = 9;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -647,6 +647,7 @@
             ],
             priceRatio: 1.14,
             effects: {
+                laborUsage: 5,
                 rottenWoodPerTick: 0.06
             },
             unlock: {
@@ -698,6 +699,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 2,
                 rottenWoodMax: 120,
                 rottenWoodOutputRatio: 0.08
             },
@@ -749,6 +751,7 @@
             ],
             priceRatio: 1.12,
             effects: {
+                laborUsage: 2,
                 fungusOutputRatio: 0.03
             },
             unlock: {
@@ -764,6 +767,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 3,
                 crudeKnowledgeMax: 250,
                 crudeKnowledgeOutputRatio: 0.1
             },
@@ -837,6 +841,23 @@
             }
         },
         {
+            id: "hauling_post",
+            name: game.text.TEXT_REGISTRY.buildings.hauling_post.name,
+            description: game.text.TEXT_REGISTRY.buildings.hauling_post.description,
+            basePrice: [
+                game.pricing.createPrice("rottenWood", 80),
+                game.pricing.createPrice("rubble", 60)
+            ],
+            priceRatio: 1.14,
+            effects: {
+                laborMax: 40,
+                rubbleOutputRatio: 0.05
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
             id: "shallow_mine",
             name: game.text.TEXT_REGISTRY.buildings.shallow_mine.name,
             description: game.text.TEXT_REGISTRY.buildings.shallow_mine.description,
@@ -845,6 +866,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 15,
                 rubbleOutputRatio: 0.2,
                 coalSlagPerTick: 0.015
             },
@@ -892,6 +914,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 12,
                 crudeFurnaceWoodCostPerSecond: 0.04,
                 crudeFurnaceRubbleCostPerSecond: 0.025,
                 crudeFurnaceIronOrePerSecond: 0.018,
@@ -906,6 +929,23 @@
             }
         },
         {
+            id: "pulley_gallery",
+            name: game.text.TEXT_REGISTRY.buildings.pulley_gallery.name,
+            description: game.text.TEXT_REGISTRY.buildings.pulley_gallery.description,
+            basePrice: [
+                game.pricing.createPrice("woodenBeam", 8),
+                game.pricing.createPrice("ironPlate", 15)
+            ],
+            priceRatio: 1.16,
+            effects: {
+                laborMax: 100,
+                laborUsageReductionRatio: 0.03
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
             id: "rubble_yard",
             name: game.text.TEXT_REGISTRY.buildings.rubble_yard.name,
             description: game.text.TEXT_REGISTRY.buildings.rubble_yard.description,
@@ -915,6 +955,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 10,
                 rubbleOutputRatio: 0.35,
                 coalSlagPerTick: 0.015
             },
@@ -933,6 +974,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 8,
                 charcoalKilnWoodCostPerSecond: 0.03,
                 charcoalKilnCoalSlagPerSecond: 0.012
             },
@@ -950,6 +992,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 6,
                 leatherPerSecond: 0.01,
                 boneShardPerSecond: 0.006
             },
@@ -971,6 +1014,7 @@
             ],
             priceRatio: 1.18,
             effects: {
+                laborUsage: 3,
                 obediencePerSecond: 0.01,
                 fungusConsumptionIncreaseRatio: 0.005
             },
@@ -989,6 +1033,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 10,
                 obediencePerSecond: 0.02
             },
             unlock: {
@@ -1008,6 +1053,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 8,
                 coinPerSecond: 0.01
             },
             unlock: {
@@ -1038,6 +1084,25 @@
             }
         },
         {
+            id: "overseer_platform",
+            name: game.text.TEXT_REGISTRY.buildings.overseer_platform.name,
+            description: game.text.TEXT_REGISTRY.buildings.overseer_platform.description,
+            basePrice: [
+                game.pricing.createPrice("ironPlate", 25),
+                game.pricing.createPrice("ledger", 4),
+                game.pricing.createPrice("coin", 20)
+            ],
+            priceRatio: 1.15,
+            effects: {
+                laborMax: 50,
+                obedienceMax: 20,
+                laborUsageReductionRatio: 0.04
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
             id: "weapon_shed",
             name: game.text.TEXT_REGISTRY.buildings.weapon_shed.name,
             description: game.text.TEXT_REGISTRY.buildings.weapon_shed.description,
@@ -1047,6 +1112,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 8,
                 lootMax: 100,
                 militaryPowerOutputRatio: 0.1
             },
@@ -1106,6 +1172,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 8,
                 crudeKnowledgeMax: 500,
                 ledgerPerSecond: 0.01
             },
@@ -1126,6 +1193,7 @@
             ],
             priceRatio: 1.15,
             effects: {
+                laborUsage: 6,
                 ancestralEchoPerSecond: 0.002,
                 ancestralEchoMax: 500
             },
@@ -1167,6 +1235,7 @@
             ],
             priceRatio: 1.16,
             effects: {
+                laborUsage: 12,
                 tarPerSecond: 0.02,
                 tarMax: 250
             },
@@ -1188,6 +1257,7 @@
             ],
             priceRatio: 1.16,
             effects: {
+                laborUsage: 18,
                 deepFurnaceSteelPerSecond: 0.006,
                 deepFurnaceBlackIronPerSecond: 0.002,
                 deepFurnaceTarCostPerSecond: 0.01
@@ -1244,6 +1314,7 @@
             ],
             priceRatio: 1.17,
             effects: {
+                laborUsage: 20,
                 crudeKnowledgeMax: 1500,
                 runeMachineKnowledgePerSecond: 0.04,
                 runeMachineManaCostPerSecond: 0.006
@@ -1263,6 +1334,7 @@
             ],
             priceRatio: 1.16,
             effects: {
+                laborUsage: 12,
                 militaryPowerMax: 150,
                 militaryPowerOutputRatio: 0.15,
                 lootMax: 150
@@ -1282,6 +1354,7 @@
             ],
             priceRatio: 1.25,
             effects: {
+                laborUsage: 25,
                 abyssEchoMax: 500,
                 abyssEchoPerSecond: 0.004,
                 abyssGateOpened: 1
@@ -1309,6 +1382,7 @@
             ],
             priceRatio: 1.18,
             effects: {
+                laborUsage: 12,
                 abyssEchoPerSecond: 0.01,
                 eventRiskRatio: 0.05
             },
@@ -1465,7 +1539,28 @@
                     "wooden_storehouse"
                 ],
                 technologies: [
+                    "labor_rosters",
                     "woodcraft"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "labor_rosters",
+            name: game.text.TEXT_REGISTRY.technologies.labor_rosters.name,
+            description: game.text.TEXT_REGISTRY.technologies.labor_rosters.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 45),
+                game.pricing.createPrice("rubble", 50)
+            ],
+            unlocks: {
+                buildings: [
+                    "hauling_post"
+                ],
+                technologies: [
+                    "pulley_systems"
                 ]
             },
             unlock: {
@@ -1563,6 +1658,24 @@
             }
         },
         {
+            id: "pulley_systems",
+            name: game.text.TEXT_REGISTRY.technologies.pulley_systems.name,
+            description: game.text.TEXT_REGISTRY.technologies.pulley_systems.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 130),
+                game.pricing.createPrice("woodenBeam", 4),
+                game.pricing.createPrice("ironPlate", 6)
+            ],
+            unlocks: {
+                buildings: [
+                    "pulley_gallery"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
             id: "beast_pen",
             name: game.text.TEXT_REGISTRY.technologies.beast_pen.name,
             description: game.text.TEXT_REGISTRY.technologies.beast_pen.description,
@@ -1653,6 +1766,7 @@
                     "census",
                     "counting",
                     "calendar",
+                    "overseer_drills",
                     "engineering",
                     "currency",
                     "writing",
@@ -1662,6 +1776,24 @@
                 ],
                 jobs: [
                     "overseer"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "overseer_drills",
+            name: game.text.TEXT_REGISTRY.technologies.overseer_drills.name,
+            description: game.text.TEXT_REGISTRY.technologies.overseer_drills.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 260),
+                game.pricing.createPrice("coin", 20),
+                game.pricing.createPrice("ledger", 4)
+            ],
+            unlocks: {
+                buildings: [
+                    "overseer_platform"
                 ]
             },
             unlock: {

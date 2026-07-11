@@ -124,6 +124,8 @@
      * @property {Price[]} basePrice - 基础价格数组；amount 为非负资源数量。
      * @property {number} priceRatio - 价格增长倍率，大于等于 1。
      * @property {Object.<string, number>} effects - 建筑效果字典；key 为效果 ID，value 为数值。
+     * @property {number=} effects.laborUsage - 每个启用建筑占用的劳力数量，非负整数；菌菇床不使用该字段。
+     * @property {number=} effects.laborUsageReductionRatio - 每个已拥有建筑降低生产建筑劳力占用的比例，范围通常为 0-1。
      * @property {UnlockBundle} unlock - 显示该建筑所需的解锁条件或默认解锁标记。
      */
 

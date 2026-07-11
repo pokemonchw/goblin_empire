@@ -41,6 +41,54 @@
     }
 
     /**
+     * 判断职业是否应显示在职业分配面板。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {JobId} jobId - 职业稳定 ID。
+     * @returns {boolean} 是否显示；true 表示该职业已解锁且未被上位职业替代。
+     */
+    function isJobVisibleForAssignment(state, jobId) {
+        if (!isJobUnlocked(state, jobId)) {
+            return false;
+        }
+
+        // 搬石工是矿工的前置岗位；矿工出现后，分配入口只保留上位职业。
+        if (jobId === "hauler" && isJobUnlocked(state, "miner")) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 将所有搬石工提升为矿工。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会把哥布林的 hauler 职业改为 miner。
+     * @returns {number} 提升人数，非负整数。
+     */
+    function promoteHaulersToMiners(state) {
+        if (!isJobUnlocked(state, "miner")) {
+            return 0;
+        }
+
+        // number 提升人数：统计本次从搬石工改为矿工的哥布林数量。
+        var promotedCount = 0;
+
+        // number 循环索引：遍历哥布林数组的整数下标。
+        for (var goblinIndex = 0; goblinIndex < state.goblins.length; goblinIndex += 1) {
+            // Goblin 当前哥布林对象：用于检查并改写职业。
+            var goblin = state.goblins[goblinIndex];
+
+            if (goblin.jobId === "hauler") {
+                goblin.jobId = "miner";
+                promotedCount += 1;
+            }
+        }
+
+        return promotedCount;
+    }
+
+    /**
      * 统计某职业人数。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -756,6 +804,8 @@
     game.jobs = {
         getJobDefinition: getJobDefinition,
         isJobUnlocked: isJobUnlocked,
+        isJobVisibleForAssignment: isJobVisibleForAssignment,
+        promoteHaulersToMiners: promoteHaulersToMiners,
         countAssigned: countAssigned,
         assignWorker: assignWorker,
         unassignWorker: unassignWorker,

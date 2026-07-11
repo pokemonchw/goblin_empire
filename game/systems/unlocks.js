@@ -137,6 +137,10 @@
             var jobId = jobIds[jobIndex];
 
             state.jobsUnlockedById[jobId] = true;
+
+            if (jobId === "miner" && game.jobs && game.jobs.promoteHaulersToMiners) {
+                game.jobs.promoteHaulersToMiners(state);
+            }
         }
     }
 

@@ -3615,7 +3615,7 @@
             // JobDefinition 当前职业定义：用于渲染职业分配卡片。
             var jobDefinition = game.definitions.JOB_DEFINITIONS[jobIndex];
 
-            if (!game.jobs.isJobUnlocked(state, jobDefinition.id)) {
+            if (!game.jobs.isJobVisibleForAssignment(state, jobDefinition.id)) {
                 continue;
             }
 

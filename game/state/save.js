@@ -244,6 +244,12 @@
             migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
 
+        if (sourceVersion < 9) {
+            // v8 旧 shape：没有劳力名册、绞盘系统、监工操典及对应建筑的静态 ID。
+            // v9 新 shape：新增劳力科技和建筑；运行时恢复会从当前定义补齐缺失状态。
+            // 迁移原因：静态定义扩展不需要改写存档数组，但需要版本号标记新平衡口径。
+        }
+
         migratedSaveData.version = game.definitions.SAVE_VERSION;
         return migratedSaveData;
     }
@@ -818,6 +824,10 @@
             if (goblin.id === state.leaderGoblinId && goblin.isAlive) {
                 isLeaderValid = true;
             }
+        }
+
+        if (game.jobs && game.jobs.promoteHaulersToMiners) {
+            game.jobs.promoteHaulersToMiners(state);
         }
 
         if (!isLeaderValid) {

@@ -100,6 +100,9 @@
         buildingState.owned += 1;
         buildingState.active += 1;
         applyBuildingEffects(state, buildingDefinition.effects);
+        if (game.population && game.population.updateLaborFromPopulation) {
+            game.population.updateLaborFromPopulation(state);
+        }
         game.unlocks.applyUnlockBundle(state, buildingDefinition.unlock);
         game.simulation.addLog(state, "normal", game.text.TEXT_REGISTRY.logs.builtPrefix + buildingDefinition.name + "。");
 
