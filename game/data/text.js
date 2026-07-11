@@ -181,6 +181,7 @@
         coinPerSecond: "金币/秒",
         ledgerPerSecond: "账册/秒",
         lootMax: "战利品上限",
+        captiveMax: "俘虏容量",
         ancestralEchoPerSecond: "祖灵回响/秒",
         allBasicCapacity: "基础容量"
         ,
