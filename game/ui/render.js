@@ -615,6 +615,29 @@
     }
 
     /**
+     * 只重绘外交标签页内容，避免外交子标签和派出人数按钮触发整页 DOM 重建。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否完成外交页局部刷新；false 表示当前不在外交页。
+     */
+    function renderDiplomacyTabOnly(state) {
+        if (state.activeTabId !== "diplomacy") {
+            return false;
+        }
+
+        // HTMLElement|null 标签页内容容器：局部刷新时只替换中部外交工作区。
+        var tabContentElement = document.getElementById("tab-content");
+
+        if (!tabContentElement) {
+            return false;
+        }
+
+        tabContentElement.innerHTML = "";
+        renderDiplomacyTab(state, tabContentElement);
+        return true;
+    }
+
+    /**
      * 渲染地穴剖面视觉反馈。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -5302,6 +5325,7 @@
     // Object 渲染模块命名空间：提供完整界面渲染函数。
     game.render = {
         renderApp: renderApp,
-        renderAppWhenDue: renderAppWhenDue
+        renderAppWhenDue: renderAppWhenDue,
+        renderDiplomacyTabOnly: renderDiplomacyTabOnly
     };
 })(window.GoblinEmpire);

@@ -284,25 +284,25 @@
 
             if (targetElement.dataset.diplomacySubtab) {
                 game.runtime.activeDiplomacySubtab = targetElement.dataset.diplomacySubtab;
-                renderAfterStateChange(currentState);
+                renderAfterDiplomacyViewChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.diplomacyWorldSubtab && targetElement.dataset.diplomacyMode) {
                 game.runtime.activeDiplomacyWorldByModeId[targetElement.dataset.diplomacyMode] = targetElement.dataset.diplomacyWorldSubtab;
-                renderAfterStateChange(currentState);
+                renderAfterDiplomacyViewChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.diplomacyFactionSubtab && targetElement.dataset.diplomacyMode && targetElement.dataset.diplomacyWorldId) {
                 game.runtime.activeDiplomacyFactionByScopeId[targetElement.dataset.diplomacyMode + "_" + targetElement.dataset.diplomacyWorldId] = targetElement.dataset.diplomacyFactionSubtab;
-                renderAfterStateChange(currentState);
+                renderAfterDiplomacyViewChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.raidMemberTargetId && targetElement.dataset.raidMemberAction) {
                 applyRaidMemberButtonAction(currentState, targetElement.dataset.raidMemberTargetId, targetElement.dataset.raidMemberAction);
-                renderAfterStateChange(currentState);
+                renderAfterDiplomacyViewChange(currentState);
                 return;
             }
 
@@ -404,6 +404,20 @@
      */
     function renderAfterStateChange(state) {
         game.simulation.resolveExtinctionIfNeeded(state);
+        game.render.renderApp(state, true);
+    }
+
+    /**
+     * 外交页纯界面状态变化后刷新，避免重建资源栏、状态栏和日志栏。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {void} 无返回值。
+     */
+    function renderAfterDiplomacyViewChange(state) {
+        if (game.render.renderDiplomacyTabOnly(state)) {
+            return;
+        }
+
         game.render.renderApp(state);
     }
 
