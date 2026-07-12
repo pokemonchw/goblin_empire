@@ -64,6 +64,8 @@
         paused: "生产已暂停，地穴时间停止推进。",
         resumed: "地穴重新开始运转。",
         saved: "存档已保存。",
+        autosaved: "月末自动存档已保存。",
+        autosaveFailedPrefix: "月末自动存档失败：",
         noLocalSave: "没有可加载的本地存档。",
         loaded: "存档已加载。",
         reset: "存档已重置，新的地穴从头开始。",

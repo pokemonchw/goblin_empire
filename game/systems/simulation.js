@@ -91,10 +91,49 @@
         game.prestigeSystem.updatePrestigeStatistics(state);
         game.captivesSystem.syncCaptiveResource(state);
         game.unlocks.applyPopulationUnlocks(state);
-        resolveExtinctionIfNeeded(state, nowTimestamp);
+
+        // boolean 是否因灭亡重置当前局：true 时本 tick 不再写入月末自动存档。
+        var isExtinctRunReset = resolveExtinctionIfNeeded(state, nowTimestamp);
+
         state.lastActiveTimestamp = nowTimestamp;
+        saveMonthlyAutosaveIfNeeded(state, previousElapsedDays, isExtinctRunReset);
 
         return deltaSeconds;
+    }
+
+    /**
+     * 在跨过游戏月边界后自动保存当前状态。
+     *
+     * @param {GameState} state - 当前游戏状态对象；自动存档成功或失败日志会写入该对象。
+     * @param {number} previousElapsedDays - 本次 tick 前已经过的完整游戏日，非负整数天。
+     * @param {boolean} isExtinctRunReset - 本 tick 是否已经因灭亡重置；true 表示跳过自动保存。
+     * @returns {boolean} 是否完成自动保存；true 表示已写入 localStorage。
+     */
+    function saveMonthlyAutosaveIfNeeded(state, previousElapsedDays, isExtinctRunReset) {
+        if (isExtinctRunReset || !game.save || !game.save.saveToLocalStorage) {
+            return false;
+        }
+
+        // number 上次月序号：用于判断本 tick 是否跨过 30 游戏日边界。
+        var previousMonthSerial = game.calendar.getMonthSerial(previousElapsedDays);
+
+        // number 当前月序号：按本 tick 结算后的完整游戏日计算。
+        var currentMonthSerial = game.calendar.getMonthSerial(state.calendar ? state.calendar.elapsedDays : previousElapsedDays);
+
+        if (currentMonthSerial <= previousMonthSerial) {
+            return false;
+        }
+
+        try {
+            addLog(state, "normal", game.text.TEXT_REGISTRY.logs.autosaved);
+            return game.save.saveToLocalStorage(state);
+        } catch (error) {
+            // string 错误消息：让浏览器存储异常出现在运行日志中，避免自动存档失败无提示。
+            var errorMessage = error && error.message ? error.message : String(error);
+
+            addLog(state, "warning", game.text.TEXT_REGISTRY.logs.autosaveFailedPrefix + errorMessage);
+            return false;
+        }
     }
 
     /**
@@ -171,6 +210,7 @@
         addLog: addLog,
         togglePause: togglePause,
         updateGame: updateGame,
+        saveMonthlyAutosaveIfNeeded: saveMonthlyAutosaveIfNeeded,
         resolveExtinctionIfNeeded: resolveExtinctionIfNeeded,
         isRunExtinct: isRunExtinct
     };
