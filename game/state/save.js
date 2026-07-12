@@ -233,6 +233,7 @@
                         id: "captive_start_laborer",
                         name: "阿苔",
                         type: "laborer",
+                        raceId: "mire_human",
                         quality: "common",
                         source: "开局",
                         traitHint: "basic",
@@ -345,6 +346,13 @@
             migrateLifespanMonthsToYears(migratedSaveData);
         }
 
+        if (sourceVersion < 21) {
+            // v20 旧 shape：俘虏只有职业类型和质量，没有独立种族来源。
+            // v21 新 shape：raceId 保存非哥布林俘虏种族，掠夺地点按种族权重生成俘虏。
+            // 迁移原因：种族系统需要让同职业同质量俘虏拥有不同属性、技能和寿命。
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
+        }
+
         migratedSaveData.version = game.definitions.SAVE_VERSION;
         return migratedSaveData;
     }
@@ -399,7 +407,7 @@
         individual.age = isCaptive && legacyAgeMonths <= 0 ? createCaptiveInitialAgeYears(individual.type) : legacyAgeMonths / 12;
 
         if (typeof individual.baseLifespanYears !== "number") {
-            individual.baseLifespanYears = Math.max(1, Math.floor(Number(individual.baseLifespanMonths) || (isCaptive ? createCaptiveBaseLifespanYears(individual.quality, individual.age + 1) : game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanYears)));
+            individual.baseLifespanYears = Math.max(1, Math.floor(Number(individual.baseLifespanMonths) || (isCaptive ? createCaptiveBaseLifespanYears(individual.quality, individual.age + 1, individual.raceId) : game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanYears)));
         }
         if (typeof individual.growthLifespanYears !== "number" && !isCaptive) {
             individual.growthLifespanYears = Math.max(0, Math.floor(Number(individual.growthLifespanMonths) || 0));
@@ -1086,6 +1094,7 @@
 
             captive.turnsHeld = Math.max(0, Number(captive.turnsHeld) || 0);
             captive.name = normalizeCaptiveName(captive, captiveIndex);
+            captive.raceId = normalizeCaptiveRaceId(captive.raceId, captive.type);
             normalizeCaptiveLifespanFields(captive);
             captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
             captive.isAutoBrainwashEnabled = Boolean(captive.isAutoBrainwashEnabled);
@@ -1152,6 +1161,49 @@
     }
 
     /**
+     * 规范化俘虏种族 ID。
+     *
+     * @param {string|undefined} raceId - 存档中的种族 ID；旧存档可能缺失。
+     * @param {string} captiveTypeId - 俘虏职业类型 ID，用于选择兼容默认种族。
+     * @returns {string} 有效种族 ID。
+     */
+    function normalizeCaptiveRaceId(raceId, captiveTypeId) {
+        if (isKnownCaptiveRaceId(raceId)) {
+            return raceId;
+        }
+
+        if (captiveTypeId === "undead_captive") {
+            return "ghoulkin";
+        }
+
+        return "mire_human";
+    }
+
+    /**
+     * 判断种族 ID 是否存在于当前静态定义。
+     *
+     * @param {string|undefined} raceId - 待校验种族 ID。
+     * @returns {boolean} 是否为已定义种族 ID。
+     */
+    function isKnownCaptiveRaceId(raceId) {
+        if (!raceId || !Array.isArray(game.definitions.CAPTIVE_RACE_DEFINITIONS)) {
+            return false;
+        }
+
+        // number 循环索引：遍历俘虏种族定义数组的整数下标。
+        for (var raceIndex = 0; raceIndex < game.definitions.CAPTIVE_RACE_DEFINITIONS.length; raceIndex += 1) {
+            // CaptiveRaceDefinition 当前种族定义：用于匹配种族 ID。
+            var raceDefinition = game.definitions.CAPTIVE_RACE_DEFINITIONS[raceIndex];
+
+            if (raceDefinition.id === raceId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * 生成俘虏基础年龄。
      *
      * @param {string} captiveTypeId - 俘虏类型 ID；未知时使用成年兜底年龄段。
@@ -1175,22 +1227,29 @@
      *
      * @param {string} qualityId - 俘虏质量 ID；未知时使用兜底寿命。
      * @param {number=} minimumLifespanYears - 可选寿命下限，单位年；用于避免年龄已超过寿命。
-     * @returns {number} 基础寿命，单位年，范围为 30-100。
+     * @param {string=} raceId - 可选种族 ID；提供时会叠加种族寿命修正。
+     * @returns {number} 基础寿命，单位年，范围为 18-140。
      */
-    function createCaptiveBaseLifespanYears(qualityId, minimumLifespanYears) {
+    function createCaptiveBaseLifespanYears(qualityId, minimumLifespanYears, raceId) {
         // Object|null 俘虏质量定义：用于读取质量寿命范围。
         var qualityDefinition = getDefinitionById(game.definitions.CAPTIVE_QUALITY_DEFINITIONS, qualityId);
 
+        // Object|null 俘虏种族定义：用于读取不同种族的寿命修正。
+        var raceDefinition = getDefinitionById(game.definitions.CAPTIVE_RACE_DEFINITIONS, raceId);
+
+        // number 种族寿命修正：单位年，可正可负。
+        var raceLifespanYears = raceDefinition ? Number(raceDefinition.lifespanYears) || 0 : 0;
+
         // number 最小寿命：质量定义下限，单位年。
-        var minLifespanYears = qualityDefinition ? Math.max(30, Math.floor(Number(qualityDefinition.minLifespanYears) || 30)) : game.definitions.POPULATION_CONSTANTS.fallbackCaptiveLifespanYears;
+        var minLifespanYears = qualityDefinition ? Math.max(18, Math.floor(Number(qualityDefinition.minLifespanYears) + raceLifespanYears || 30)) : game.definitions.POPULATION_CONSTANTS.fallbackCaptiveLifespanYears;
 
         // number 额外寿命下限：至少高于当前年龄，省略时不额外抬高。
         var safeMinimumLifespanYears = Math.max(0, Math.floor(Number(minimumLifespanYears) || 0));
 
-        minLifespanYears = Math.min(100, Math.max(minLifespanYears, safeMinimumLifespanYears));
+        minLifespanYears = Math.min(140, Math.max(minLifespanYears, safeMinimumLifespanYears));
 
-        // number 最大寿命：质量定义上限，单位年，封顶 100。
-        var maxLifespanYears = qualityDefinition ? Math.min(100, Math.max(minLifespanYears, Math.floor(Number(qualityDefinition.maxLifespanYears) || minLifespanYears))) : minLifespanYears;
+        // number 最大寿命：质量定义上限叠加种族修正，单位年，封顶 140。
+        var maxLifespanYears = qualityDefinition ? Math.min(140, Math.max(minLifespanYears, Math.floor(Number(qualityDefinition.maxLifespanYears) + raceLifespanYears || minLifespanYears))) : minLifespanYears;
 
         return randomIntegerInclusive(minLifespanYears, maxLifespanYears);
     }
@@ -1283,7 +1342,7 @@
      */
     function normalizeCaptiveLifespanFields(captive) {
         captive.age = Math.max(0, Number(captive.age) || createCaptiveInitialAgeYears(captive.type));
-        captive.baseLifespanYears = Math.max(1, Math.floor(Number(captive.baseLifespanYears) || createCaptiveBaseLifespanYears(captive.quality, captive.age + 1)));
+        captive.baseLifespanYears = Math.max(1, Math.floor(Number(captive.baseLifespanYears) || createCaptiveBaseLifespanYears(captive.quality, captive.age + 1, captive.raceId)));
         captive.technologyLifespanYears = Math.max(0, Math.floor(Number(captive.technologyLifespanYears) || 0));
         captive.eventLifespanYears = Math.max(0, Math.floor(Number(captive.eventLifespanYears) || 0));
         captive.elderDeathCheckCount = Math.max(0, Math.floor(Number(captive.elderDeathCheckCount) || 0));

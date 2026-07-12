@@ -33,6 +33,12 @@
      */
 
     /**
+     * @typedef {Object} WeightedId
+     * @property {string} id - 被引用的稳定 ID。
+     * @property {number} weight - 随机抽取权重，非负浮点数。
+     */
+
+    /**
      * @typedef {Object} ResourceWaitEntry
      * @property {ResourceId} resource - 资源稳定 ID，必须对应 ResourceDefinition.id。
      * @property {number} missingAmount - 当前缺口数量，非负资源数量。
@@ -252,6 +258,7 @@
      * @property {number} targetStrength - 目标地点强度，非负数。
      * @property {Object.<string, number>} rewards - 成功收益字典；key 为资源 ID，value 为资源数量。
      * @property {string[]} captiveTypes - 可能获得的俘虏类型 ID 数组。
+     * @property {WeightedId[]} captiveRaceWeights - 可能获得的俘虏种族权重数组；id 为 CaptiveRaceDefinition.id。
      * @property {number} relationPenalty - 掠夺后关系下降基础值，非负整数。
      * @property {number} infamyReward - 掠夺成功后获得的恶名数量，非负资源数量。
      * @property {number} infamyFailurePenalty - 掠夺失败后损失的恶名数量，非负资源数量。
@@ -265,11 +272,12 @@
      * @property {string} id - 俘虏稳定 ID。
      * @property {string} name - 俘虏中文姓名；生成后写入存档，确保每个俘虏可被单独识别。
      * @property {"laborer"|"warrior"|"magic_talent"|"artisan"|"accountant"|"noble"|"undead_captive"|"ascetic"|"herbalist"|"shrine_acolyte"} type - 俘虏类型 ID。
+     * @property {string} raceId - 俘虏种族 ID，必须对应 CaptiveRaceDefinition.id，且不是哥布林。
      * @property {"common"|"skilled"|"elite"|"legendary"} quality - 俘虏质量 ID。
      * @property {string} source - 来源 ID 或事件名。
      * @property {"basic"|"strong"|"magic"|"craft"|"trade"|"obedient"|"corrupted"} traitHint - 繁衍或改造倾向 ID。
      * @property {number} age - 年龄，非负浮点数，单位为年。
-     * @property {number} baseLifespanYears - 基础寿命，单位为年；新俘虏按质量在 30-100 年内随机。
+     * @property {number} baseLifespanYears - 基础寿命，单位为年；新俘虏按质量随机后叠加种族寿命修正。
      * @property {number} technologyLifespanYears - 当前科技提供的寿命，单位为年。
      * @property {number} eventLifespanYears - 随机事件提供的寿命，单位为年。
      * @property {number} elderDeathCheckCount - 达到寿命后已通过的月初老死检查次数，非负整数。

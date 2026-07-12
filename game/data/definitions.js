@@ -95,6 +95,27 @@
      */
 
     /**
+     * @typedef {Object} WeightedId
+     * @property {string} id - 稳定 ID，必须对应被引用的数据表。
+     * @property {number} weight - 随机权重，非负浮点数；0 表示不参与抽取。
+     */
+
+    /**
+     * @typedef {Object} CaptiveRaceDefinition
+     * @property {string} id - 俘虏种族稳定 ID；俘虏必须是哥布林以外种族。
+     * @property {string} name - 种族中文显示名。
+     * @property {string} description - 种族中文说明。
+     * @property {string} worldId - 活跃世界 ID，必须对应 DiplomacyWorldDefinition.id。
+     * @property {string} factionId - 主要势力 ID，必须对应 FactionTradeDefinition.id。
+     * @property {WeightedId[]} locationWeights - 活跃掠夺地点权重；id 为 RaidTargetDefinition.id。
+     * @property {WeightedId[]} captiveTypeWeights - 该种族常见俘虏职业类型权重；id 为 CaptiveTypeDefinition.id。
+     * @property {WeightedId[]} qualityWeights - 该种族不同品质俘虏出现权重；id 为 CaptiveQualityDefinition.id。
+     * @property {Object.<string, number>} attributeBonus - 种族属性修正字典；key 为属性 ID，value 为整数修正。
+     * @property {Object.<string, number>} skillBonus - 种族技能修正字典；key 为技能 ID，value 为初始经验修正。
+     * @property {number} lifespanYears - 种族基础寿命修正，单位年，可为负数。
+     */
+
+    /**
      * @typedef {Object} DiplomacyWorldDefinition
      * @property {string} id - 世界层级稳定 ID。
      * @property {string} name - 中文显示名。
@@ -129,6 +150,7 @@
      * @property {number} targetStrength - 目标地点强度，非负数。
      * @property {Object.<string, number>} rewards - 成功收益字典；key 为资源 ID，value 为资源数量。
      * @property {string[]} captiveTypes - 可能获得的俘虏类型 ID 数组。
+     * @property {WeightedId[]} captiveRaceWeights - 可能获得的俘虏种族权重数组；id 为 CaptiveRaceDefinition.id。
      * @property {number} relationPenalty - 掠夺后关系下降值，非负数。
      * @property {number} infamyReward - 掠夺成功后获得的恶名数量，非负资源数量。
      * @property {number} infamyFailurePenalty - 掠夺失败后损失的恶名数量，非负资源数量。
@@ -244,7 +266,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 20;
+    var SAVE_VERSION = 21;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -4148,6 +4170,270 @@
         }
     ];
 
+    // CaptiveRaceDefinition[] 俘虏种族定义列表：种族决定来源世界、势力、地点、职业分布、品质概率和个体差异。
+    var CAPTIVE_RACE_DEFINITIONS = [
+        {
+            id: "mire_human",
+            name: "沼地人",
+            description: "地表湿沼村落的人类，常被抓作搬运、采药和农活俘虏。",
+            worldId: "surface",
+            factionId: "lizard_swamp_clan",
+            locationWeights: [{ id: "surface_village", weight: 8 }, { id: "fungus_farm_cave", weight: 2 }],
+            captiveTypeWeights: [{ id: "laborer", weight: 5 }, { id: "herbalist", weight: 3 }, { id: "artisan", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 70 }, { id: "skilled", weight: 24 }, { id: "elite", weight: 5 }, { id: "legendary", weight: 1 }],
+            attributeBonus: { will: 1, perception: 1 },
+            skillBonus: { foraging: 15, hauling: 10 },
+            lifespanYears: 2
+        },
+        {
+            id: "frontier_human",
+            name: "边城人",
+            description: "地表边境城邦居民，账册、手艺和军纪都比村落更成熟。",
+            worldId: "surface",
+            factionId: "surface_border_city",
+            locationWeights: [{ id: "noble_carriage", weight: 4 }, { id: "surface_barracks", weight: 4 }, { id: "surface_village", weight: 2 }],
+            captiveTypeWeights: [{ id: "accountant", weight: 3 }, { id: "artisan", weight: 3 }, { id: "warrior", weight: 2 }, { id: "noble", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 45 }, { id: "skilled", weight: 36 }, { id: "elite", weight: 15 }, { id: "legendary", weight: 4 }],
+            attributeBonus: { cunning: 1, perception: 1 },
+            skillBonus: { scribing: 15, crafting: 10 },
+            lifespanYears: 4
+        },
+        {
+            id: "hill_dwarf",
+            name: "丘陵矮人",
+            description: "浅层矿盟的地表亲族，体格结实，适合矿业和工坊。",
+            worldId: "underground",
+            factionId: "gray_dwarf_mine_league",
+            locationWeights: [{ id: "mine_league_outpost", weight: 7 }, { id: "caravan_camp", weight: 2 }],
+            captiveTypeWeights: [{ id: "artisan", weight: 4 }, { id: "warrior", weight: 2 }, { id: "ascetic", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 40 }, { id: "skilled", weight: 42 }, { id: "elite", weight: 15 }, { id: "legendary", weight: 3 }],
+            attributeBonus: { strength: 1, will: 1 },
+            skillBonus: { mining: 20, crafting: 10 },
+            lifespanYears: 15
+        },
+        {
+            id: "deep_dwarf",
+            name: "深岩矮人",
+            description: "深层灰矮人宫廷的匠奴与矿吏，稀少但耐久。",
+            worldId: "underground",
+            factionId: "deep_gray_dwarf_court",
+            locationWeights: [{ id: "mine_league_outpost", weight: 4 }, { id: "ancient_ruin", weight: 2 }],
+            captiveTypeWeights: [{ id: "artisan", weight: 4 }, { id: "accountant", weight: 2 }, { id: "warrior", weight: 2 }],
+            qualityWeights: [{ id: "common", weight: 30 }, { id: "skilled", weight: 42 }, { id: "elite", weight: 22 }, { id: "legendary", weight: 6 }],
+            attributeBonus: { strength: 1, cunning: 1, will: 1 },
+            skillBonus: { mining: 25, smelting: 20 },
+            lifespanYears: 22
+        },
+        {
+            id: "ratkin",
+            name: "鼠裔",
+            description: "地下商路和菌田间活动的鼠人，敏捷、短寿、数量多。",
+            worldId: "underground",
+            factionId: "rat_caravan",
+            locationWeights: [{ id: "fungus_farm_cave", weight: 7 }, { id: "caravan_camp", weight: 3 }],
+            captiveTypeWeights: [{ id: "laborer", weight: 4 }, { id: "accountant", weight: 2 }, { id: "herbalist", weight: 2 }],
+            qualityWeights: [{ id: "common", weight: 78 }, { id: "skilled", weight: 18 }, { id: "elite", weight: 3 }, { id: "legendary", weight: 1 }],
+            attributeBonus: { dexterity: 1, cunning: 1, strength: -1 },
+            skillBonus: { hauling: 10, scribing: 10 },
+            lifespanYears: -8
+        },
+        {
+            id: "lizardfolk",
+            name: "蜥蜴民",
+            description: "沼部氏族的鳞皮猎手，强壮且适应湿热环境。",
+            worldId: "surface",
+            factionId: "lizard_swamp_clan",
+            locationWeights: [{ id: "surface_village", weight: 6 }, { id: "surface_barracks", weight: 2 }],
+            captiveTypeWeights: [{ id: "warrior", weight: 4 }, { id: "herbalist", weight: 2 }, { id: "laborer", weight: 2 }],
+            qualityWeights: [{ id: "common", weight: 52 }, { id: "skilled", weight: 32 }, { id: "elite", weight: 13 }, { id: "legendary", weight: 3 }],
+            attributeBonus: { strength: 2, will: 1, dexterity: -1 },
+            skillBonus: { raiding: 20, foraging: 10 },
+            lifespanYears: 6
+        },
+        {
+            id: "kobold",
+            name: "狗头人",
+            description: "矿洞边缘的小型族群，擅长搬运、陷坑和浅矿杂活。",
+            worldId: "underground",
+            factionId: "goblin_black_market",
+            locationWeights: [{ id: "caravan_camp", weight: 4 }, { id: "mine_league_outpost", weight: 3 }, { id: "fungus_farm_cave", weight: 2 }],
+            captiveTypeWeights: [{ id: "laborer", weight: 4 }, { id: "artisan", weight: 2 }, { id: "warrior", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 68 }, { id: "skilled", weight: 24 }, { id: "elite", weight: 7 }, { id: "legendary", weight: 1 }],
+            attributeBonus: { dexterity: 1, perception: 1 },
+            skillBonus: { mining: 10, hauling: 15 },
+            lifespanYears: -3
+        },
+        {
+            id: "gnome",
+            name: "侏儒",
+            description: "商队和工坊里的小个子机关匠，适合账房和细作。",
+            worldId: "underground",
+            factionId: "goblin_black_market",
+            locationWeights: [{ id: "caravan_camp", weight: 5 }, { id: "mine_league_outpost", weight: 2 }, { id: "noble_carriage", weight: 1 }],
+            captiveTypeWeights: [{ id: "artisan", weight: 4 }, { id: "accountant", weight: 3 }, { id: "magic_talent", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 38 }, { id: "skilled", weight: 42 }, { id: "elite", weight: 16 }, { id: "legendary", weight: 4 }],
+            attributeBonus: { cunning: 1, dexterity: 1, strength: -1 },
+            skillBonus: { crafting: 20, scribing: 15 },
+            lifespanYears: 10
+        },
+        {
+            id: "halfling",
+            name: "半身人",
+            description: "商路和农庄里的半身人，顺从、灵巧，优质个体较少。",
+            worldId: "surface",
+            factionId: "rat_caravan",
+            locationWeights: [{ id: "surface_village", weight: 4 }, { id: "caravan_camp", weight: 3 }, { id: "fungus_farm_cave", weight: 1 }],
+            captiveTypeWeights: [{ id: "laborer", weight: 3 }, { id: "accountant", weight: 2 }, { id: "herbalist", weight: 2 }],
+            qualityWeights: [{ id: "common", weight: 62 }, { id: "skilled", weight: 30 }, { id: "elite", weight: 7 }, { id: "legendary", weight: 1 }],
+            attributeBonus: { dexterity: 1, will: 1 },
+            skillBonus: { foraging: 10, hauling: 10 },
+            lifespanYears: 8
+        },
+        {
+            id: "wood_elf",
+            name: "林地精灵",
+            description: "地表林缘和药草道的长寿种，感知强但难以驯服。",
+            worldId: "surface",
+            factionId: "surface_border_city",
+            locationWeights: [{ id: "surface_village", weight: 3 }, { id: "noble_carriage", weight: 2 }, { id: "ancient_ruin", weight: 1 }],
+            captiveTypeWeights: [{ id: "herbalist", weight: 4 }, { id: "magic_talent", weight: 2 }, { id: "warrior", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 28 }, { id: "skilled", weight: 40 }, { id: "elite", weight: 24 }, { id: "legendary", weight: 8 }],
+            attributeBonus: { perception: 2, dexterity: 1, will: -1 },
+            skillBonus: { foraging: 25, ritual: 10 },
+            lifespanYears: 35
+        },
+        {
+            id: "moon_elf",
+            name: "月裔精灵",
+            description: "贵族车队与遗迹祭坛中偶见的魔性长寿种。",
+            worldId: "surface",
+            factionId: "surface_border_city",
+            locationWeights: [{ id: "noble_carriage", weight: 5 }, { id: "ancient_ruin", weight: 3 }],
+            captiveTypeWeights: [{ id: "magic_talent", weight: 4 }, { id: "noble", weight: 2 }, { id: "shrine_acolyte", weight: 2 }],
+            qualityWeights: [{ id: "common", weight: 18 }, { id: "skilled", weight: 38 }, { id: "elite", weight: 32 }, { id: "legendary", weight: 12 }],
+            attributeBonus: { attunement: 2, perception: 1, strength: -1 },
+            skillBonus: { ritual: 30, scribing: 15 },
+            lifespanYears: 45
+        },
+        {
+            id: "orc",
+            name: "兽人",
+            description: "边境兵营和荒地营寨的战斗种，力量高，细活差。",
+            worldId: "surface",
+            factionId: "surface_border_city",
+            locationWeights: [{ id: "surface_barracks", weight: 6 }, { id: "surface_village", weight: 2 }],
+            captiveTypeWeights: [{ id: "warrior", weight: 5 }, { id: "laborer", weight: 2 }, { id: "ascetic", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 48 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 15 }, { id: "legendary", weight: 3 }],
+            attributeBonus: { strength: 3, cunning: -1, perception: -1 },
+            skillBonus: { raiding: 30, hauling: 10 },
+            lifespanYears: -2
+        },
+        {
+            id: "trollkin",
+            name: "巨魔裔",
+            description: "少量被兵营或深洞奴役的巨魔血脉，极强壮但反应迟缓。",
+            worldId: "surface",
+            factionId: "surface_border_city",
+            locationWeights: [{ id: "surface_barracks", weight: 4 }, { id: "ancient_ruin", weight: 1 }],
+            captiveTypeWeights: [{ id: "warrior", weight: 4 }, { id: "laborer", weight: 3 }],
+            qualityWeights: [{ id: "common", weight: 42 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 19 }, { id: "legendary", weight: 5 }],
+            attributeBonus: { strength: 3, will: 1, dexterity: -2 },
+            skillBonus: { raiding: 20, hauling: 20 },
+            lifespanYears: 18
+        },
+        {
+            id: "harpy",
+            name: "鹰身人",
+            description: "高崖和军路上的飞掠族，敏捷、感知强，关押成本高。",
+            worldId: "surface",
+            factionId: "surface_border_city",
+            locationWeights: [{ id: "noble_carriage", weight: 2 }, { id: "surface_barracks", weight: 3 }],
+            captiveTypeWeights: [{ id: "warrior", weight: 3 }, { id: "herbalist", weight: 2 }, { id: "magic_talent", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 44 }, { id: "skilled", weight: 36 }, { id: "elite", weight: 16 }, { id: "legendary", weight: 4 }],
+            attributeBonus: { dexterity: 2, perception: 2, will: -1 },
+            skillBonus: { raiding: 15, foraging: 15 },
+            lifespanYears: 0
+        },
+        {
+            id: "merrow",
+            name: "沼鳞人",
+            description: "湿地水道里的水栖族，采药和仪式适性高。",
+            worldId: "surface",
+            factionId: "lizard_swamp_clan",
+            locationWeights: [{ id: "surface_village", weight: 5 }, { id: "ancient_ruin", weight: 1 }],
+            captiveTypeWeights: [{ id: "herbalist", weight: 4 }, { id: "shrine_acolyte", weight: 2 }, { id: "laborer", weight: 2 }],
+            qualityWeights: [{ id: "common", weight: 50 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 13 }, { id: "legendary", weight: 3 }],
+            attributeBonus: { perception: 1, attunement: 1 },
+            skillBonus: { foraging: 20, ritual: 10 },
+            lifespanYears: 7
+        },
+        {
+            id: "fungalfolk",
+            name: "菌裔",
+            description: "菌田深处的半植物族群，寿命怪异，适合早期口粮循环。",
+            worldId: "underground",
+            factionId: "rat_caravan",
+            locationWeights: [{ id: "fungus_farm_cave", weight: 8 }, { id: "ancient_ruin", weight: 1 }],
+            captiveTypeWeights: [{ id: "laborer", weight: 3 }, { id: "herbalist", weight: 4 }, { id: "shrine_acolyte", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 72 }, { id: "skilled", weight: 22 }, { id: "elite", weight: 5 }, { id: "legendary", weight: 1 }],
+            attributeBonus: { will: 1, perception: 1, dexterity: -1 },
+            skillBonus: { foraging: 25 },
+            lifespanYears: 12
+        },
+        {
+            id: "shadeborn",
+            name: "影裔",
+            description: "深渊裂隙附近的半影生灵，魔性强，肉身脆弱。",
+            worldId: "abyss",
+            factionId: "abyss_emissary",
+            locationWeights: [{ id: "ancient_ruin", weight: 6 }, { id: "noble_carriage", weight: 1 }],
+            captiveTypeWeights: [{ id: "magic_talent", weight: 4 }, { id: "shrine_acolyte", weight: 3 }, { id: "ascetic", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 22 }, { id: "skilled", weight: 36 }, { id: "elite", weight: 30 }, { id: "legendary", weight: 12 }],
+            attributeBonus: { attunement: 3, strength: -1, will: -1 },
+            skillBonus: { ritual: 35, scribing: 10 },
+            lifespanYears: 5
+        },
+        {
+            id: "ghoulkin",
+            name: "食尸裔",
+            description: "亡灵领主周边的活尸血脉，耐劳、污染重。",
+            worldId: "abyss",
+            factionId: "undead_lord",
+            locationWeights: [{ id: "ancient_ruin", weight: 7 }, { id: "mine_league_outpost", weight: 1 }],
+            captiveTypeWeights: [{ id: "undead_captive", weight: 4 }, { id: "laborer", weight: 2 }, { id: "ascetic", weight: 2 }],
+            qualityWeights: [{ id: "common", weight: 58 }, { id: "skilled", weight: 28 }, { id: "elite", weight: 11 }, { id: "legendary", weight: 3 }],
+            attributeBonus: { will: 2, strength: 1, perception: -1 },
+            skillBonus: { ritual: 15, mining: 15 },
+            lifespanYears: -12
+        },
+        {
+            id: "wight",
+            name: "寒尸贵胄",
+            description: "古墓贵族的亡灵残裔，少见而危险，仪式价值高。",
+            worldId: "abyss",
+            factionId: "undead_lord",
+            locationWeights: [{ id: "ancient_ruin", weight: 8 }],
+            captiveTypeWeights: [{ id: "undead_captive", weight: 4 }, { id: "noble", weight: 2 }, { id: "shrine_acolyte", weight: 2 }],
+            qualityWeights: [{ id: "common", weight: 18 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 34 }, { id: "legendary", weight: 14 }],
+            attributeBonus: { attunement: 2, will: 2, dexterity: -1 },
+            skillBonus: { ritual: 35, overseeing: 15 },
+            lifespanYears: 30
+        },
+        {
+            id: "rune_construct",
+            name: "符文构装体",
+            description: "遗迹中残存的仿生构装俘获物，不繁盛但品质上限高。",
+            worldId: "abyss",
+            factionId: "abyss_emissary",
+            locationWeights: [{ id: "ancient_ruin", weight: 7 }, { id: "surface_barracks", weight: 1 }],
+            captiveTypeWeights: [{ id: "artisan", weight: 3 }, { id: "magic_talent", weight: 3 }, { id: "warrior", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 12 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 38 }, { id: "legendary", weight: 16 }],
+            attributeBonus: { strength: 1, attunement: 2, will: 1, dexterity: -1 },
+            skillBonus: { crafting: 25, ritual: 25 },
+            lifespanYears: 40
+        }
+    ];
+
     // DiplomacyWorldDefinition[] 外交世界定义列表：地点和势力先按三层世界分组。
     var DIPLOMACY_WORLD_DEFINITIONS = [
         {
@@ -4345,6 +4631,12 @@
                 "laborer",
                 "herbalist"
             ],
+            captiveRaceWeights: [
+                { id: "ratkin", weight: 4 },
+                { id: "fungalfolk", weight: 4 },
+                { id: "mire_human", weight: 2 },
+                { id: "kobold", weight: 1 }
+            ],
             relationPenalty: 8,
             infamyReward: 3,
             infamyFailurePenalty: 1,
@@ -4370,6 +4662,12 @@
             captiveTypes: [
                 "accountant",
                 "artisan"
+            ],
+            captiveRaceWeights: [
+                { id: "ratkin", weight: 3 },
+                { id: "gnome", weight: 3 },
+                { id: "halfling", weight: 2 },
+                { id: "kobold", weight: 2 }
             ],
             relationPenalty: 12,
             infamyReward: 5,
@@ -4397,6 +4695,12 @@
             captiveTypes: [
                 "artisan",
                 "ascetic"
+            ],
+            captiveRaceWeights: [
+                { id: "hill_dwarf", weight: 5 },
+                { id: "deep_dwarf", weight: 3 },
+                { id: "kobold", weight: 2 },
+                { id: "ghoulkin", weight: 1 }
             ],
             relationPenalty: 15,
             infamyReward: 7,
@@ -4427,6 +4731,13 @@
                 "herbalist",
                 "ascetic"
             ],
+            captiveRaceWeights: [
+                { id: "mire_human", weight: 4 },
+                { id: "lizardfolk", weight: 3 },
+                { id: "merrow", weight: 2 },
+                { id: "halfling", weight: 1 },
+                { id: "wood_elf", weight: 1 }
+            ],
             relationPenalty: 20,
             infamyReward: 9,
             infamyFailurePenalty: 4,
@@ -4454,6 +4765,13 @@
                 "noble",
                 "accountant",
                 "shrine_acolyte"
+            ],
+            captiveRaceWeights: [
+                { id: "frontier_human", weight: 4 },
+                { id: "moon_elf", weight: 3 },
+                { id: "wood_elf", weight: 1 },
+                { id: "harpy", weight: 1 },
+                { id: "gnome", weight: 1 }
             ],
             relationPenalty: 30,
             infamyReward: 12,
@@ -4483,6 +4801,13 @@
                 "noble",
                 "ascetic"
             ],
+            captiveRaceWeights: [
+                { id: "orc", weight: 4 },
+                { id: "frontier_human", weight: 3 },
+                { id: "trollkin", weight: 2 },
+                { id: "harpy", weight: 1 },
+                { id: "lizardfolk", weight: 1 }
+            ],
             relationPenalty: 40,
             infamyReward: 15,
             infamyFailurePenalty: 7,
@@ -4511,6 +4836,14 @@
                 "artisan",
                 "undead_captive",
                 "shrine_acolyte"
+            ],
+            captiveRaceWeights: [
+                { id: "shadeborn", weight: 3 },
+                { id: "ghoulkin", weight: 3 },
+                { id: "wight", weight: 2 },
+                { id: "rune_construct", weight: 2 },
+                { id: "moon_elf", weight: 1 },
+                { id: "deep_dwarf", weight: 1 }
             ],
             relationPenalty: 45,
             infamyReward: 18,
@@ -4678,6 +5011,7 @@
         EVENT_DEFINITIONS: EVENT_DEFINITIONS,
         CAPTIVE_TYPE_DEFINITIONS: CAPTIVE_TYPE_DEFINITIONS,
         CAPTIVE_QUALITY_DEFINITIONS: CAPTIVE_QUALITY_DEFINITIONS,
+        CAPTIVE_RACE_DEFINITIONS: CAPTIVE_RACE_DEFINITIONS,
         DIPLOMACY_WORLD_DEFINITIONS: DIPLOMACY_WORLD_DEFINITIONS,
         FACTION_DEFINITIONS: FACTION_DEFINITIONS,
         RAID_TARGET_DEFINITIONS: RAID_TARGET_DEFINITIONS,

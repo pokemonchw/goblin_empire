@@ -152,22 +152,27 @@
      * @param {"laborer"|"accountant"|"artisan"|"noble"|"warrior"|"magic_talent"|"undead_captive"|"ascetic"|"herbalist"|"shrine_acolyte"} captiveTypeId - 俘虏类型 ID。
      * @param {"common"|"skilled"|"elite"|"legendary"} qualityId - 俘虏质量 ID。
      * @param {string} source - 来源 ID 或事件名。
+     * @param {string=} raceId - 可选俘虏种族 ID；省略时按类型使用兼容默认种族。
      * @returns {CaptiveState} 新俘虏对象。
      */
-    function createCaptive(captiveTypeId, qualityId, source) {
+    function createCaptive(captiveTypeId, qualityId, source, raceId) {
         // CaptiveTypeDefinition|null 俘虏类型定义：用于写入倾向提示。
         var captiveTypeDefinition = getCaptiveTypeDefinition(captiveTypeId);
+
+        // string 种族 ID：新增种族系统字段；旧调用缺失时按类型回退到稳定默认种族。
+        var normalizedRaceId = normalizeCaptiveRaceId(raceId, captiveTypeId);
 
         // number 基础年龄：根据俘虏类型年龄段随机生成，单位年，非负整数。
         var initialAgeYears = createCaptiveInitialAgeYears(captiveTypeDefinition);
 
-        // number 基础寿命：根据俘虏质量寿命段随机生成，单位年，范围 30-100。
-        var baseLifespanYears = createCaptiveBaseLifespanYears(qualityId, initialAgeYears + 1);
+        // number 基础寿命：根据俘虏质量寿命段和种族寿命修正随机生成，单位年。
+        var baseLifespanYears = createCaptiveBaseLifespanYears(qualityId, initialAgeYears + 1, normalizedRaceId);
 
         return {
             id: "captive_" + Date.now() + "_" + Math.floor(Math.random() * 100000),
             name: createCaptiveName(captiveTypeId),
             type: captiveTypeId,
+            raceId: normalizedRaceId,
             quality: qualityId,
             source: source,
             traitHint: captiveTypeDefinition ? captiveTypeDefinition.traitHint : "basic",
@@ -186,6 +191,31 @@
             gestationSecondsRemaining: 0,
             restSecondsRemaining: 0
         };
+    }
+
+    /**
+     * 按掠夺目标定义创建一个俘虏。
+     *
+     * @param {RaidTargetDefinition} targetDefinition - 掠夺目标定义；提供地点种族权重和允许职业类型。
+     * @returns {CaptiveState} 新俘虏对象；种族、职业类型和品质均按权重生成。
+     */
+    function createCaptiveFromRaidTarget(targetDefinition) {
+        // string 种族 ID：先由地点权重决定俘虏来自哪个非哥布林种族。
+        var raceId = selectWeightedId(targetDefinition.captiveRaceWeights, "mire_human");
+
+        // CaptiveRaceDefinition|null 种族定义：用于读取职业和品质权重。
+        var raceDefinition = getCaptiveRaceDefinition(raceId);
+
+        // string[] 地点允许职业类型 ID 数组：避免地点生成完全不符合职业生态的俘虏。
+        var allowedTypeIds = Array.isArray(targetDefinition.captiveTypes) ? targetDefinition.captiveTypes : ["laborer"];
+
+        // string 俘虏类型 ID：在种族职业权重和地点允许列表交集中抽取。
+        var captiveTypeId = selectCaptiveTypeForRaceAndTarget(raceDefinition, allowedTypeIds);
+
+        // string 质量 ID：按种族定义抽取，体现不同种族高品质俘虏概率差异。
+        var qualityId = selectWeightedId(raceDefinition ? raceDefinition.qualityWeights : null, "common");
+
+        return createCaptive(captiveTypeId, qualityId, targetDefinition.id, raceId);
     }
 
     /**
@@ -209,22 +239,29 @@
      *
      * @param {"common"|"skilled"|"elite"|"legendary"} qualityId - 俘虏质量 ID。
      * @param {number=} minimumLifespanYears - 可选寿命下限，单位年；用于避免新俘虏出生时已经超过寿命。
-     * @returns {number} 基础寿命，单位年，范围为 30-100；质量越高区间越靠后。
+     * @param {string=} raceId - 可选种族 ID；提供时会叠加种族寿命修正。
+     * @returns {number} 基础寿命，单位年，范围为 18-140；质量越高区间越靠后，种族会修正区间。
      */
-    function createCaptiveBaseLifespanYears(qualityId, minimumLifespanYears) {
+    function createCaptiveBaseLifespanYears(qualityId, minimumLifespanYears, raceId) {
         // CaptiveQualityDefinition|null 质量定义：用于读取该质量对应寿命区间。
         var qualityDefinition = getCaptiveQualityDefinition(qualityId);
 
+        // CaptiveRaceDefinition|null 种族定义：用于读取同质量下不同种族的基础寿命差异。
+        var raceDefinition = getCaptiveRaceDefinition(raceId);
+
+        // number 种族寿命修正：单位年，可正可负；让相同职业和质量的不同种族仍有寿命差异。
+        var raceLifespanYears = raceDefinition ? Number(raceDefinition.lifespanYears) || 0 : 0;
+
         // number 最小寿命：质量定义下限，单位年。
-        var minLifespanYears = qualityDefinition ? Math.max(30, Math.floor(Number(qualityDefinition.minLifespanYears) || 30)) : 30;
+        var minLifespanYears = qualityDefinition ? Math.max(18, Math.floor(Number(qualityDefinition.minLifespanYears) + raceLifespanYears || 30)) : 30;
 
         // number 额外寿命下限：至少高于当前年龄，省略时不额外抬高。
         var safeMinimumLifespanYears = Math.max(0, Math.floor(Number(minimumLifespanYears) || 0));
 
-        minLifespanYears = Math.min(100, Math.max(minLifespanYears, safeMinimumLifespanYears));
+        minLifespanYears = Math.min(140, Math.max(minLifespanYears, safeMinimumLifespanYears));
 
-        // number 最大寿命：质量定义上限，单位年，封顶 100。
-        var maxLifespanYears = qualityDefinition ? Math.min(100, Math.max(minLifespanYears, Math.floor(Number(qualityDefinition.maxLifespanYears) || minLifespanYears))) : Math.max(minLifespanYears, game.definitions.POPULATION_CONSTANTS.fallbackCaptiveLifespanYears);
+        // number 最大寿命：质量定义上限叠加种族修正，单位年，封顶 140。
+        var maxLifespanYears = qualityDefinition ? Math.min(140, Math.max(minLifespanYears, Math.floor(Number(qualityDefinition.maxLifespanYears) + raceLifespanYears || minLifespanYears))) : Math.max(minLifespanYears, game.definitions.POPULATION_CONSTANTS.fallbackCaptiveLifespanYears);
 
         return randomIntegerInclusive(minLifespanYears, maxLifespanYears);
     }
@@ -297,6 +334,130 @@
     }
 
     /**
+     * 取得俘虏种族定义。
+     *
+     * @param {string|undefined} raceId - 俘虏种族 ID；可能来自旧存档缺失字段。
+     * @returns {CaptiveRaceDefinition|null} 俘虏种族定义；未找到时返回 null。
+     */
+    function getCaptiveRaceDefinition(raceId) {
+        if (!raceId) {
+            return null;
+        }
+
+        // number 循环索引：遍历俘虏种族定义数组的整数下标。
+        for (var raceIndex = 0; raceIndex < game.definitions.CAPTIVE_RACE_DEFINITIONS.length; raceIndex += 1) {
+            // CaptiveRaceDefinition 当前种族定义：用于匹配种族 ID。
+            var raceDefinition = game.definitions.CAPTIVE_RACE_DEFINITIONS[raceIndex];
+
+            if (raceDefinition.id === raceId) {
+                return raceDefinition;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 规范化俘虏种族 ID。
+     *
+     * @param {string|undefined} raceId - 当前俘虏种族 ID；旧存档或旧调用可能缺失。
+     * @param {string} captiveTypeId - 俘虏职业类型 ID，用于选择兼容默认种族。
+     * @returns {string} 有效种族 ID。
+     */
+    function normalizeCaptiveRaceId(raceId, captiveTypeId) {
+        if (getCaptiveRaceDefinition(raceId)) {
+            return raceId;
+        }
+
+        if (captiveTypeId === "undead_captive") {
+            return "ghoulkin";
+        }
+
+        if (captiveTypeId === "magic_talent" || captiveTypeId === "shrine_acolyte") {
+            return "mire_human";
+        }
+
+        return "mire_human";
+    }
+
+    /**
+     * 按种族和地点限制抽取俘虏职业类型。
+     *
+     * @param {CaptiveRaceDefinition|null} raceDefinition - 种族定义；缺失时从地点允许类型中兜底。
+     * @param {string[]} allowedTypeIds - 地点允许的俘虏类型 ID 数组。
+     * @returns {string} 俘虏类型 ID。
+     */
+    function selectCaptiveTypeForRaceAndTarget(raceDefinition, allowedTypeIds) {
+        // WeightedId[] 可用权重数组：只保留地点允许且种族声明的职业类型。
+        var filteredWeights = [];
+
+        if (raceDefinition && Array.isArray(raceDefinition.captiveTypeWeights)) {
+            // number 权重循环索引：遍历种族职业类型权重数组的整数下标。
+            for (var weightIndex = 0; weightIndex < raceDefinition.captiveTypeWeights.length; weightIndex += 1) {
+                // WeightedId 当前权重项：id 为俘虏类型 ID，weight 为随机权重。
+                var weightEntry = raceDefinition.captiveTypeWeights[weightIndex];
+
+                if (allowedTypeIds.indexOf(weightEntry.id) !== -1) {
+                    filteredWeights.push(weightEntry);
+                }
+            }
+        }
+
+        if (filteredWeights.length > 0) {
+            return selectWeightedId(filteredWeights, allowedTypeIds[0] || "laborer");
+        }
+
+        return allowedTypeIds[0] || "laborer";
+    }
+
+    /**
+     * 从带权重 ID 数组中抽取一个 ID。
+     *
+     * @param {WeightedId[]|null|undefined} weightedIds - 权重项数组；缺失或总权重为 0 时使用兜底 ID。
+     * @param {string} fallbackId - 兜底稳定 ID。
+     * @returns {string} 抽中的稳定 ID。
+     */
+    function selectWeightedId(weightedIds, fallbackId) {
+        if (!Array.isArray(weightedIds) || weightedIds.length <= 0) {
+            return fallbackId;
+        }
+
+        // number 总权重：只累加正数权重。
+        var totalWeight = 0;
+
+        // number 权重循环索引：遍历所有候选权重项的整数下标。
+        for (var weightIndex = 0; weightIndex < weightedIds.length; weightIndex += 1) {
+            // WeightedId 当前权重项：用于累加随机区间。
+            var weightEntry = weightedIds[weightIndex];
+
+            totalWeight += Math.max(0, Number(weightEntry.weight) || 0);
+        }
+
+        if (totalWeight <= 0) {
+            return fallbackId;
+        }
+
+        // number 随机落点：范围为 0 到总权重的浮点数。
+        var roll = Math.random() * totalWeight;
+
+        // number 累计权重：用于判断随机落点落在哪个候选项。
+        var cumulativeWeight = 0;
+
+        // number 抽取循环索引：遍历候选项并返回命中的 ID。
+        for (var selectionIndex = 0; selectionIndex < weightedIds.length; selectionIndex += 1) {
+            // WeightedId 候选权重项：id 为返回值，weight 为占用区间宽度。
+            var candidateEntry = weightedIds[selectionIndex];
+
+            cumulativeWeight += Math.max(0, Number(candidateEntry.weight) || 0);
+            if (roll < cumulativeWeight) {
+                return candidateEntry.id;
+            }
+        }
+
+        return fallbackId;
+    }
+
+    /**
      * 预览俘虏处置收益和风险。
      *
      * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
@@ -310,6 +471,9 @@
 
         // CaptiveQualityDefinition|null 质量定义：用于收益和风险倍率。
         var qualityDefinition = getCaptiveQualityDefinition(captive.quality);
+
+        // CaptiveRaceDefinition|null 种族定义：用于显示同类型同质量下的种族差异。
+        var raceDefinition = getCaptiveRaceDefinition(captive.raceId);
 
         // number 质量倍率：缺失定义时按 1。
         var qualityMultiplier = qualityDefinition ? qualityDefinition.multiplier : 1;
@@ -335,6 +499,7 @@
                 brainwashLevel: Math.round(brainwashRatio * 100),
                 attributeBonus: calculateBrainwashAttributeBonus(captive),
                 attributePenalty: captiveWeatherEffects.captiveNewbornAttributePenalty || 0,
+                raceName: raceDefinition ? raceDefinition.name : "未知种族",
                 inheritedTraitChance: Math.min(0.8, 0.25 * qualityMultiplier),
                 escapeRisk: qualityDefinition ? qualityDefinition.escapeRisk : 0.1,
                 retaliationRisk: qualityDefinition ? qualityDefinition.retaliationRisk : 0.05
@@ -583,8 +748,9 @@
         if (typeof captive.age !== "number" || !isFinite(captive.age)) {
             captive.age = createCaptiveInitialAgeYears(getCaptiveTypeDefinition(captive.type));
         }
+        captive.raceId = normalizeCaptiveRaceId(captive.raceId, captive.type);
         if (typeof captive.baseLifespanYears !== "number") {
-            captive.baseLifespanYears = createCaptiveBaseLifespanYears(captive.quality);
+            captive.baseLifespanYears = createCaptiveBaseLifespanYears(captive.quality, captive.age + 1, captive.raceId);
         }
         captive.technologyLifespanYears = game.population.calculateTechnologyLifespanBonusYears(state);
         if (typeof captive.eventLifespanYears !== "number") {
@@ -835,6 +1001,9 @@
         // CaptiveTypeDefinition|null 俘虏类型定义：当前实现的俘虏属性来自类型偏置。
         var captiveTypeDefinition = getCaptiveTypeDefinition(captive.type);
 
+        // CaptiveRaceDefinition|null 俘虏种族定义：新增种族偏置会参与自动培育排序。
+        var raceDefinition = getCaptiveRaceDefinition(captive.raceId);
+
         // CaptiveQualityDefinition|null 俘虏质量定义：高质量俘虏在排序中放大其属性价值。
         var qualityDefinition = getCaptiveQualityDefinition(captive.quality);
 
@@ -858,6 +1027,19 @@
 
         // number 质量倍率：缺失质量定义时按普通质量 1 处理。
         var qualityMultiplier = qualityDefinition ? qualityDefinition.multiplier : 1;
+
+        if (raceDefinition) {
+            // string[] 种族属性 ID 数组：遍历种族属性修正字典。
+            var raceAttributeIds = Object.keys(raceDefinition.attributeBonus);
+
+            // number 种族属性循环索引：遍历种族属性 ID 数组的整数下标。
+            for (var raceAttributeIndex = 0; raceAttributeIndex < raceAttributeIds.length; raceAttributeIndex += 1) {
+                // string 种族属性 ID：用于读取种族属性修正值。
+                var raceAttributeId = raceAttributeIds[raceAttributeIndex];
+
+                attributeBiasTotal += Number(raceDefinition.attributeBonus[raceAttributeId]) || 0;
+            }
+        }
 
         return attributeBiasTotal * qualityMultiplier;
     }
@@ -976,11 +1158,14 @@
         // CaptiveQualityDefinition|null 质量定义：用于计算初始技能倍率。
         var qualityDefinition = getCaptiveQualityDefinition(captive.quality);
 
+        // CaptiveRaceDefinition|null 种族定义：用于追加同职业同质量下的属性、技能和寿命差异。
+        var raceDefinition = getCaptiveRaceDefinition(captive.raceId);
+
         // Goblin 新生哥布林：来源标记为 captive_bed。
         var newGoblin = game.population.createGoblin(state, "captive_bed");
 
         if (captiveTypeDefinition) {
-            applyCaptiveBiasToGoblin(newGoblin, captiveTypeDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, calculateBrainwashAttributeBonus(captive), getCaptiveNewbornAttributePenalty(state, captive));
+            applyCaptiveBiasToGoblin(newGoblin, captiveTypeDefinition, raceDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, calculateBrainwashAttributeBonus(captive), getCaptiveNewbornAttributePenalty(state, captive));
         }
 
         newGoblin.growthLifespanYears = game.population.calculateGoblinGrowthLifespanYears(newGoblin);
@@ -994,12 +1179,13 @@
      *
      * @param {Goblin} goblin - 新生哥布林对象，会被直接修改。
      * @param {CaptiveTypeDefinition} captiveTypeDefinition - 俘虏类型定义对象。
+     * @param {CaptiveRaceDefinition|null} raceDefinition - 俘虏种族定义对象；缺失时只应用职业类型偏置。
      * @param {number} qualityMultiplier - 质量倍率，正数。
      * @param {number} brainwashAttributeBonus - 洗脑属性加成，非负整数。
      * @param {number} attributePenalty - 新生属性惩罚，非负整数。
      * @returns {void} 无返回值。
      */
-    function applyCaptiveBiasToGoblin(goblin, captiveTypeDefinition, qualityMultiplier, brainwashAttributeBonus, attributePenalty) {
+    function applyCaptiveBiasToGoblin(goblin, captiveTypeDefinition, raceDefinition, qualityMultiplier, brainwashAttributeBonus, attributePenalty) {
         // number 新生属性惩罚：欲风等天气会让这次苗床新生更虚弱。
         var safeAttributePenalty = Math.max(0, Math.floor(Number(attributePenalty) || 0));
 
@@ -1016,6 +1202,19 @@
             goblin.attributes[attributeId] = Math.min(10, Math.max(1, goblin.attributes[attributeId] + captiveTypeDefinition.attributeBias[attributeId] + brainwashAttributeBonus));
         }
 
+        if (raceDefinition) {
+            // string[] 种族属性 ID 数组：遍历种族额外属性修正。
+            var raceAttributeIds = Object.keys(raceDefinition.attributeBonus);
+
+            // number 种族属性循环索引：遍历种族属性 ID 数组的整数下标。
+            for (var raceAttributeIndex = 0; raceAttributeIndex < raceAttributeIds.length; raceAttributeIndex += 1) {
+                // string 当前种族属性 ID：用于写入种族属性差异。
+                var raceAttributeId = raceAttributeIds[raceAttributeIndex];
+
+                goblin.attributes[raceAttributeId] = Math.min(10, Math.max(1, goblin.attributes[raceAttributeId] + raceDefinition.attributeBonus[raceAttributeId]));
+            }
+        }
+
         // string[] 技能 ID 数组：用于遍历初始技能偏向。
         var skillIds = Object.keys(captiveTypeDefinition.skillBias);
 
@@ -1025,6 +1224,19 @@
             var skillId = skillIds[skillIndex];
 
             goblin.skills[skillId] = captiveTypeDefinition.skillBias[skillId] * qualityMultiplier;
+        }
+
+        if (raceDefinition) {
+            // string[] 种族技能 ID 数组：遍历种族技能修正字典。
+            var raceSkillIds = Object.keys(raceDefinition.skillBonus);
+
+            // number 种族技能循环索引：遍历种族技能 ID 数组的整数下标。
+            for (var raceSkillIndex = 0; raceSkillIndex < raceSkillIds.length; raceSkillIndex += 1) {
+                // string 当前种族技能 ID：用于叠加种族初始技能经验。
+                var raceSkillId = raceSkillIds[raceSkillIndex];
+
+                goblin.skills[raceSkillId] = (goblin.skills[raceSkillId] || 0) + raceDefinition.skillBonus[raceSkillId] * qualityMultiplier;
+            }
         }
 
         goblin.traits.push(captiveTypeDefinition.traitHint);
@@ -1280,9 +1492,11 @@
     // Object 俘虏系统命名空间：提供俘虏创建、预览和处置函数。
     game.captivesSystem = {
         createCaptive: createCaptive,
+        createCaptiveFromRaidTarget: createCaptiveFromRaidTarget,
         createCaptiveName: createCaptiveName,
         getCaptiveTypeDefinition: getCaptiveTypeDefinition,
         getCaptiveQualityDefinition: getCaptiveQualityDefinition,
+        getCaptiveRaceDefinition: getCaptiveRaceDefinition,
         previewDisposition: previewDisposition,
         applyDisposition: applyDisposition,
         canApplyDisposition: canApplyDisposition,

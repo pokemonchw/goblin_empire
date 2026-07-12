@@ -60,6 +60,34 @@
     }
 
     /**
+     * 格式化掠夺目标可能带回的俘虏种族。
+     *
+     * @param {WeightedId[]} captiveRaceWeights - 俘虏种族权重数组；id 为种族稳定 ID。
+     * @returns {string} 俘虏种族中文名列表；缺失定义时回退显示稳定 ID。
+     */
+    function formatCaptiveRaceNames(captiveRaceWeights) {
+        if (!Array.isArray(captiveRaceWeights) || captiveRaceWeights.length <= 0) {
+            return "未知种族";
+        }
+
+        // string[] 俘虏种族中文名列表：用于外交页掠夺地点浮窗展示。
+        var captiveRaceNames = [];
+
+        // number 循环索引：遍历俘虏种族权重数组的整数下标。
+        for (var captiveRaceIndex = 0; captiveRaceIndex < captiveRaceWeights.length; captiveRaceIndex += 1) {
+            // WeightedId 当前种族权重项：id 为种族稳定 ID。
+            var captiveRaceWeight = captiveRaceWeights[captiveRaceIndex];
+
+            // CaptiveRaceDefinition|null 俘虏种族定义：用于把稳定 ID 转成中文显示名。
+            var captiveRaceDefinition = game.captivesSystem.getCaptiveRaceDefinition(captiveRaceWeight.id);
+
+            captiveRaceNames.push(captiveRaceDefinition ? captiveRaceDefinition.name : captiveRaceWeight.id);
+        }
+
+        return captiveRaceNames.join(" / ");
+    }
+
+    /**
      * 预览掠夺收益和风险。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -153,7 +181,8 @@
             deathChance: Math.max(0.01, Math.min(0.18, 0.05 - strengthAdvantage / 600)),
             relationPenalty: Math.max(0, Math.round(targetDefinition.relationPenalty * relationPenaltyRatio * (1 + (policyEffects.raidRelationPenaltyRatio || 0)))),
             retaliationChance: Math.min(0.75, Math.max(0, targetDefinition.relationPenalty / 100 + Math.max(0, -strengthAdvantage) / 200)),
-            captiveTypes: formatCaptiveTypeNames(targetDefinition.captiveTypes)
+            captiveTypes: formatCaptiveTypeNames(targetDefinition.captiveTypes),
+            captiveRaces: formatCaptiveRaceNames(targetDefinition.captiveRaceWeights)
         };
     }
 
@@ -661,10 +690,10 @@
      * @returns {void} 无返回值。
      */
     function addRaidCaptive(state, targetDefinition) {
-        // string 俘虏类型 ID：从目标允许类型中选第一个，后续可替换为质量范围随机。
-        var captiveTypeId = targetDefinition.captiveTypes[0] || "laborer";
+        // CaptiveState 新俘虏：按地点种族权重、种族职业权重和种族质量权重生成。
+        var captive = game.captivesSystem.createCaptiveFromRaidTarget(targetDefinition);
 
-        state.captives.push(game.captivesSystem.createCaptive(captiveTypeId, "common", targetDefinition.id));
+        state.captives.push(captive);
         game.captivesSystem.syncCaptiveResource(state);
     }
 

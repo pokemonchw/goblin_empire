@@ -1248,6 +1248,54 @@
     }
 
     /**
+     * 格式化俘虏种族活跃世界。
+     *
+     * @param {CaptiveRaceDefinition|null} raceDefinition - 俘虏种族定义；缺失时返回未知。
+     * @returns {string} 世界中文名称；找不到定义时回退世界 ID 或未知世界。
+     */
+    function formatCaptiveRaceWorldName(raceDefinition) {
+        if (!raceDefinition) {
+            return "未知世界";
+        }
+
+        // number 世界循环索引：遍历外交世界定义数组的整数下标。
+        for (var worldIndex = 0; worldIndex < game.definitions.DIPLOMACY_WORLD_DEFINITIONS.length; worldIndex += 1) {
+            // DiplomacyWorldDefinition 当前世界定义：用于匹配种族 worldId。
+            var worldDefinition = game.definitions.DIPLOMACY_WORLD_DEFINITIONS[worldIndex];
+
+            if (worldDefinition.id === raceDefinition.worldId) {
+                return worldDefinition.name;
+            }
+        }
+
+        return raceDefinition.worldId || "未知世界";
+    }
+
+    /**
+     * 格式化俘虏种族主要势力。
+     *
+     * @param {CaptiveRaceDefinition|null} raceDefinition - 俘虏种族定义；缺失时返回未知。
+     * @returns {string} 势力中文名称；找不到定义时回退势力 ID 或未知势力。
+     */
+    function formatCaptiveRaceFactionName(raceDefinition) {
+        if (!raceDefinition) {
+            return "未知势力";
+        }
+
+        // number 势力循环索引：遍历外交势力定义数组的整数下标。
+        for (var factionIndex = 0; factionIndex < game.definitions.FACTION_DEFINITIONS.length; factionIndex += 1) {
+            // FactionTradeDefinition 当前势力定义：用于匹配种族 factionId。
+            var factionDefinition = game.definitions.FACTION_DEFINITIONS[factionIndex];
+
+            if (factionDefinition.id === raceDefinition.factionId) {
+                return factionDefinition.name;
+            }
+        }
+
+        return raceDefinition.factionId || "未知势力";
+    }
+
+    /**
      * 渲染俘虏悬浮框。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -1268,6 +1316,9 @@
 
         // Object.<string, string|number> 洗脑预览：读取固定菌菇消耗、洗脑提升和风险。
         var modifyPreview = game.captivesSystem.previewDisposition(captive, "modify", state);
+
+        // CaptiveRaceDefinition|null 种族定义：用于显示俘虏来源种族和世界。
+        var raceDefinition = game.captivesSystem.getCaptiveRaceDefinition(captive.raceId);
 
         // number 孕育成功率：0-1 浮点比例，由失败率反推。
         var breedingSuccessRate = 1 - Number(bedPreview.failureRisk || 0);
@@ -1292,7 +1343,17 @@
         tooltipElement.className = "resource-tooltip captive-tooltip";
         tooltipElement.setAttribute("role", "tooltip");
         tooltipElement.appendChild(createTextElement("h4", captive.name || captive.id));
-        appendDefinitionDetail(listElement, "种类", (qualityDefinition ? qualityDefinition.name : captive.quality) + " " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type));
+        appendDefinitionDetail(listElement, "品质", qualityDefinition ? qualityDefinition.name : captive.quality);
+        appendDefinitionDetail(listElement, "种族", raceDefinition ? raceDefinition.name : (captive.raceId || "未知种族"));
+        appendDefinitionDetail(listElement, "职业", captiveTypeDefinition ? captiveTypeDefinition.name : captive.type);
+        if (raceDefinition) {
+            appendDefinitionDetail(listElement, "活跃世界", formatCaptiveRaceWorldName(raceDefinition));
+            appendDefinitionDetail(listElement, "主要势力", formatCaptiveRaceFactionName(raceDefinition));
+            appendDefinitionDetail(listElement, "种族生态", raceDefinition.description);
+            appendDefinitionDetail(listElement, "种族属性", formatNumericBonusMap(raceDefinition.attributeBonus));
+            appendDefinitionDetail(listElement, "种族技能", formatNumericBonusMap(raceDefinition.skillBonus));
+            appendDefinitionDetail(listElement, "种族寿命", formatSignedNumber(Number(raceDefinition.lifespanYears) || 0) + " 年");
+        }
         appendDefinitionDetail(listElement, "来源", formatCaptiveSource(captive.source));
         appendDefinitionDetail(listElement, "倾向", formatCaptiveTraitHint(captive.traitHint));
         appendDefinitionDetail(listElement, "年龄", formatAgeYears(captive.age));
@@ -4588,7 +4649,8 @@
         appendDefinitionDetail(listElement, "关系", "下降 " + preview.relationPenalty + "，报复可能 " + Math.round(preview.retaliationChance * 100) + "%");
         appendDefinitionDetail(listElement, "声名", "成功恶名 +" + preview.infamyReward + "、善名 -" + preview.goodwillPenalty + "；失败恶名 -" + preview.infamyFailurePenalty);
         appendDefinitionDetail(listElement, "收益", formatRewardDictionary(targetDefinition.rewards));
-        appendDefinitionDetail(listElement, "俘虏", String(preview.captiveTypes));
+        appendDefinitionDetail(listElement, "俘虏职业", String(preview.captiveTypes));
+        appendDefinitionDetail(listElement, "俘虏种族", String(preview.captiveRaces));
 
         if (!preview.canStartByRaiders) {
             appendDefinitionDetail(listElement, "缺少", "战斗职业哥布林 " + Math.max(0, targetDefinition.minRaiders - preview.availableRaiderCount));
@@ -5260,6 +5322,41 @@
         }
 
         return effectTexts.join("，");
+    }
+
+    /**
+     * 格式化数值修正字典。
+     *
+     * @param {Object.<string, number>} bonusMap - 数值修正字典；key 为属性或技能 ID，value 为有符号数值。
+     * @returns {string} 修正文本；无修正时返回“无”。
+     */
+    function formatNumericBonusMap(bonusMap) {
+        if (!bonusMap) {
+            return "无";
+        }
+
+        // string[] 修正 ID 数组：用于遍历属性或技能修正。
+        var bonusIds = Object.keys(bonusMap);
+
+        if (bonusIds.length <= 0) {
+            return "无";
+        }
+
+        // string[] 修正文本数组：每项为 ID 和有符号整数值。
+        var bonusTexts = [];
+
+        // number 循环索引：遍历修正 ID 数组的整数下标。
+        for (var bonusIndex = 0; bonusIndex < bonusIds.length; bonusIndex += 1) {
+            // string 修正 ID：属性或技能稳定 ID。
+            var bonusId = bonusIds[bonusIndex];
+
+            // number 修正数值：有符号浮点数，显示时保留整数。
+            var bonusValue = Number(bonusMap[bonusId]) || 0;
+
+            bonusTexts.push(bonusId + " " + (bonusValue >= 0 ? "+" : "") + bonusValue.toFixed(0));
+        }
+
+        return bonusTexts.join("，");
     }
 
     /**

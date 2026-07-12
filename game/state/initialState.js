@@ -166,6 +166,7 @@
                 id: "captive_start_laborer",
                 name: "阿苔",
                 type: "laborer",
+                raceId: "mire_human",
                 quality: "common",
                 source: "开局",
                 traitHint: "basic",
