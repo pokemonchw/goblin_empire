@@ -169,6 +169,7 @@
             disposition: undefined,
             brainwashLevel: 0,
             isAutoBrainwashEnabled: false,
+            isAutoBreedEnabled: false,
             breedingState: "idle",
             gestationWeatherId: undefined,
             gestationSecondsRemaining: 0,
@@ -400,6 +401,10 @@
         // number 有效推进秒数：暂停时主循环不会调用，此处仍防御负数输入。
         var safeDeltaSeconds = Math.max(0, deltaSeconds);
 
+        if (safeDeltaSeconds > 0) {
+            applyAutoBreedingIfNeeded(state);
+        }
+
         // number 循环索引：遍历俘虏数组的整数下标。
         for (var captiveIndex = 0; captiveIndex < state.captives.length; captiveIndex += 1) {
             // CaptiveState 当前俘虏：用于推进孕育或休养倒计时。
@@ -439,6 +444,32 @@
     }
 
     /**
+     * 切换指定俘虏的自动培育状态。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会写入目标俘虏的自动培育开关。
+     * @param {string} captiveId - 俘虏稳定 ID。
+     * @returns {boolean} 是否切换成功；true 表示目标俘虏存在且公用苗床科技已完成。
+     */
+    function toggleAutoBreed(state, captiveId) {
+        if (state.isPaused || !hasPublicNursery(state)) {
+            return false;
+        }
+
+        // number 俘虏索引：用于定位要切换自动培育的俘虏。
+        var captiveIndex = findCaptiveIndex(state, captiveId);
+
+        if (captiveIndex < 0) {
+            return false;
+        }
+
+        // CaptiveState 当前俘虏：写入指定俘虏自己的自动培育开关。
+        var captive = state.captives[captiveIndex];
+
+        captive.isAutoBreedEnabled = !Boolean(captive.isAutoBreedEnabled);
+        return true;
+    }
+
+    /**
      * 在食物充足时为指定俘虏执行一次自动洗脑。
      *
      * @param {GameState} state - 当前游戏状态对象，可能消耗菌菇并提升俘虏洗脑程度。
@@ -463,6 +494,158 @@
     }
 
     /**
+     * 在食物和住房充足时按俘虏属性价值排序执行自动培育。
+     *
+     * @param {GameState} state - 当前游戏状态对象，可能让一个或多个俘虏进入孕育状态。
+     * @returns {number} 本轮成功启动自动培育的俘虏数量，非负整数。
+     */
+    function applyAutoBreedingIfNeeded(state) {
+        if (!hasPublicNursery(state) || !hasEnoughFoodForAutoBreeding(state)) {
+            return 0;
+        }
+
+        // CaptiveState[] 自动培育候选数组：只包含开启开关且满足满洗脑和空闲条件的俘虏。
+        var breedingCandidates = getAutoBreedingCandidates(state);
+
+        if (breedingCandidates.length <= 0) {
+            return 0;
+        }
+
+        // number 已启动数量：统计本轮实际进入孕育的俘虏数量，非负整数。
+        var startedCount = 0;
+
+        // number 预留住房空位：自动培育启动孕育时预占未来新生住房，非负整数。
+        var reservedFreeHousing = game.population.calculateFreeHousing(state);
+
+        // number 候选循环索引：按属性价值从高到低遍历候选俘虏。
+        for (var candidateIndex = 0; candidateIndex < breedingCandidates.length; candidateIndex += 1) {
+            if (reservedFreeHousing <= 0 || !hasEnoughFoodForAutoBreeding(state)) {
+                break;
+            }
+
+            // CaptiveState 当前候选俘虏：本轮可能被自动送入苗床孕育。
+            var captive = breedingCandidates[candidateIndex];
+
+            // string 处置状态：自动培育与手动培育共享苗床状态，保证后续结算一致。
+            captive.disposition = "bed";
+            startCaptiveGestation(state, captive);
+            startedCount += 1;
+            reservedFreeHousing -= 1;
+        }
+
+        return startedCount;
+    }
+
+    /**
+     * 取得自动培育候选，并按俘虏属性价值从高到低排序。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {CaptiveState[]} 排序后的候选俘虏数组。
+     */
+    function getAutoBreedingCandidates(state) {
+        // CaptiveState[] 候选俘虏数组：保留原始对象引用，排序只影响本次决策顺序。
+        var breedingCandidates = [];
+
+        // number 循环索引：遍历当前关押俘虏数组的整数下标。
+        for (var captiveIndex = 0; captiveIndex < state.captives.length; captiveIndex += 1) {
+            // CaptiveState 当前俘虏：用于检查自动培育条件。
+            var captive = state.captives[captiveIndex];
+
+            if (canAutoBreedCaptive(state, captive)) {
+                breedingCandidates.push(captive);
+            }
+        }
+
+        breedingCandidates.sort(compareCaptivesByAttributeValue);
+        return breedingCandidates;
+    }
+
+    /**
+     * 判断单个俘虏是否满足自动培育的个体条件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
+     * @returns {boolean} 是否可由公用苗床自动开始培育。
+     */
+    function canAutoBreedCaptive(state, captive) {
+        return Boolean(captive.isAutoBreedEnabled) && getCaptiveBrainwashRatio(captive) >= 1 && canApplyDisposition(state, captive, "bed");
+    }
+
+    /**
+     * 判断当前是否有足够菌菇允许自动培育。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否食物充足；true 表示当前库存至少覆盖一秒现有口粮消耗。
+     */
+    function hasEnoughFoodForAutoBreeding(state) {
+        // ResourceState|null 菌菇状态：自动培育不直接扣费，但需要避免断粮时继续扩张人口。
+        var fungusState = state.resourcesById.fungus || null;
+
+        if (!fungusState) {
+            return false;
+        }
+
+        // number 每秒口粮消耗：当前哥布林和俘虏的菌菇消耗速度，单位菌菇/秒。
+        var fungusConsumptionPerSecond = game.population.calculateFungusConsumptionPerSecond(state);
+
+        return fungusState.value >= Math.max(1, fungusConsumptionPerSecond);
+    }
+
+    /**
+     * 按俘虏属性价值比较两个候选俘虏。
+     *
+     * @param {CaptiveState} leftCaptive - 左侧候选俘虏，不会被修改。
+     * @param {CaptiveState} rightCaptive - 右侧候选俘虏，不会被修改。
+     * @returns {number} 排序比较值；负数表示左侧优先。
+     */
+    function compareCaptivesByAttributeValue(leftCaptive, rightCaptive) {
+        // number 左侧属性价值：按类型属性偏置总和与质量倍率估算。
+        var leftAttributeValue = calculateCaptiveAttributeValue(leftCaptive);
+
+        // number 右侧属性价值：按类型属性偏置总和与质量倍率估算。
+        var rightAttributeValue = calculateCaptiveAttributeValue(rightCaptive);
+
+        return rightAttributeValue - leftAttributeValue;
+    }
+
+    /**
+     * 计算俘虏用于自动培育排序的属性价值。
+     *
+     * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
+     * @returns {number} 属性价值分数，有符号浮点数；分数越高越优先自动培育。
+     */
+    function calculateCaptiveAttributeValue(captive) {
+        // CaptiveTypeDefinition|null 俘虏类型定义：当前实现的俘虏属性来自类型偏置。
+        var captiveTypeDefinition = getCaptiveTypeDefinition(captive.type);
+
+        // CaptiveQualityDefinition|null 俘虏质量定义：高质量俘虏在排序中放大其属性价值。
+        var qualityDefinition = getCaptiveQualityDefinition(captive.quality);
+
+        if (!captiveTypeDefinition) {
+            return 0;
+        }
+
+        // string[] 属性 ID 数组：遍历该俘虏类型声明的属性偏置。
+        var attributeIds = Object.keys(captiveTypeDefinition.attributeBias);
+
+        // number 属性偏置总和：允许负偏置拉低总值，反映当前类型对新生六维的净贡献。
+        var attributeBiasTotal = 0;
+
+        // number 属性循环索引：遍历属性 ID 数组的整数下标。
+        for (var attributeIndex = 0; attributeIndex < attributeIds.length; attributeIndex += 1) {
+            // string 当前属性 ID：用于读取属性偏置数值。
+            var attributeId = attributeIds[attributeIndex];
+
+            attributeBiasTotal += Number(captiveTypeDefinition.attributeBias[attributeId]) || 0;
+        }
+
+        // number 质量倍率：缺失质量定义时按普通质量 1 处理。
+        var qualityMultiplier = qualityDefinition ? qualityDefinition.multiplier : 1;
+
+        return attributeBiasTotal * qualityMultiplier;
+    }
+
+    /**
      * 判断欲望启蒙科技是否已经完成。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -471,6 +654,19 @@
     function hasDesireEnlightenment(state) {
         // TechnologyState|null 欲望启蒙状态：用于控制自动洗脑入口和模拟逻辑。
         var technologyState = state.technologiesById.desire_enlightenment || null;
+
+        return Boolean(technologyState && technologyState.isResearched);
+    }
+
+    /**
+     * 判断公用苗床科技是否已经完成。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否完成公用苗床；true 表示俘虏卡片可显示自动培育按钮。
+     */
+    function hasPublicNursery(state) {
+        // TechnologyState|null 公用苗床状态：用于控制自动培育入口和模拟逻辑。
+        var technologyState = state.technologiesById.public_nursery || null;
 
         return Boolean(technologyState && technologyState.isResearched);
     }
@@ -873,8 +1069,12 @@
         applyDisposition: applyDisposition,
         canApplyDisposition: canApplyDisposition,
         toggleAutoBrainwash: toggleAutoBrainwash,
+        toggleAutoBreed: toggleAutoBreed,
         applyAutoBrainwashIfNeeded: applyAutoBrainwashIfNeeded,
+        applyAutoBreedingIfNeeded: applyAutoBreedingIfNeeded,
         hasDesireEnlightenment: hasDesireEnlightenment,
+        hasPublicNursery: hasPublicNursery,
+        calculateCaptiveAttributeValue: calculateCaptiveAttributeValue,
         updateCaptives: updateCaptives,
         breedGoblinFromCaptive: breedGoblinFromCaptive,
         syncCaptiveResource: syncCaptiveResource

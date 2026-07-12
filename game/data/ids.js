@@ -136,6 +136,7 @@
         "crossbow",
         "crude_tools",
         "desire_enlightenment",
+        "public_nursery",
         "clan_rules",
         "overseer_drills",
         "census",

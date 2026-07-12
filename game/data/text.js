@@ -125,6 +125,8 @@
         captiveModify: "洗脑改造",
         captiveAutoBrainwashOn: "自动洗脑：开",
         captiveAutoBrainwashOff: "自动洗脑：关",
+        captiveAutoBreedOn: "自动培育：开",
+        captiveAutoBreedOff: "自动培育：关",
         captiveFood: "做成食物",
         policiesTitle: "政策",
         policyActive: "生效中",
@@ -673,6 +675,10 @@
         desire_enlightenment: {
             name: "欲望启蒙",
             description: "把对俘虏的改造从临时粗活变成可持续的固定流程。"
+        },
+        public_nursery: {
+            name: "公用苗床",
+            description: "把洗脑完成的俘虏排入公共苗床名册，按最有价值的血统自动补充新生。"
         },
         clan_rules: {
             name: "氏族规矩",

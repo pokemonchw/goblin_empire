@@ -167,6 +167,7 @@
                 disposition: undefined,
                 brainwashLevel: 0,
                 isAutoBrainwashEnabled: false,
+                isAutoBreedEnabled: false,
                 breedingState: "idle",
                 gestationWeatherId: undefined,
                 gestationSecondsRemaining: 0,

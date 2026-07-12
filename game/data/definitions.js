@@ -222,7 +222,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 17;
+    var SAVE_VERSION = 18;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -2005,6 +2005,23 @@
             price: [
                 game.pricing.createPrice("crudeKnowledge", 35),
                 game.pricing.createPrice("fungus", 100)
+            ],
+            unlocks: {
+                technologies: [
+                    "public_nursery"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "public_nursery",
+            name: game.text.TEXT_REGISTRY.technologies.public_nursery.name,
+            description: game.text.TEXT_REGISTRY.technologies.public_nursery.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 80),
+                game.pricing.createPrice("fungus", 150)
             ],
             unlocks: {},
             unlock: {

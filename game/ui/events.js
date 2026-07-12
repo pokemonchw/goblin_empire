@@ -288,6 +288,12 @@
                 return;
             }
 
+            if (targetElement.dataset.captiveAutoBreedId) {
+                game.captivesSystem.toggleAutoBreed(currentState, targetElement.dataset.captiveAutoBreedId);
+                renderAfterStateChange(currentState);
+                return;
+            }
+
             if (targetElement.dataset.diplomacySubtab) {
                 game.runtime.activeDiplomacySubtab = targetElement.dataset.diplomacySubtab;
                 renderAfterDiplomacyViewChange(currentState);

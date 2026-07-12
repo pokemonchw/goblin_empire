@@ -1120,6 +1120,7 @@
         appendCaptiveActionButton(actionsElement, state, captive, "bed", game.text.TEXT_REGISTRY.ui.captiveBed);
         appendCaptiveActionButton(actionsElement, state, captive, "modify", game.text.TEXT_REGISTRY.ui.captiveModify);
         appendCaptiveAutoBrainwashButton(actionsElement, state, captive);
+        appendCaptiveAutoBreedButton(actionsElement, state, captive);
         appendCaptiveActionButton(actionsElement, state, captive, "food", game.text.TEXT_REGISTRY.ui.captiveFood);
         cardElement.appendChild(actionsElement);
         cardElement.appendChild(renderCaptiveTooltip(state, captive, captiveTypeDefinition, qualityDefinition));
@@ -1206,6 +1207,29 @@
     }
 
     /**
+     * 追加俘虏自动培育按钮。
+     *
+     * @param {HTMLElement} actionsElement - 处置按钮组元素，会被追加按钮。
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {CaptiveState} captive - 俘虏运行时对象。
+     * @returns {void} 无返回值；未完成公用苗床时不追加按钮。
+     */
+    function appendCaptiveAutoBreedButton(actionsElement, state, captive) {
+        if (!game.captivesSystem.hasPublicNursery(state)) {
+            return;
+        }
+
+        // HTMLButtonElement 自动培育按钮：只切换当前俘虏的自动培育开关。
+        var buttonElement = document.createElement("button");
+
+        buttonElement.type = "button";
+        buttonElement.dataset.captiveAutoBreedId = captive.id;
+        buttonElement.textContent = captive.isAutoBreedEnabled ? game.text.TEXT_REGISTRY.ui.captiveAutoBreedOn : game.text.TEXT_REGISTRY.ui.captiveAutoBreedOff;
+        buttonElement.disabled = state.isPaused;
+        actionsElement.appendChild(buttonElement);
+    }
+
+    /**
      * 渲染俘虏悬浮框。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -1256,6 +1280,10 @@
         appendDefinitionDetail(listElement, "洗脑程度", Math.round(Number(captive.brainwashLevel) || 0) + "%");
         if (game.captivesSystem.hasDesireEnlightenment(state)) {
             appendDefinitionDetail(listElement, "自动洗脑", captive.isAutoBrainwashEnabled ? "已开启" : "已关闭");
+        }
+        if (game.captivesSystem.hasPublicNursery(state)) {
+            appendDefinitionDetail(listElement, "自动培育", captive.isAutoBreedEnabled ? "已开启" : "已关闭");
+            appendDefinitionDetail(listElement, "培育排序值", formatNumber(game.captivesSystem.calculateCaptiveAttributeValue(captive)));
         }
         appendDefinitionDetail(listElement, "洗脑消耗", "菌菇 " + brainwashPrice[0].amount + (canPayBrainwash ? "" : "（不足）"));
         appendDefinitionDetail(listElement, "洗脑提升", "+" + modifyPreview.brainwashGain);
@@ -1883,7 +1911,7 @@
             return "制度";
         }
 
-        if (technologyId === "beast_pen" || technologyId === "big_club" || technologyId === "crossbow" || technologyId === "desire_enlightenment" || technologyId === "surface_lore") {
+        if (technologyId === "beast_pen" || technologyId === "big_club" || technologyId === "crossbow" || technologyId === "desire_enlightenment" || technologyId === "public_nursery" || technologyId === "surface_lore") {
             return "军工";
         }
 

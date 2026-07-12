@@ -240,6 +240,7 @@
                         disposition: undefined,
                         brainwashLevel: 0,
                         isAutoBrainwashEnabled: false,
+                        isAutoBreedEnabled: false,
                         breedingState: "idle",
                         gestationWeatherId: undefined,
                         gestationSecondsRemaining: 0,
@@ -327,6 +328,13 @@
             // v16 旧 shape：俘虏没有单体自动洗脑开关。
             // v17 新 shape：isAutoBrainwashEnabled 保存指定俘虏是否自动消耗菌菇洗脑。
             // 迁移原因：欲望启蒙科技需要让每张俘虏卡独立保存自动洗脑状态。
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
+        }
+
+        if (sourceVersion < 18) {
+            // v17 旧 shape：俘虏没有单体自动培育开关，也没有公用苗床科技状态。
+            // v18 新 shape：isAutoBreedEnabled 保存指定俘虏是否加入公用苗床自动培育队列。
+            // 迁移原因：公用苗床科技需要在每张俘虏卡独立保存自动培育状态。
             migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
 
@@ -1004,6 +1012,7 @@
             captive.name = normalizeCaptiveName(captive, captiveIndex);
             captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
             captive.isAutoBrainwashEnabled = Boolean(captive.isAutoBrainwashEnabled);
+            captive.isAutoBreedEnabled = Boolean(captive.isAutoBreedEnabled);
             captive.breedingState = normalizeCaptiveBreedingState(captive.breedingState);
             captive.gestationWeatherId = normalizeCaptiveGestationWeatherId(captive.gestationWeatherId, captive.breedingState);
             captive.gestationSecondsRemaining = Math.max(0, Number(captive.gestationSecondsRemaining) || 0);
