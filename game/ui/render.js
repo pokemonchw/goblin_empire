@@ -194,6 +194,7 @@
         // HTMLElement 明细列表元素：以键值形式显示流量字段。
         var listElement = document.createElement("dl");
 
+        appendTooltipDefinition(listElement, "说明", resourceDefinition.description);
         appendTooltipDefinition(listElement, "总产出速度", formatRate(flowSummary.totalOutputPerSecond));
         appendTooltipDefinition(listElement, "产出明细", formatFlowEntries(flowSummary.outputEntries));
 

@@ -250,171 +250,171 @@
     var RESOURCE_TEXT = {
         fungus: {
             name: "菌菇",
-            description: "初始食物，用于维持哥布林和建设菌菇床。"
+            description: "湿冷菌毯上掰下来的口粮，喂饱哥布林和俘虏，也能铺成新的菌菇床。"
         },
         rottenWood: {
             name: "朽木",
-            description: "潮湿洞穴里的腐朽木料，用于搭建窝棚。"
+            description: "从烂根和塌架里拖回的湿木，可搭窝棚、烧炉火，也能捆成木梁。"
         },
         rubble: {
             name: "碎石",
-            description: "地穴里随处可搬的石块，用于早期建筑。"
+            description: "矿壁上敲落的碎块，是储坑、石板、矿井和祭坛最粗笨的骨架。"
         },
         labor: {
             name: "劳力",
-            description: "由存活哥布林派生，并被启用生产建筑占用的行动资源。"
+            description: "存活哥布林能挤出的干活劲头；启用建筑会占走它，过载时地穴生产会停摆。"
         },
         crudeKnowledge: {
             name: "粗识",
-            description: "刻痕、涂鸦和笨拙记录积累的早期科研资源。"
+            description: "墙上刻痕、乱涂符号和笨账本堆出的粗糙知识，用来研究地穴技术。"
         },
         obedience: {
             name: "服从",
-            description: "衡量哥布林是否听话的状态资源，影响产出和事故。"
+            description: "哥布林听鞭子和酋长吼声的程度；越稳，产出越顺，事故越少。"
         },
         coalSlag: {
             name: "煤渣",
-            description: "粗黑易燃的矿业燃料，用于熔炉和早期冶炼。"
+            description: "浅矿和炉底扒出的黑渣，脏但能烧，是熔炉、钢锭和深层工业的燃料。"
         },
         ironOre: {
             name: "铁矿",
-            description: "夹在碎石里的金属原料，可由矿井和熔炉获得。"
+            description: "碎石里露出的沉重矿脉，丢进粗熔炉后才能变成工具和兵器的铁料。"
         },
         ironPlate: {
             name: "铁片",
-            description: "粗糙铁料切出的加工材料，用于工具和军工。"
+            description: "敲扁、切裂、还带毛边的铁料，工具、仓储和抢掠军备都要抢着用。"
         },
         woodenBeam: {
             name: "木梁",
-            description: "把朽木捆扎成还能承重的粗糙梁材。"
+            description: "用烂木捆扎出的承重梁，撑住仓库、工坊和更深的地穴结构。"
         },
         stoneSlab: {
             name: "石板",
-            description: "从碎石里挑出并凿平的基础建材。"
+            description: "从碎石堆里挑平的厚板，给仓库、矿井和祖灵祭坛垫出硬底。"
         },
         crudePickaxe: {
             name: "粗糙镐",
-            description: "提高浅层采矿效率的劣质工具。"
+            description: "铁片绑木柄做成的劣镐，让搬石工敢把浅层矿壁敲得更深。"
         },
         reinforcedBasket: {
             name: "加固背篓",
-            description: "让哥布林能多背一点碎石和煤渣。"
+            description: "用木梁和铁片加固的背篓，能多塞碎石、煤渣，也更适合地穴搬运。"
         },
         sawtoothAxe: {
             name: "锯齿斧",
-            description: "切割朽木和兽皮的粗暴工具。"
+            description: "边缘像兽牙一样乱的斧头，砍朽木、剥兽皮都比空手强。"
         },
         blastFurnace: {
             name: "鼓风炉",
-            description: "给粗熔炉提供更稳定的风口和炉温。"
+            description: "给粗熔炉塞上风口和炉腹，让矿渣烧得更热，铁片和钢锭更听话。"
         },
         leather: {
             name: "皮革",
-            description: "早期军工、背篓和仓储会用到的韧性材料。"
+            description: "洞兽皮鞣出的韧料，能缝背篓、护具和监工鞭。"
         },
         boneShard: {
             name: "骨片",
-            description: "祭祀和粗糙工具会用到的尖锐碎骨。"
+            description: "从兽骨和祭品里敲下的尖碎骨，可做粗器，也能摆上祖灵祭坛。"
         },
         coin: {
             name: "金币",
-            description: "贸易、雇佣和政策需要的稀缺货币。"
+            description: "地表和黑市都认的闪亮硬货，能换贸易、雇佣、账册和暂时的规矩。"
         },
         steelIngot: {
             name: "钢锭",
-            description: "中期工业和军工的高阶金属材料。"
+            description: "铁片与煤渣反复烧打出的硬锭，是中期工业、军工和要塞的脊梁。"
         },
         gear: {
             name: "齿轮",
-            description: "机械和自动化建筑需要的精密零件。"
+            description: "哥布林难得咬合准的金属轮，机械、自动滑槽和符文设备都离不开它。"
         },
         autoChute: {
             name: "自动滑槽",
-            description: "齿轮和钢锭拼出的粗暴送料槽，提高工程师自动制作速度。"
+            description: "齿轮拖着钢槽乱响送料，能让工程师少跑腿，把低阶制作推得更快。"
         },
         chainmail: {
             name: "锁子甲",
-            description: "用铁片和皮革串成的粗糙护具，降低掠夺伤亡。"
+            description: "铁片和皮革串成的沉重护具，抢掠兵穿上后没那么容易倒在路上。"
         },
         handcart: {
             name: "轮车",
-            description: "木梁和铁片拼成的运输车，提高贸易和仓储效率。"
+            description: "木梁、铁片和吱呀轮子拼出的拖车，能把货物、贡品和赃物推得更远。"
         },
         overseerWhip: {
             name: "监工鞭",
-            description: "皮革和金币制成的纪律工具，提高服从和稳定。"
+            description: "皮革缠金币坠成的响鞭，抽在地上就能让哥布林想起谁说了算。"
         },
         ledger: {
             name: "账册",
-            description: "记录贸易、税贡和政策开销的行政材料。"
+            description: "脏手印和歪数字写满的册子，记录贸易、税贡、政策和帝国命令。"
         },
         loot: {
             name: "战利品",
-            description: "掠夺和献祭都会消耗的粗暴财富。"
+            description: "抢来的锅、旗、银杯和骨饰；能分赃稳人心，也能堆上祭坛换回响。"
         },
         infamy: {
             name: "恶名",
-            description: "掠夺成功后积累的凶名；失败会折损，用于威吓并开启更高级的掠夺地点。"
+            description: "一次次成功抢掠传出去的凶名；失败会让它掉价，足够高时才能吓开更肥的目标。"
         },
         goodwill: {
             name: "善名",
-            description: "通过稳定交易积累的信誉；掠夺成功会损害它，用于接触更高级的贸易势力。"
+            description: "商队愿意再来一次的薄信誉；掠夺会撕破它，高阶贸易势力只和有善名的地穴做生意。"
         },
         captive: {
             name: "俘虏",
-            description: "掠夺带回的特殊人口资源；详细处置仍由俘虏列表记录。"
+            description: "抢回地穴的地表人口，可洗脑、培育新生，实在断粮时也会被当成食物。"
         },
         ancestralEcho: {
             name: "祖灵回响",
-            description: "祭祀祖灵时获得的单局神秘资源。"
+            description: "战利品、骨片和牺牲唤来的地下回声，本局内可换取祖灵赐下的粗暴加护。"
         },
         tar: {
             name: "焦油",
-            description: "深层裂缝渗出的黏稠燃料，用于黑铁和深炉部件。"
+            description: "深层裂缝渗出的黑黏燃料，沾上就难洗，却能喂饱深炉和黑铁工艺。"
         },
         blackIron: {
             name: "黑铁",
-            description: "掺入焦油和煤渣反复烧出的沉重金属。"
+            description: "钢、煤渣和焦油熬出的暗色重金属，用来铸要塞、军备和帝国级工程。"
         },
         runePlate: {
             name: "符文板",
-            description: "刻入粗糙符文的黑铁板，是符文机械的基础。"
+            description: "刻满歪斜符文的黑铁板，能把粗识、魔晶和深渊低语压进机械里。"
         },
         manaCrystal: {
             name: "魔晶",
-            description: "带有深渊回声的晶体，用于符文和契约。"
+            description: "带着深渊回声发冷光的晶体，符文、契约和晚期机关都会吞噬它。"
         },
         warBanner: {
             name: "战旗",
-            description: "把战利品和钢锭做成能鼓动抢掠兵的破旗。"
+            description: "用战利品、皮革和钢锭竖起的破旗，能把抢掠兵吼成一支更像样的队伍。"
         },
         runeCarvingKnife: {
             name: "符文刻刀",
-            description: "切刻符文板和魔晶的精细工具。"
+            description: "黑铁细刃磨出的刻刀，专门割开符文板和魔晶表面的深渊纹路。"
         },
         deepFurnaceValve: {
             name: "深炉阀门",
-            description: "控制深炉火力和焦油消耗的高阶部件。"
+            description: "能扛住焦油火的沉重阀件，控制深炉呼吸，决定黑铁工业烧得多狠。"
         },
         prestige: {
             name: "威望",
-            description: "重置与帝国遗产相关的长期成长入口。"
+            description: "旧帝国崩塌前留下的名号和传说，指向迁徙后的帝国遗产。"
         },
         abyssEcho: {
             name: "深渊回响",
-            description: "从深渊门和契约中传出的终局神秘资源。"
+            description: "深渊门后传来的低语回声，契约、远征和终局设施都要用它当价码。"
         },
         relic: {
             name: "遗物",
-            description: "远征从旧帝国和深渊裂缝中带回的稀有物。"
+            description: "远征队从旧帝国废墟和裂缝边缘拖回的怪东西，稀少但能改写后期工程。"
         },
         imperialLegacy: {
             name: "帝国遗产",
-            description: "迁徙重置后保留的永久成长资源。"
+            description: "帝国迁徙后还能带走的制度、血脉和地下传承，用来购买永久天赋。"
         },
         riftShard: {
             name: "裂隙碎片",
-            description: "挑战和裂隙工程使用的顶级资源。"
+            description: "从不稳定裂隙里撬下的碎片，挑战奖励和顶级工程都会争抢它。"
         }
     };
 
