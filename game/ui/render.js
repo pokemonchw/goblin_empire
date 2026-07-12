@@ -3438,7 +3438,7 @@
         // Object.<string, boolean|number|string[]> 迁徙预览：用于显示本次重置结果。
         var preview = game.prestigeSystem.previewMigration(state);
 
-        // HTMLButtonElement 迁徙按钮：点击后需要二次确认。
+        // HTMLButtonElement 迁徙按钮：点击后直接执行可用的帝国迁徙。
         var buttonElement = document.createElement("button");
 
         panelElement.className = "action-card";

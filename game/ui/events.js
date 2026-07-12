@@ -24,11 +24,23 @@
         // HTMLButtonElement 重置按钮元素：点击后清空 localStorage 并创建新局。
         var resetButtonElement = document.getElementById("reset-save");
 
-        // HTMLButtonElement 导出按钮元素：点击后弹出存档文本。
+        // HTMLButtonElement 导出按钮元素：点击后把存档文本写入内嵌文本框。
         var exportButtonElement = document.getElementById("export-save");
 
-        // HTMLButtonElement 导入按钮元素：点击后读取输入文本。
+        // HTMLButtonElement 导入按钮元素：点击后打开内嵌文本框等待粘贴。
         var importButtonElement = document.getElementById("import-save");
+
+        // HTMLElement 存档文本面板元素：承载导出和导入的内嵌文本框。
+        var saveTransferPanelElement = document.getElementById("save-transfer-panel");
+
+        // HTMLTextAreaElement 存档文本输入框：用于显示导出文本或接收导入文本。
+        var saveTransferTextElement = document.getElementById("save-transfer-text");
+
+        // HTMLButtonElement 导入应用按钮元素：点击后尝试从内嵌文本框载入存档。
+        var applyImportButtonElement = document.getElementById("apply-import-save");
+
+        // HTMLButtonElement 存档文本收起按钮元素：点击后隐藏内嵌文本框。
+        var closeSaveTransferButtonElement = document.getElementById("close-save-transfer");
 
         pauseButtonElement.addEventListener("click", function () {
             // GameState 当前运行时状态：按钮执行时读取，避免加载后操作旧状态。
@@ -84,43 +96,55 @@
             // string 导出存档文本：可复制到导入框恢复同一状态。
             var exportedSaveText = game.save.exportToText(currentState);
 
-            window.prompt(game.text.TEXT_REGISTRY.ui.exportPrompt, exportedSaveText);
+            showSaveTransferPanel(saveTransferPanelElement, saveTransferTextElement, exportedSaveText, game.text.TEXT_REGISTRY.ui.exportInlineHint);
+            game.simulation.addLog(currentState, "normal", game.text.TEXT_REGISTRY.logs.exportedToPanel);
+            game.render.renderApp(currentState);
         });
 
         importButtonElement.addEventListener("click", function () {
+            // GameState 当前运行时状态：用于记录导入面板打开日志。
+            var currentState = game.runtime.state;
+
+            showSaveTransferPanel(saveTransferPanelElement, saveTransferTextElement, "", game.text.TEXT_REGISTRY.ui.importInlineHint);
+            game.simulation.addLog(currentState, "normal", game.text.TEXT_REGISTRY.logs.importPanelOpened);
+            game.render.renderApp(currentState);
+        });
+
+        applyImportButtonElement.addEventListener("click", function () {
             // GameState 当前运行时状态：导入失败时写入警告日志。
             var currentState = game.runtime.state;
 
-            // string|null 导入存档文本：由玩家粘贴的 JSON 文本。
-            var importedSaveText = window.prompt(game.text.TEXT_REGISTRY.ui.importPrompt);
+            // string 导入存档文本：由玩家粘贴到内嵌文本框的 JSON 文本。
+            var importedSaveText = saveTransferTextElement.value.trim();
 
             if (!importedSaveText) {
+                game.simulation.addLog(currentState, "warning", game.text.TEXT_REGISTRY.ui.importEmpty);
+                game.render.renderApp(currentState);
                 return;
             }
 
             try {
-                // Object 导入预览：显示版本、时间戳和人口数量，确认后才替换当前状态。
-                var savePreview = game.save.previewSaveText(importedSaveText);
-
-                // string 保存时间文本：时间戳缺失时显示未知。
-                var timestampText = savePreview.timestamp ? new Date(savePreview.timestamp).toLocaleString() : "未知";
-
-                if (!window.confirm("导入存档版本：" + savePreview.version + "\\n保存时间：" + timestampText + "\\n哥布林对象数：" + savePreview.goblinCount + "\\n确认替换当前状态？")) {
-                    return;
-                }
-
                 // GameState 导入状态：由输入文本解析并迁移得到。
                 var importedState = game.save.loadFromText(importedSaveText);
 
                 game.captivesSystem.syncCaptiveResource(importedState);
                 game.unlocks.applyPopulationUnlocks(importedState);
                 game.runtime.state = importedState;
+                saveTransferPanelElement.hidden = true;
                 game.simulation.addLog(importedState, "normal", game.text.TEXT_REGISTRY.logs.imported);
                 game.render.renderApp(importedState);
             } catch (error) {
                 game.simulation.addLog(currentState, "warning", game.text.TEXT_REGISTRY.ui.importFailed + error.message);
                 game.render.renderApp(currentState);
             }
+        });
+
+        closeSaveTransferButtonElement.addEventListener("click", function () {
+            // GameState 当前运行时状态：收起面板后刷新界面保持日志同步。
+            var currentState = game.runtime.state;
+
+            saveTransferPanelElement.hidden = true;
+            game.render.renderApp(currentState);
         });
     }
 
@@ -130,10 +154,6 @@
      * @returns {void} 无返回值。
      */
     function resetSaveAndRestart() {
-        if (!window.confirm(game.text.TEXT_REGISTRY.ui.resetConfirm)) {
-            return;
-        }
-
         game.save.clearLocalStorageSave();
 
         // GameState 新建状态：清空旧进度后从初始地穴重新开始。
@@ -143,6 +163,23 @@
         game.runtime.state = newState;
         game.simulation.addLog(newState, "important", game.text.TEXT_REGISTRY.logs.reset);
         game.render.renderApp(newState, true);
+    }
+
+    /**
+     * 显示内嵌存档文本面板。
+     *
+     * @param {HTMLElement} panelElement - 存档文本面板元素，会被显示。
+     * @param {HTMLTextAreaElement} textElement - 存档文本输入框，会写入文本和提示。
+     * @param {string} saveText - 要显示的存档文本；导入模式可传空字符串。
+     * @param {string} placeholderText - 输入框提示文本，用于说明当前导入或导出意图。
+     * @returns {void} 无返回值。
+     */
+    function showSaveTransferPanel(panelElement, textElement, saveText, placeholderText) {
+        panelElement.hidden = false;
+        textElement.value = saveText;
+        textElement.placeholder = placeholderText;
+        textElement.focus();
+        textElement.select();
     }
 
     /**
@@ -328,9 +365,7 @@
                 // number 派出人数：从当前掠夺地点行按钮控件读取的正整数。
                 var raidMemberCount = getRaidMemberCountFromButton(currentState, targetElement);
 
-                if (confirmRaidAction(currentState, targetElement.dataset.raidTargetId, raidMemberCount)) {
-                    game.raids.executeRaid(currentState, targetElement.dataset.raidTargetId, raidMemberCount);
-                }
+                game.raids.executeRaid(currentState, targetElement.dataset.raidTargetId, raidMemberCount);
                 renderAfterStateChange(currentState);
                 return;
             }
@@ -348,9 +383,7 @@
             }
 
             if (targetElement.dataset.sacrificeId) {
-                if (confirmSacrificeAction(currentState, targetElement.dataset.sacrificeId)) {
-                    game.rituals.executeSacrifice(currentState, targetElement.dataset.sacrificeId);
-                }
+                game.rituals.executeSacrifice(currentState, targetElement.dataset.sacrificeId);
                 renderAfterStateChange(currentState);
                 return;
             }
@@ -362,18 +395,14 @@
             }
 
             if (targetElement.dataset.expeditionRouteId) {
-                if (confirmExpeditionAction(currentState, targetElement.dataset.expeditionRouteId)) {
-                    game.expeditions.startExpedition(currentState, targetElement.dataset.expeditionRouteId);
-                }
+                game.expeditions.startExpedition(currentState, targetElement.dataset.expeditionRouteId);
                 renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.empireMigration) {
-                if (window.confirm("确认迁徙帝国？当前普通资源、建筑、人口和科技会被清除。")) {
-                    game.prestigeSystem.executeMigration(currentState, true);
-                    renderAfterStateChange(currentState);
-                }
+                game.prestigeSystem.executeMigration(currentState, true);
+                renderAfterStateChange(currentState);
                 return;
             }
 
@@ -901,43 +930,6 @@
     }
 
     /**
-     * 确认掠夺操作，展示收益、成功率和伤亡风险。
-     *
-     * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @param {string} targetId - 掠夺目标稳定 ID。
-     * @param {number} raidMemberCount - 玩家通过按钮选择的派出人数，正整数。
-     * @returns {boolean} 玩家是否确认执行；true 表示继续掠夺。
-     */
-    function confirmRaidAction(state, targetId, raidMemberCount) {
-        // RaidTargetDefinition|null 目标定义：用于显示掠夺目标名称。
-        var targetDefinition = game.raids.getRaidTargetDefinition(targetId);
-
-        // Object 掠夺预览：包含队伍强度、成本、收益、成功率、伤亡率和关系代价。
-        var raidPreview = game.raids.previewRaid(state, targetId, raidMemberCount);
-
-        if (!targetDefinition) {
-            return false;
-        }
-
-        if (!raidPreview.canStartByRaiders) {
-            window.alert("战斗职业哥布林不足：" + targetDefinition.name + " 至少需要 " + targetDefinition.minRaiders + " 名。");
-            return false;
-        }
-
-        if (!raidPreview.canStartByInfamy) {
-            window.alert("恶名不足：" + targetDefinition.name + " 需要恶名 " + raidPreview.requiredInfamy + "。");
-            return false;
-        }
-
-        if (!raidPreview.canStartByCost) {
-            window.alert("菌菇不足：" + targetDefinition.name + " 派出 " + raidPreview.raiderCount + " 名需要 " + formatPriceList(raidPreview.cost) + "。");
-            return false;
-        }
-
-        return window.confirm("确认掠夺：" + targetDefinition.name + "\n派出：" + raidPreview.raiderCount + " / 可用 " + raidPreview.availableRaiderCount + "\n消耗：" + formatPriceList(raidPreview.cost) + "\n队伍强度：" + formatNumber(raidPreview.teamStrength) + "，目标强度：" + raidPreview.targetStrength + "\n收益：" + formatRewardRange(raidPreview.rewards) + "\n成功率：" + formatPercent(raidPreview.successChance) + "\n伤亡概率：" + formatPercent(raidPreview.casualtyChance) + "，死亡概率：" + formatPercent(raidPreview.deathChance) + "\n关系下降：" + raidPreview.relationPenalty + "\n报复可能：" + formatPercent(raidPreview.retaliationChance));
-    }
-
-    /**
      * 从掠夺按钮所在地点行读取玩家选择的派出人数。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -1018,125 +1010,6 @@
         if (actionId === "max") {
             game.runtime.raidMemberCountsByTargetId[targetId] = maxRaidMemberCount;
         }
-    }
-
-    /**
-     * 确认献祭操作，展示收益、风险和人口代价。
-     *
-     * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @param {string} sacrificeId - 献祭操作稳定 ID。
-     * @returns {boolean} 玩家是否确认执行；true 表示继续献祭。
-     */
-    function confirmSacrificeAction(state, sacrificeId) {
-        // SacrificeDefinition|null 献祭定义：用于显示献祭名称。
-        var sacrificeDefinition = game.rituals.getSacrificeDefinition(sacrificeId);
-
-        // Object 献祭预览：包含资源成本、回响收益、事故概率和哥布林代价。
-        var sacrificePreview = game.rituals.previewSacrifice(state, sacrificeId);
-
-        if (!sacrificeDefinition) {
-            return false;
-        }
-
-        return window.confirm("确认献祭：" + sacrificeDefinition.name + "\n收益：祖灵回响 " + formatNumber(sacrificePreview.ancestralEchoReward) + "\n事故概率：" + formatPercent(sacrificePreview.riskChance) + "\n哥布林代价：" + sacrificePreview.goblinCost + "\n消耗：" + formatPriceList(sacrificePreview.cost));
-    }
-
-    /**
-     * 确认深渊远征操作，展示路线收益、成功率和伤亡风险。
-     *
-     * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @param {string} routeId - 远征路线稳定 ID。
-     * @returns {boolean} 玩家是否确认执行；true 表示继续远征。
-     */
-    function confirmExpeditionAction(state, routeId) {
-        // ExpeditionRouteDefinition|null 路线定义：用于显示远征路线名称。
-        var routeDefinition = game.expeditions.getRouteDefinition(routeId);
-
-        // Object 远征预览：包含成员、奖励、成功率和伤亡概率。
-        var expeditionPreview = game.expeditions.previewExpedition(state, routeId);
-
-        if (!routeDefinition) {
-            return false;
-        }
-
-        return window.confirm("确认远征：" + routeDefinition.name + "\n收益：" + expeditionPreview.rewardSummary + "\n成功率：" + formatPercent(expeditionPreview.successChance) + "\n伤亡概率：" + formatPercent(expeditionPreview.casualtyChance) + "\n队伍：" + expeditionPreview.memberSummary);
-    }
-
-    /**
-     * 格式化资源奖励范围字典。
-     *
-     * @param {Object.<string, {min: number, max: number}>} rewards - 奖励范围字典；key 为资源稳定 ID，value 为最小和最大资源数量。
-     * @returns {string} 中文奖励范围文本。
-     */
-    function formatRewardRange(rewards) {
-        // string[] 奖励文本数组：用于确认弹窗逐项显示潜在收益。
-        var rewardTexts = [];
-
-        // string[] 资源 ID 数组：遍历奖励范围字典的稳定键。
-        var resourceIds = Object.keys(rewards || {});
-
-        // number 循环索引：遍历资源 ID 数组的整数下标。
-        for (var resourceIndex = 0; resourceIndex < resourceIds.length; resourceIndex += 1) {
-            // string 资源 ID：用于读取资源定义和奖励范围。
-            var resourceId = resourceIds[resourceIndex];
-
-            // ResourceDefinition|null 资源定义：用于显示中文资源名。
-            var resourceDefinition = game.resources.getResourceDefinition(resourceId);
-
-            // Object 奖励范围：包含 min 和 max 两个非负资源数量。
-            var rewardRange = rewards[resourceId];
-
-            rewardTexts.push((resourceDefinition ? resourceDefinition.name : resourceId) + " " + rewardRange.min + "-" + rewardRange.max);
-        }
-
-        return rewardTexts.length ? rewardTexts.join("，") : "无";
-    }
-
-    /**
-     * 格式化价格数组。
-     *
-     * @param {Price[]} price - 价格数组；amount 为非负资源数量。
-     * @returns {string} 中文价格文本。
-     */
-    function formatPriceList(price) {
-        // string[] 价格文本数组：用于确认弹窗显示资源消耗。
-        var priceTexts = [];
-
-        // Price[] 价格数组：缺省时按无消耗处理。
-        var priceList = price || [];
-
-        // number 循环索引：遍历价格数组的整数下标。
-        for (var priceIndex = 0; priceIndex < priceList.length; priceIndex += 1) {
-            // Price 当前价格项：包含资源稳定 ID 和非负数量。
-            var priceEntry = priceList[priceIndex];
-
-            // ResourceDefinition|null 资源定义：用于显示中文资源名。
-            var resourceDefinition = game.resources.getResourceDefinition(priceEntry.resource);
-
-            priceTexts.push((resourceDefinition ? resourceDefinition.name : priceEntry.resource) + " " + priceEntry.amount);
-        }
-
-        return priceTexts.length ? priceTexts.join("，") : "无";
-    }
-
-    /**
-     * 格式化概率倍率为整数百分比。
-     *
-     * @param {number} ratio - 概率倍率，通常为 0-1。
-     * @returns {string} 百分比文本。
-     */
-    function formatPercent(ratio) {
-        return Math.round((ratio || 0) * 100) + "%";
-    }
-
-    /**
-     * 格式化资源数量。
-     *
-     * @param {number} amount - 资源数量，非负浮点数。
-     * @returns {string} 最多一位小数的数量文本。
-     */
-    function formatNumber(amount) {
-        return Math.round((amount || 0) * 10) / 10 + "";
     }
 
     /**
