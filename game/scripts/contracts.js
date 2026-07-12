@@ -266,6 +266,7 @@
      * @property {number} turnsHeld - 持有回合数，非负整数。
      * @property {"bed"|"modify"|"food"=} disposition - 当前处置 ID，可省略。
      * @property {number} brainwashLevel - 洗脑程度，0-100 整数点；数值越高，新生属性越好且孕育失败率越低。
+     * @property {boolean} isAutoBrainwashEnabled - 是否对该俘虏启用自动洗脑；true 表示食物充足且洗脑未满时自动消耗菌菇执行洗脑。
      * @property {"idle"|"gestating"|"resting"} breedingState - 苗床繁育状态；idle 可培育，gestating 孕育中且锁定处置，resting 休养中且只锁定培育。
      * @property {string=} gestationWeatherId - 开始本次孕育时的天气 ID；只在 gestating 状态下用于锁定孕育修正。
      * @property {number} gestationSecondsRemaining - 孕育剩余游戏秒数，非负浮点数。

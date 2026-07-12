@@ -80,6 +80,9 @@
         // 外交在玩家拥有第一只哥布林后开放，让贸易和抢掠研究入口不被中期黑市卡住。
         if (aliveGoblinCount > 0) {
             state.tabsUnlockedById.diplomacy = true;
+            applyTechnologyUnlocks(state, [
+                "desire_enlightenment"
+            ]);
             applyDiplomacyUnlocks(state);
         }
 

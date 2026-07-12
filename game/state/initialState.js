@@ -166,6 +166,7 @@
                 turnsHeld: 0,
                 disposition: undefined,
                 brainwashLevel: 0,
+                isAutoBrainwashEnabled: false,
                 breedingState: "idle",
                 gestationWeatherId: undefined,
                 gestationSecondsRemaining: 0,

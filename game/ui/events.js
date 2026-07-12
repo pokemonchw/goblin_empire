@@ -282,6 +282,12 @@
                 return;
             }
 
+            if (targetElement.dataset.captiveAutoBrainwashId) {
+                game.captivesSystem.toggleAutoBrainwash(currentState, targetElement.dataset.captiveAutoBrainwashId);
+                renderAfterStateChange(currentState);
+                return;
+            }
+
             if (targetElement.dataset.diplomacySubtab) {
                 game.runtime.activeDiplomacySubtab = targetElement.dataset.diplomacySubtab;
                 renderAfterDiplomacyViewChange(currentState);

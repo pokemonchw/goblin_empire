@@ -239,6 +239,7 @@
                         turnsHeld: 0,
                         disposition: undefined,
                         brainwashLevel: 0,
+                        isAutoBrainwashEnabled: false,
                         breedingState: "idle",
                         gestationWeatherId: undefined,
                         gestationSecondsRemaining: 0,
@@ -320,6 +321,13 @@
             // v16 新 shape：activeDiplomacyMissions 保存贸易队和掠夺队的剩余返程时间。
             // 迁移原因：地点距离开始影响结算时间，旧存档默认没有在途行动。
             migratedSaveData.activeDiplomacyMissions = [];
+        }
+
+        if (sourceVersion < 17) {
+            // v16 旧 shape：俘虏没有单体自动洗脑开关。
+            // v17 新 shape：isAutoBrainwashEnabled 保存指定俘虏是否自动消耗菌菇洗脑。
+            // 迁移原因：欲望启蒙科技需要让每张俘虏卡独立保存自动洗脑状态。
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
 
         migratedSaveData.version = game.definitions.SAVE_VERSION;
@@ -995,6 +1003,7 @@
             captive.turnsHeld = Math.max(0, Number(captive.turnsHeld) || 0);
             captive.name = normalizeCaptiveName(captive, captiveIndex);
             captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
+            captive.isAutoBrainwashEnabled = Boolean(captive.isAutoBrainwashEnabled);
             captive.breedingState = normalizeCaptiveBreedingState(captive.breedingState);
             captive.gestationWeatherId = normalizeCaptiveGestationWeatherId(captive.gestationWeatherId, captive.breedingState);
             captive.gestationSecondsRemaining = Math.max(0, Number(captive.gestationSecondsRemaining) || 0);

@@ -135,6 +135,7 @@
         "big_club",
         "crossbow",
         "crude_tools",
+        "desire_enlightenment",
         "clan_rules",
         "overseer_drills",
         "census",

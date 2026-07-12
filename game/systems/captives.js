@@ -168,6 +168,7 @@
             turnsHeld: 0,
             disposition: undefined,
             brainwashLevel: 0,
+            isAutoBrainwashEnabled: false,
             breedingState: "idle",
             gestationWeatherId: undefined,
             gestationSecondsRemaining: 0,
@@ -404,8 +405,74 @@
             // CaptiveState 当前俘虏：用于推进孕育或休养倒计时。
             var captive = state.captives[captiveIndex];
 
+            if (safeDeltaSeconds > 0) {
+                applyAutoBrainwashIfNeeded(state, captive);
+            }
             updateCaptiveBreedingState(state, captive, safeDeltaSeconds);
         }
+    }
+
+    /**
+     * 切换指定俘虏的自动洗脑状态。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会写入目标俘虏的自动洗脑开关。
+     * @param {string} captiveId - 俘虏稳定 ID。
+     * @returns {boolean} 是否切换成功；true 表示目标俘虏存在且科技已完成。
+     */
+    function toggleAutoBrainwash(state, captiveId) {
+        if (state.isPaused || !hasDesireEnlightenment(state)) {
+            return false;
+        }
+
+        // number 俘虏索引：用于定位要切换自动洗脑的俘虏。
+        var captiveIndex = findCaptiveIndex(state, captiveId);
+
+        if (captiveIndex < 0) {
+            return false;
+        }
+
+        // CaptiveState 当前俘虏：写入指定俘虏自己的自动洗脑开关。
+        var captive = state.captives[captiveIndex];
+
+        captive.isAutoBrainwashEnabled = !Boolean(captive.isAutoBrainwashEnabled);
+        return true;
+    }
+
+    /**
+     * 在食物充足时为指定俘虏执行一次自动洗脑。
+     *
+     * @param {GameState} state - 当前游戏状态对象，可能消耗菌菇并提升俘虏洗脑程度。
+     * @param {CaptiveState} captive - 俘虏运行时对象，会在满足条件时被直接修改。
+     * @returns {boolean} 是否执行了自动洗脑；true 表示已消耗食物并应用收益。
+     */
+    function applyAutoBrainwashIfNeeded(state, captive) {
+        if (!hasDesireEnlightenment(state) || !captive.isAutoBrainwashEnabled) {
+            return false;
+        }
+
+        if (!canApplyDisposition(state, captive, "modify")) {
+            return false;
+        }
+
+        if (!game.resources.spendResources(state, calculateBrainwashPrice(state))) {
+            return false;
+        }
+
+        applyModifyReward(state, captive);
+        return true;
+    }
+
+    /**
+     * 判断欲望启蒙科技是否已经完成。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否完成欲望启蒙；true 表示俘虏卡片可显示自动洗脑按钮。
+     */
+    function hasDesireEnlightenment(state) {
+        // TechnologyState|null 欲望启蒙状态：用于控制自动洗脑入口和模拟逻辑。
+        var technologyState = state.technologiesById.desire_enlightenment || null;
+
+        return Boolean(technologyState && technologyState.isResearched);
     }
 
     /**
@@ -805,6 +872,9 @@
         previewDisposition: previewDisposition,
         applyDisposition: applyDisposition,
         canApplyDisposition: canApplyDisposition,
+        toggleAutoBrainwash: toggleAutoBrainwash,
+        applyAutoBrainwashIfNeeded: applyAutoBrainwashIfNeeded,
+        hasDesireEnlightenment: hasDesireEnlightenment,
         updateCaptives: updateCaptives,
         breedGoblinFromCaptive: breedGoblinFromCaptive,
         syncCaptiveResource: syncCaptiveResource

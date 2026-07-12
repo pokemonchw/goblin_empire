@@ -123,6 +123,8 @@
         noCaptives: "当前没有俘虏。",
         captiveBed: "培育新生",
         captiveModify: "洗脑改造",
+        captiveAutoBrainwashOn: "自动洗脑：开",
+        captiveAutoBrainwashOff: "自动洗脑：关",
         captiveFood: "做成食物",
         policiesTitle: "政策",
         policyActive: "生效中",
@@ -667,6 +669,10 @@
         crude_tools: {
             name: "粗制工具",
             description: "用铁片和木梁制造能提升采集和制作的工具。"
+        },
+        desire_enlightenment: {
+            name: "欲望启蒙",
+            description: "把对俘虏的改造从临时粗活变成可持续的固定流程。"
         },
         clan_rules: {
             name: "氏族规矩",
