@@ -155,6 +155,12 @@
      * @returns {CaptiveState[]} 开局俘虏数组；默认包含 1 个普通村姑俘虏。
      */
     function createInitialCaptives() {
+        // CaptiveTypeDefinition|null 村姑俘虏定义：用于按设计年龄段生成开局基础年龄。
+        var laborerDefinition = getDefinitionById(game.definitions.CAPTIVE_TYPE_DEFINITIONS, "laborer");
+
+        // CaptiveQualityDefinition|null 普通质量定义：用于按质量寿命段生成开局基础寿命。
+        var commonQualityDefinition = getDefinitionById(game.definitions.CAPTIVE_QUALITY_DEFINITIONS, "common");
+
         return [
             {
                 id: "captive_start_laborer",
@@ -163,10 +169,10 @@
                 quality: "common",
                 source: "开局",
                 traitHint: "basic",
-                age: 0,
-                baseLifespanMonths: game.definitions.POPULATION_CONSTANTS.baseCaptiveLifespanMonths,
-                technologyLifespanMonths: 0,
-                eventLifespanMonths: 0,
+                age: createRandomIntegerFromDefinitionRange(laborerDefinition, "minInitialAgeYears", "maxInitialAgeYears", 12, 18),
+                baseLifespanYears: createRandomIntegerFromDefinitionRange(commonQualityDefinition, "minLifespanYears", "maxLifespanYears", 30, 55),
+                technologyLifespanYears: 0,
+                eventLifespanYears: 0,
                 elderDeathCheckCount: 0,
                 turnsHeld: 0,
                 disposition: undefined,
@@ -179,6 +185,48 @@
                 restSecondsRemaining: 0
             }
         ];
+    }
+
+    /**
+     * 按 ID 查找静态定义。
+     *
+     * @param {Object[]} definitions - 静态定义数组；每项应包含 id 字段。
+     * @param {string} definitionId - 要查找的稳定 ID。
+     * @returns {Object|null} 匹配的静态定义；没有时返回 null。
+     */
+    function getDefinitionById(definitions, definitionId) {
+        // number 循环索引：遍历定义数组的整数下标。
+        for (var definitionIndex = 0; definitionIndex < definitions.length; definitionIndex += 1) {
+            // Object 当前定义：用于匹配稳定 ID。
+            var definition = definitions[definitionIndex];
+
+            if (definition.id === definitionId) {
+                return definition;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 从定义字段中生成闭区间随机整数。
+     *
+     * @param {Object|null} definition - 静态定义对象；缺失时使用兜底范围。
+     * @param {string} minFieldId - 下限字段名。
+     * @param {string} maxFieldId - 上限字段名。
+     * @param {number} fallbackMinValue - 兜底下限，整数。
+     * @param {number} fallbackMaxValue - 兜底上限，整数且不小于下限。
+     * @returns {number} 闭区间内的整数随机值。
+     */
+    function createRandomIntegerFromDefinitionRange(definition, minFieldId, maxFieldId, fallbackMinValue, fallbackMaxValue) {
+        // number 随机下限：优先读取定义字段，缺失时使用兜底值。
+        var minValue = definition ? Math.floor(Number(definition[minFieldId]) || fallbackMinValue) : fallbackMinValue;
+
+        // number 随机上限：优先读取定义字段，缺失时使用兜底值。
+        var maxValue = definition ? Math.floor(Number(definition[maxFieldId]) || fallbackMaxValue) : fallbackMaxValue;
+
+        maxValue = Math.max(minValue, maxValue);
+        return minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
     }
 
     /**

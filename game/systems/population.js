@@ -189,10 +189,10 @@
      * @returns {void} 无返回值。
      */
     function applyInitialGoblinLifespan(state, goblin) {
-        goblin.baseLifespanMonths = game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanMonths;
-        goblin.growthLifespanMonths = calculateGoblinGrowthLifespanMonths(goblin);
-        goblin.technologyLifespanMonths = calculateTechnologyLifespanBonusMonths(state);
-        goblin.eventLifespanMonths = 0;
+        goblin.baseLifespanYears = game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanYears;
+        goblin.growthLifespanYears = calculateGoblinGrowthLifespanYears(goblin);
+        goblin.technologyLifespanYears = calculateTechnologyLifespanBonusYears(state);
+        goblin.eventLifespanYears = 0;
         goblin.elderDeathCheckCount = 0;
     }
 
@@ -319,8 +319,11 @@
             }
 
             normalizeGoblinLifespanFields(state, goblin);
-            goblin.age = Math.max(0, Math.floor(Number(goblin.age) || 0)) + 1;
-            goblin.growthLifespanMonths = calculateGoblinGrowthLifespanMonths(goblin);
+            // number 年龄推进量：每个生存月只增加十二分之一年，寿命字段保持年制。
+            var ageGainYears = 1 / 12;
+
+            goblin.age = Math.max(0, Number(goblin.age) || 0) + ageGainYears;
+            goblin.growthLifespanYears = calculateGoblinGrowthLifespanYears(goblin);
 
             if (shouldGoblinDieOfOldAge(goblin)) {
                 applyOldAgeDeath(goblin);
@@ -343,10 +346,10 @@
      * @returns {boolean} 是否老死；true 表示本月应标记死亡。
      */
     function shouldGoblinDieOfOldAge(goblin) {
-        // number 总寿命：寿命各组成部分相加后的游戏月数。
-        var totalLifespanMonths = calculateGoblinTotalLifespanMonths(goblin);
+        // number 总寿命：寿命各组成部分相加后的年数。
+        var totalLifespanYears = calculateGoblinTotalLifespanYears(goblin);
 
-        if (goblin.age < totalLifespanMonths) {
+        if (goblin.age < totalLifespanYears) {
             goblin.elderDeathCheckCount = 0;
             return false;
         }
@@ -387,9 +390,9 @@
      * 计算哥布林成长带来的寿命加成。
      *
      * @param {Goblin} goblin - 哥布林对象，不会被修改。
-     * @returns {number} 成长寿命加成，单位游戏月，范围 0 到 maxGrowthLifespanMonths。
+     * @returns {number} 成长寿命加成，单位年，范围 0 到 maxGrowthLifespanYears。
      */
-    function calculateGoblinGrowthLifespanMonths(goblin) {
+    function calculateGoblinGrowthLifespanYears(goblin) {
         // string[] 属性 ID 数组：遍历六项属性计算体质基础。
         var attributeIds = Object.keys(goblin.attributes || {});
 
@@ -418,24 +421,24 @@
             skillTotal += Math.max(0, Number(goblin.skills[skillId]) || 0);
         }
 
-        // number 属性寿命加成：超过普通新生基准 24 点后，每 4 点加 1 月。
-        var attributeBonusMonths = Math.max(0, Math.floor((attributeTotal - 24) / 4));
+        // number 属性寿命加成：超过普通新生基准 24 点后，每 4 点加 1 年。
+        var attributeBonusYears = Math.max(0, Math.floor((attributeTotal - 24) / 4));
 
-        // number 技能寿命加成：经验代表长期训练和生存本领，每 800 经验加 1 月。
-        var skillBonusMonths = Math.floor(skillTotal / 800);
+        // number 技能寿命加成：经验代表长期训练和生存本领，每 800 经验加 1 年。
+        var skillBonusYears = Math.floor(skillTotal / 800);
 
-        return Math.min(game.definitions.POPULATION_CONSTANTS.maxGrowthLifespanMonths, attributeBonusMonths + skillBonusMonths);
+        return Math.min(game.definitions.POPULATION_CONSTANTS.maxGrowthLifespanYears, attributeBonusYears + skillBonusYears);
     }
 
     /**
      * 计算当前科技提供的总寿命加成。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @returns {number} 科技寿命加成，单位游戏月，非负整数。
+     * @returns {number} 科技寿命加成，单位年，非负整数。
      */
-    function calculateTechnologyLifespanBonusMonths(state) {
-        // number 科技寿命加成：累加已完成寿命科技的月份。
-        var technologyBonusMonths = 0;
+    function calculateTechnologyLifespanBonusYears(state) {
+        // number 科技寿命加成：累加已完成寿命科技的年数。
+        var technologyBonusYears = 0;
 
         // LifespanTechnologyBonus[] 科技加成列表：来自静态定义表。
         var lifespanTechnologyBonuses = game.definitions.LIFESPAN_TECHNOLOGY_BONUSES || [];
@@ -449,11 +452,11 @@
             var technologyState = state.technologiesById[lifespanTechnologyBonus.technologyId] || null;
 
             if (technologyState && technologyState.isResearched) {
-                technologyBonusMonths += Math.max(0, Math.floor(Number(lifespanTechnologyBonus.months) || 0));
+                technologyBonusYears += Math.max(0, Math.floor(Number(lifespanTechnologyBonus.years) || 0));
             }
         }
 
-        return technologyBonusMonths;
+        return technologyBonusYears;
     }
 
     /**
@@ -463,8 +466,8 @@
      * @returns {void} 无返回值。
      */
     function refreshTechnologyLifespanBonus(state) {
-        // number 科技寿命加成：当前所有已研究科技提供的总月份。
-        var technologyBonusMonths = calculateTechnologyLifespanBonusMonths(state);
+        // number 科技寿命加成：当前所有已研究科技提供的总年数。
+        var technologyBonusYears = calculateTechnologyLifespanBonusYears(state);
 
         // number 循环索引：遍历哥布林数组的整数下标。
         for (var goblinIndex = 0; goblinIndex < state.goblins.length; goblinIndex += 1) {
@@ -473,8 +476,8 @@
 
             if (goblin.isAlive) {
                 normalizeGoblinLifespanFields(state, goblin);
-                goblin.technologyLifespanMonths = technologyBonusMonths;
-                if (Math.max(0, Math.floor(Number(goblin.age) || 0)) < calculateGoblinTotalLifespanMonths(goblin)) {
+                goblin.technologyLifespanYears = technologyBonusYears;
+                if (Math.max(0, Number(goblin.age) || 0) < calculateGoblinTotalLifespanYears(goblin)) {
                     goblin.elderDeathCheckCount = 0;
                 }
             }
@@ -489,17 +492,17 @@
      * @returns {void} 无返回值。
      */
     function normalizeGoblinLifespanFields(state, goblin) {
-        if (typeof goblin.baseLifespanMonths !== "number") {
-            goblin.baseLifespanMonths = game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanMonths;
+        if (typeof goblin.baseLifespanYears !== "number") {
+            goblin.baseLifespanYears = game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanYears;
         }
-        if (typeof goblin.growthLifespanMonths !== "number") {
-            goblin.growthLifespanMonths = calculateGoblinGrowthLifespanMonths(goblin);
+        if (typeof goblin.growthLifespanYears !== "number") {
+            goblin.growthLifespanYears = calculateGoblinGrowthLifespanYears(goblin);
         }
-        if (typeof goblin.technologyLifespanMonths !== "number") {
-            goblin.technologyLifespanMonths = calculateTechnologyLifespanBonusMonths(state);
+        if (typeof goblin.technologyLifespanYears !== "number") {
+            goblin.technologyLifespanYears = calculateTechnologyLifespanBonusYears(state);
         }
-        if (typeof goblin.eventLifespanMonths !== "number") {
-            goblin.eventLifespanMonths = 0;
+        if (typeof goblin.eventLifespanYears !== "number") {
+            goblin.eventLifespanYears = 0;
         }
         if (typeof goblin.elderDeathCheckCount !== "number") {
             goblin.elderDeathCheckCount = 0;
@@ -510,23 +513,23 @@
      * 计算哥布林总寿命。
      *
      * @param {Goblin} goblin - 哥布林对象，不会被修改。
-     * @returns {number} 总寿命，单位游戏月，非负整数。
+     * @returns {number} 总寿命，单位年，非负整数。
      */
-    function calculateGoblinTotalLifespanMonths(goblin) {
-        return Math.max(0, Math.floor(Number(goblin.baseLifespanMonths) || 0)) +
-            Math.max(0, Math.floor(Number(goblin.growthLifespanMonths) || 0)) +
-            Math.max(0, Math.floor(Number(goblin.technologyLifespanMonths) || 0)) +
-            Math.max(0, Math.floor(Number(goblin.eventLifespanMonths) || 0));
+    function calculateGoblinTotalLifespanYears(goblin) {
+        return Math.max(0, Math.floor(Number(goblin.baseLifespanYears) || 0)) +
+            Math.max(0, Math.floor(Number(goblin.growthLifespanYears) || 0)) +
+            Math.max(0, Math.floor(Number(goblin.technologyLifespanYears) || 0)) +
+            Math.max(0, Math.floor(Number(goblin.eventLifespanYears) || 0));
     }
 
     /**
      * 对随机存活哥布林添加事件寿命。
      *
      * @param {GameState} state - 当前游戏状态对象，会修改被选中的哥布林。
-     * @param {number} bonusMonths - 寿命加成，单位游戏月，非负整数。
+     * @param {number} bonusYears - 寿命加成，单位年，非负整数。
      * @returns {Goblin|null} 获得寿命的哥布林；没有候选时返回 null。
      */
-    function applyRandomGoblinLifespanEventBonus(state, bonusMonths) {
+    function applyRandomGoblinLifespanEventBonus(state, bonusYears) {
         // Goblin[] 存活哥布林列表：随机事件候选池。
         var aliveGoblins = getAliveGoblins(state);
 
@@ -541,7 +544,7 @@
         var targetGoblin = aliveGoblins[randomIndex];
 
         normalizeGoblinLifespanFields(state, targetGoblin);
-        targetGoblin.eventLifespanMonths += Math.max(0, Math.floor(Number(bonusMonths) || 0));
+        targetGoblin.eventLifespanYears += Math.max(0, Math.floor(Number(bonusYears) || 0));
         targetGoblin.elderDeathCheckCount = 0;
         return targetGoblin;
     }
@@ -955,9 +958,9 @@
         updatePopulation: updatePopulation,
         updateMonthlyAgingAndLifespan: updateMonthlyAgingAndLifespan,
         refreshTechnologyLifespanBonus: refreshTechnologyLifespanBonus,
-        calculateTechnologyLifespanBonusMonths: calculateTechnologyLifespanBonusMonths,
-        calculateGoblinGrowthLifespanMonths: calculateGoblinGrowthLifespanMonths,
-        calculateGoblinTotalLifespanMonths: calculateGoblinTotalLifespanMonths,
+        calculateTechnologyLifespanBonusYears: calculateTechnologyLifespanBonusYears,
+        calculateGoblinGrowthLifespanYears: calculateGoblinGrowthLifespanYears,
+        calculateGoblinTotalLifespanYears: calculateGoblinTotalLifespanYears,
         normalizeGoblinLifespanFields: normalizeGoblinLifespanFields,
         applyRandomGoblinLifespanEventBonus: applyRandomGoblinLifespanEventBonus,
         prepareStarvationConsequence: prepareStarvationConsequence,

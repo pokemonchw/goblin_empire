@@ -26,12 +26,12 @@
     /**
      * @typedef {Object} PopulationConstants
      * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏菌菇消耗，单位为菌菇/秒。
-     * @property {number} baseGoblinLifespanMonths - 哥布林出生基础寿命，单位为游戏月。
-     * @property {number} baseCaptiveLifespanMonths - 俘虏基础寿命，单位为游戏月。
+     * @property {number} baseGoblinLifespanYears - 哥布林出生基础寿命，单位为年。
+     * @property {number} fallbackCaptiveLifespanYears - 俘虏缺失质量定义时使用的兜底基础寿命，单位为年。
      * @property {number} elderDeathBaseChance - 达到寿命后的首次月初老死概率，范围 0-1。
      * @property {number} elderDeathChanceIncreasePerMonth - 每次未老死后下月增加的老死概率，范围 0-1。
-     * @property {number} maxGrowthLifespanMonths - 属性和技能成长最多提供的寿命，单位为游戏月。
-     * @property {number} lifespanEventBonusMonths - 寿命随机事件提供的寿命，单位为游戏月。
+     * @property {number} maxGrowthLifespanYears - 属性和技能成长最多提供的寿命，单位为年。
+     * @property {number} lifespanEventBonusYears - 寿命随机事件提供的寿命，单位为年。
      */
 
     /**
@@ -63,7 +63,7 @@
     /**
      * @typedef {Object} LifespanTechnologyBonus
      * @property {TechnologyId} technologyId - 提供寿命加成的科技稳定 ID。
-     * @property {number} months - 研究完成后提供的额外寿命，单位为游戏月。
+     * @property {number} years - 研究完成后提供的额外寿命，单位为年。
      */
 
     /**
@@ -79,6 +79,8 @@
      * @property {string} traitHint - 倾向提示 ID。
      * @property {Object.<string, number>} attributeBias - 属性偏向字典；key 为属性 ID，value 为加成。
      * @property {Object.<string, number>} skillBias - 初始技能字典；key 为技能 ID，value 为初始经验。
+     * @property {number} minInitialAgeYears - 新获得该类型俘虏的最小基础年龄，单位年，非负整数。
+     * @property {number} maxInitialAgeYears - 新获得该类型俘虏的最大基础年龄，单位年，非负整数。
      */
 
     /**
@@ -88,6 +90,8 @@
      * @property {number} multiplier - 收益倍率，正数。
      * @property {number} escapeRisk - 逃脱风险，范围 0-1。
      * @property {number} retaliationRisk - 报复风险，范围 0-1。
+     * @property {number} minLifespanYears - 该质量俘虏随机寿命下限，单位年，非负整数。
+     * @property {number} maxLifespanYears - 该质量俘虏随机寿命上限，单位年，非负整数。
      */
 
     /**
@@ -231,16 +235,16 @@
      * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏的菌菇口粮消耗，单位为菌菇/秒。
      * @property {number} starvationCheckDays - 断粮死亡检查间隔，单位为游戏日，正整数。
      * @property {number} starvationDeathRatio - 每次断粮死亡比例，范围为 0-1。
-     * @property {number} baseGoblinLifespanMonths - 哥布林出生基础寿命，单位为游戏月。
-     * @property {number} baseCaptiveLifespanMonths - 俘虏基础寿命，单位为游戏月。
+     * @property {number} baseGoblinLifespanYears - 哥布林出生基础寿命，单位为年。
+     * @property {number} fallbackCaptiveLifespanYears - 俘虏缺失质量定义时使用的兜底基础寿命，单位为年。
      * @property {number} elderDeathBaseChance - 达到寿命后的首次月初老死概率，范围 0-1。
      * @property {number} elderDeathChanceIncreasePerMonth - 每次未老死后下月增加的老死概率，范围 0-1。
-     * @property {number} maxGrowthLifespanMonths - 个体属性和技能成长最多提供的寿命，单位为游戏月。
-     * @property {number} lifespanEventBonusMonths - 随机事件单次提供的寿命，单位为游戏月。
+     * @property {number} maxGrowthLifespanYears - 个体属性和技能成长最多提供的寿命，单位为年。
+     * @property {number} lifespanEventBonusYears - 随机事件单次提供的寿命，单位为年。
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 19;
+    var SAVE_VERSION = 20;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -250,27 +254,27 @@
         fungusConsumptionPerGoblinSecond: 3.125,
         starvationCheckDays: 3,
         starvationDeathRatio: 0.1,
-        baseGoblinLifespanMonths: 72,
-        baseCaptiveLifespanMonths: 96,
+        baseGoblinLifespanYears: 72,
+        fallbackCaptiveLifespanYears: 60,
         elderDeathBaseChance: 0.1,
         elderDeathChanceIncreasePerMonth: 0.1,
-        maxGrowthLifespanMonths: 36,
-        lifespanEventBonusMonths: 6
+        maxGrowthLifespanYears: 36,
+        lifespanEventBonusYears: 6
     };
 
     // LifespanTechnologyBonus[] 科技寿命加成列表：研究完成后写入当前和新生个体的额外寿命。
     var LIFESPAN_TECHNOLOGY_BONUSES = [
         {
             technologyId: "cave_ventilation",
-            months: 6
+            years: 6
         },
         {
             technologyId: "rituals",
-            months: 12
+            years: 12
         },
         {
             technologyId: "runology",
-            months: 18
+            years: 18
         }
     ];
 
@@ -3966,7 +3970,9 @@
             },
             skillBias: {
                 hauling: 30
-            }
+            },
+            minInitialAgeYears: 12,
+            maxInitialAgeYears: 18
         },
         {
             id: "accountant",
@@ -3978,7 +3984,9 @@
             },
             skillBias: {
                 scribing: 40
-            }
+            },
+            minInitialAgeYears: 18,
+            maxInitialAgeYears: 29
         },
         {
             id: "artisan",
@@ -3990,7 +3998,9 @@
             },
             skillBias: {
                 crafting: 40
-            }
+            },
+            minInitialAgeYears: 16,
+            maxInitialAgeYears: 29
         },
         {
             id: "noble",
@@ -4003,7 +4013,9 @@
             skillBias: {
                 scribing: 60,
                 overseeing: 25
-            }
+            },
+            minInitialAgeYears: 14,
+            maxInitialAgeYears: 26
         },
         {
             id: "warrior",
@@ -4015,7 +4027,9 @@
             },
             skillBias: {
                 raiding: 70
-            }
+            },
+            minInitialAgeYears: 18,
+            maxInitialAgeYears: 29
         },
         {
             id: "magic_talent",
@@ -4028,7 +4042,9 @@
             skillBias: {
                 ritual: 60,
                 crafting: 25
-            }
+            },
+            minInitialAgeYears: 15,
+            maxInitialAgeYears: 28
         },
         {
             id: "undead_captive",
@@ -4041,7 +4057,9 @@
             skillBias: {
                 ritual: 45,
                 mining: 20
-            }
+            },
+            minInitialAgeYears: 20,
+            maxInitialAgeYears: 29
         },
         {
             id: "ascetic",
@@ -4054,7 +4072,9 @@
             skillBias: {
                 ritual: 45,
                 hauling: 20
-            }
+            },
+            minInitialAgeYears: 22,
+            maxInitialAgeYears: 29
         },
         {
             id: "herbalist",
@@ -4067,7 +4087,9 @@
             skillBias: {
                 foraging: 55,
                 crafting: 15
-            }
+            },
+            minInitialAgeYears: 16,
+            maxInitialAgeYears: 29
         },
         {
             id: "shrine_acolyte",
@@ -4080,7 +4102,9 @@
             skillBias: {
                 ritual: 55,
                 scribing: 20
-            }
+            },
+            minInitialAgeYears: 14,
+            maxInitialAgeYears: 29
         }
     ];
 
@@ -4091,28 +4115,36 @@
             name: "普通",
             multiplier: 1,
             escapeRisk: 0.12,
-            retaliationRisk: 0.05
+            retaliationRisk: 0.05,
+            minLifespanYears: 30,
+            maxLifespanYears: 55
         },
         {
             id: "skilled",
             name: "熟练",
             multiplier: 1.5,
             escapeRisk: 0.16,
-            retaliationRisk: 0.08
+            retaliationRisk: 0.08,
+            minLifespanYears: 45,
+            maxLifespanYears: 70
         },
         {
             id: "elite",
             name: "精英",
             multiplier: 2.25,
             escapeRisk: 0.22,
-            retaliationRisk: 0.12
+            retaliationRisk: 0.12,
+            minLifespanYears: 60,
+            maxLifespanYears: 85
         },
         {
             id: "legendary",
             name: "传奇",
             multiplier: 3.5,
             escapeRisk: 0.3,
-            retaliationRisk: 0.18
+            retaliationRisk: 0.18,
+            minLifespanYears: 80,
+            maxLifespanYears: 100
         }
     ];
 

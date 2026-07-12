@@ -158,6 +158,12 @@
         // CaptiveTypeDefinition|null 俘虏类型定义：用于写入倾向提示。
         var captiveTypeDefinition = getCaptiveTypeDefinition(captiveTypeId);
 
+        // number 基础年龄：根据俘虏类型年龄段随机生成，单位年，非负整数。
+        var initialAgeYears = createCaptiveInitialAgeYears(captiveTypeDefinition);
+
+        // number 基础寿命：根据俘虏质量寿命段随机生成，单位年，范围 30-100。
+        var baseLifespanYears = createCaptiveBaseLifespanYears(qualityId, initialAgeYears + 1);
+
         return {
             id: "captive_" + Date.now() + "_" + Math.floor(Math.random() * 100000),
             name: createCaptiveName(captiveTypeId),
@@ -165,10 +171,10 @@
             quality: qualityId,
             source: source,
             traitHint: captiveTypeDefinition ? captiveTypeDefinition.traitHint : "basic",
-            age: 0,
-            baseLifespanMonths: game.definitions.POPULATION_CONSTANTS.baseCaptiveLifespanMonths,
-            technologyLifespanMonths: 0,
-            eventLifespanMonths: 0,
+            age: initialAgeYears,
+            baseLifespanYears: baseLifespanYears,
+            technologyLifespanYears: 0,
+            eventLifespanYears: 0,
             elderDeathCheckCount: 0,
             turnsHeld: 0,
             disposition: undefined,
@@ -180,6 +186,58 @@
             gestationSecondsRemaining: 0,
             restSecondsRemaining: 0
         };
+    }
+
+    /**
+     * 生成俘虏基础年龄。
+     *
+     * @param {CaptiveTypeDefinition|null} captiveTypeDefinition - 俘虏类型定义；缺失时使用成年兜底年龄段。
+     * @returns {number} 基础年龄，单位年，非负整数。
+     */
+    function createCaptiveInitialAgeYears(captiveTypeDefinition) {
+        // number 最小年龄：该类型俘虏生成年龄下限，单位年。
+        var minAgeYears = captiveTypeDefinition ? Math.max(0, Math.floor(Number(captiveTypeDefinition.minInitialAgeYears) || 0)) : 18;
+
+        // number 最大年龄：该类型俘虏生成年龄上限，单位年。
+        var maxAgeYears = captiveTypeDefinition ? Math.max(minAgeYears, Math.floor(Number(captiveTypeDefinition.maxInitialAgeYears) || minAgeYears)) : 35;
+
+        return randomIntegerInclusive(minAgeYears, maxAgeYears);
+    }
+
+    /**
+     * 生成俘虏基础寿命。
+     *
+     * @param {"common"|"skilled"|"elite"|"legendary"} qualityId - 俘虏质量 ID。
+     * @param {number=} minimumLifespanYears - 可选寿命下限，单位年；用于避免新俘虏出生时已经超过寿命。
+     * @returns {number} 基础寿命，单位年，范围为 30-100；质量越高区间越靠后。
+     */
+    function createCaptiveBaseLifespanYears(qualityId, minimumLifespanYears) {
+        // CaptiveQualityDefinition|null 质量定义：用于读取该质量对应寿命区间。
+        var qualityDefinition = getCaptiveQualityDefinition(qualityId);
+
+        // number 最小寿命：质量定义下限，单位年。
+        var minLifespanYears = qualityDefinition ? Math.max(30, Math.floor(Number(qualityDefinition.minLifespanYears) || 30)) : 30;
+
+        // number 额外寿命下限：至少高于当前年龄，省略时不额外抬高。
+        var safeMinimumLifespanYears = Math.max(0, Math.floor(Number(minimumLifespanYears) || 0));
+
+        minLifespanYears = Math.min(100, Math.max(minLifespanYears, safeMinimumLifespanYears));
+
+        // number 最大寿命：质量定义上限，单位年，封顶 100。
+        var maxLifespanYears = qualityDefinition ? Math.min(100, Math.max(minLifespanYears, Math.floor(Number(qualityDefinition.maxLifespanYears) || minLifespanYears))) : Math.max(minLifespanYears, game.definitions.POPULATION_CONSTANTS.fallbackCaptiveLifespanYears);
+
+        return randomIntegerInclusive(minLifespanYears, maxLifespanYears);
+    }
+
+    /**
+     * 生成闭区间整数随机数。
+     *
+     * @param {number} minValue - 随机下限，整数。
+     * @param {number} maxValue - 随机上限，整数且不小于 minValue。
+     * @returns {number} 闭区间内的整数随机值。
+     */
+    function randomIntegerInclusive(minValue, maxValue) {
+        return minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
     }
 
     /**
@@ -464,7 +522,10 @@
             var captive = state.captives[captiveIndex];
 
             normalizeCaptiveLifespanFields(state, captive);
-            captive.age = Math.max(0, Math.floor(Number(captive.age) || 0)) + 1;
+            // number 年龄推进量：每个生存月只增加十二分之一年，寿命字段保持年制。
+            var ageGainYears = 1 / 12;
+
+            captive.age = Math.max(0, Number(captive.age) || 0) + ageGainYears;
 
             if (shouldCaptiveDieOfOldAge(captive)) {
                 elderDeadCaptiveNames.push(captive.name || captive.id);
@@ -486,10 +547,10 @@
      * @returns {boolean} 是否老死；true 表示本月应从俘虏列表移除。
      */
     function shouldCaptiveDieOfOldAge(captive) {
-        // number 总寿命：寿命各组成部分相加后的游戏月数。
-        var totalLifespanMonths = calculateCaptiveTotalLifespanMonths(captive);
+        // number 总寿命：寿命各组成部分相加后的年数。
+        var totalLifespanYears = calculateCaptiveTotalLifespanYears(captive);
 
-        if (captive.age < totalLifespanMonths) {
+        if (captive.age < totalLifespanYears) {
             captive.elderDeathCheckCount = 0;
             return false;
         }
@@ -519,20 +580,20 @@
      * @returns {void} 无返回值。
      */
     function normalizeCaptiveLifespanFields(state, captive) {
-        if (typeof captive.age !== "number") {
-            captive.age = 0;
+        if (typeof captive.age !== "number" || !isFinite(captive.age)) {
+            captive.age = createCaptiveInitialAgeYears(getCaptiveTypeDefinition(captive.type));
         }
-        if (typeof captive.baseLifespanMonths !== "number") {
-            captive.baseLifespanMonths = game.definitions.POPULATION_CONSTANTS.baseCaptiveLifespanMonths;
+        if (typeof captive.baseLifespanYears !== "number") {
+            captive.baseLifespanYears = createCaptiveBaseLifespanYears(captive.quality);
         }
-        captive.technologyLifespanMonths = game.population.calculateTechnologyLifespanBonusMonths(state);
-        if (typeof captive.eventLifespanMonths !== "number") {
-            captive.eventLifespanMonths = 0;
+        captive.technologyLifespanYears = game.population.calculateTechnologyLifespanBonusYears(state);
+        if (typeof captive.eventLifespanYears !== "number") {
+            captive.eventLifespanYears = 0;
         }
         if (typeof captive.elderDeathCheckCount !== "number") {
             captive.elderDeathCheckCount = 0;
         }
-        if (Math.max(0, Math.floor(Number(captive.age) || 0)) < calculateCaptiveTotalLifespanMonths(captive)) {
+        if (Math.max(0, Number(captive.age) || 0) < calculateCaptiveTotalLifespanYears(captive)) {
             captive.elderDeathCheckCount = 0;
         }
     }
@@ -541,22 +602,22 @@
      * 计算俘虏总寿命。
      *
      * @param {CaptiveState} captive - 俘虏对象，不会被修改。
-     * @returns {number} 总寿命，单位游戏月，非负整数。
+     * @returns {number} 总寿命，单位年，非负整数。
      */
-    function calculateCaptiveTotalLifespanMonths(captive) {
-        return Math.max(0, Math.floor(Number(captive.baseLifespanMonths) || 0)) +
-            Math.max(0, Math.floor(Number(captive.technologyLifespanMonths) || 0)) +
-            Math.max(0, Math.floor(Number(captive.eventLifespanMonths) || 0));
+    function calculateCaptiveTotalLifespanYears(captive) {
+        return Math.max(0, Math.floor(Number(captive.baseLifespanYears) || 0)) +
+            Math.max(0, Math.floor(Number(captive.technologyLifespanYears) || 0)) +
+            Math.max(0, Math.floor(Number(captive.eventLifespanYears) || 0));
     }
 
     /**
      * 对随机俘虏添加事件寿命。
      *
      * @param {GameState} state - 当前游戏状态对象，会修改被选中的俘虏。
-     * @param {number} bonusMonths - 寿命加成，单位游戏月，非负整数。
+     * @param {number} bonusYears - 寿命加成，单位年，非负整数。
      * @returns {CaptiveState|null} 获得寿命的俘虏；没有候选时返回 null。
      */
-    function applyRandomCaptiveLifespanEventBonus(state, bonusMonths) {
+    function applyRandomCaptiveLifespanEventBonus(state, bonusYears) {
         if (!Array.isArray(state.captives) || state.captives.length <= 0) {
             return null;
         }
@@ -568,7 +629,7 @@
         var targetCaptive = state.captives[randomIndex];
 
         normalizeCaptiveLifespanFields(state, targetCaptive);
-        targetCaptive.eventLifespanMonths += Math.max(0, Math.floor(Number(bonusMonths) || 0));
+        targetCaptive.eventLifespanYears += Math.max(0, Math.floor(Number(bonusYears) || 0));
         targetCaptive.elderDeathCheckCount = 0;
         return targetCaptive;
     }
@@ -922,7 +983,7 @@
             applyCaptiveBiasToGoblin(newGoblin, captiveTypeDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, calculateBrainwashAttributeBonus(captive), getCaptiveNewbornAttributePenalty(state, captive));
         }
 
-        newGoblin.growthLifespanMonths = game.population.calculateGoblinGrowthLifespanMonths(newGoblin);
+        newGoblin.growthLifespanYears = game.population.calculateGoblinGrowthLifespanYears(newGoblin);
         state.goblins.push(newGoblin);
         game.simulation.addLog(state, "important", "俘虏苗床产出新哥布林：" + newGoblin.name + "。");
         return newGoblin;
@@ -1234,7 +1295,7 @@
         calculateCaptiveAttributeValue: calculateCaptiveAttributeValue,
         updateMonthlyCaptiveAgingAndLifespan: updateMonthlyCaptiveAgingAndLifespan,
         normalizeCaptiveLifespanFields: normalizeCaptiveLifespanFields,
-        calculateCaptiveTotalLifespanMonths: calculateCaptiveTotalLifespanMonths,
+        calculateCaptiveTotalLifespanYears: calculateCaptiveTotalLifespanYears,
         applyRandomCaptiveLifespanEventBonus: applyRandomCaptiveLifespanEventBonus,
         updateCaptives: updateCaptives,
         breedGoblinFromCaptive: breedGoblinFromCaptive,

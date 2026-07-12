@@ -393,6 +393,23 @@
     }
 
     /**
+     * 格式化个体年龄。
+     *
+     * @param {number} ageYears - 个体年龄，单位年，非负浮点数。
+     * @returns {string} 年龄显示文本，单位年；不足一年时保留一位小数。
+     */
+    function formatAgeYears(ageYears) {
+        // number 安全年龄：收敛非法输入后的非负年数。
+        var safeAgeYears = Math.max(0, Number(ageYears) || 0);
+
+        if (safeAgeYears < 1) {
+            return safeAgeYears.toFixed(1) + " 年";
+        }
+
+        return formatNumber(safeAgeYears) + " 年";
+    }
+
+    /**
      * 格式化资源数量和容量。
      *
      * @param {ResourceState} resourceState - 资源状态对象，包含当前值、容量和每秒变化。
@@ -1278,9 +1295,9 @@
         appendDefinitionDetail(listElement, "种类", (qualityDefinition ? qualityDefinition.name : captive.quality) + " " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type));
         appendDefinitionDetail(listElement, "来源", formatCaptiveSource(captive.source));
         appendDefinitionDetail(listElement, "倾向", formatCaptiveTraitHint(captive.traitHint));
-        appendDefinitionDetail(listElement, "年龄", Math.floor(Number(captive.age) || 0) + " 月");
-        appendDefinitionDetail(listElement, "寿命", game.captivesSystem.calculateCaptiveTotalLifespanMonths(captive) + " 月");
-        appendDefinitionDetail(listElement, "寿命拆分", "基础 " + Math.floor(Number(captive.baseLifespanMonths) || 0) + "，科研 " + Math.floor(Number(captive.technologyLifespanMonths) || 0) + "，事件 " + Math.floor(Number(captive.eventLifespanMonths) || 0) + " 月");
+        appendDefinitionDetail(listElement, "年龄", formatAgeYears(captive.age));
+        appendDefinitionDetail(listElement, "寿命", game.captivesSystem.calculateCaptiveTotalLifespanYears(captive) + " 年");
+        appendDefinitionDetail(listElement, "寿命拆分", "基础 " + Math.floor(Number(captive.baseLifespanYears) || 0) + "，科研 " + Math.floor(Number(captive.technologyLifespanYears) || 0) + "，事件 " + Math.floor(Number(captive.eventLifespanYears) || 0) + " 年");
         appendDefinitionDetail(listElement, "洗脑程度", Math.round(Number(captive.brainwashLevel) || 0) + "%");
         if (game.captivesSystem.hasDesireEnlightenment(state)) {
             appendDefinitionDetail(listElement, "自动洗脑", captive.isAutoBrainwashEnabled ? "已开启" : "已关闭");
@@ -4886,8 +4903,8 @@
 
         cardElement.className = "action-card";
         cardElement.appendChild(createTextElement("h3", goblin.name));
-        cardElement.appendChild(createTextElement("p", "年龄：" + goblin.age + " 月，寿命：" + game.population.calculateGoblinTotalLifespanMonths(goblin) + " 月"));
-        cardElement.appendChild(createTextElement("p", "寿命拆分：基础 " + Math.floor(Number(goblin.baseLifespanMonths) || 0) + "，成长 " + Math.floor(Number(goblin.growthLifespanMonths) || 0) + "，科研 " + Math.floor(Number(goblin.technologyLifespanMonths) || 0) + "，事件 " + Math.floor(Number(goblin.eventLifespanMonths) || 0) + " 月"));
+        cardElement.appendChild(createTextElement("p", "年龄：" + formatAgeYears(goblin.age) + "，寿命：" + game.population.calculateGoblinTotalLifespanYears(goblin) + " 年"));
+        cardElement.appendChild(createTextElement("p", "寿命拆分：基础 " + Math.floor(Number(goblin.baseLifespanYears) || 0) + "，成长 " + Math.floor(Number(goblin.growthLifespanYears) || 0) + "，科研 " + Math.floor(Number(goblin.technologyLifespanYears) || 0) + "，事件 " + Math.floor(Number(goblin.eventLifespanYears) || 0) + " 年"));
         cardElement.appendChild(createTextElement("p", "职业：" + (goblin.jobId || "空闲")));
         cardElement.appendChild(createTextElement("p", "领袖：" + (goblin.isLeader ? "是" : "否") + "，固定：" + (goblin.isPinned ? "是" : "否")));
         cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.attributePrefix + formatAttributes(goblin.attributes)));

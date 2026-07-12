@@ -338,8 +338,83 @@
             migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
 
+        if (sourceVersion < 20) {
+            // v19 旧 shape：哥布林和俘虏寿命字段以 Months 命名，年龄也按生存月累计。
+            // v20 新 shape：寿命字段以 Years 命名，年龄按年保存；俘虏缺失有效年龄时按类型补基础年龄。
+            // 迁移原因：寿命设计单位改为年，避免个体在数个游戏年内过早老死。
+            migrateLifespanMonthsToYears(migratedSaveData);
+        }
+
         migratedSaveData.version = game.definitions.SAVE_VERSION;
         return migratedSaveData;
+    }
+
+    /**
+     * 将旧月制寿命字段迁移为年制寿命字段。
+     *
+     * @param {SaveData} saveData - v19 或更早存档对象，会改写 goblins 和 captives 的寿命字段。
+     * @returns {void} 无返回值。
+     */
+    function migrateLifespanMonthsToYears(saveData) {
+        if (Array.isArray(saveData.goblins)) {
+            // number 哥布林循环索引：遍历旧存档哥布林数组的整数下标。
+            for (var goblinIndex = 0; goblinIndex < saveData.goblins.length; goblinIndex += 1) {
+                // Goblin 当前哥布林对象：迁移年龄和寿命拆分字段。
+                var goblin = saveData.goblins[goblinIndex];
+
+                if (!goblin) {
+                    continue;
+                }
+
+                migrateIndividualLifespanMonthsToYears(goblin, false);
+            }
+        }
+
+        if (Array.isArray(saveData.captives)) {
+            // number 俘虏循环索引：遍历旧存档俘虏数组的整数下标。
+            for (var captiveIndex = 0; captiveIndex < saveData.captives.length; captiveIndex += 1) {
+                // CaptiveState 当前俘虏对象：迁移年龄和寿命拆分字段。
+                var captive = saveData.captives[captiveIndex];
+
+                if (!captive) {
+                    continue;
+                }
+
+                migrateIndividualLifespanMonthsToYears(captive, true);
+            }
+        }
+    }
+
+    /**
+     * 迁移单个个体的寿命字段。
+     *
+     * @param {Goblin|CaptiveState} individual - 哥布林或俘虏对象，会被直接修改。
+     * @param {boolean} isCaptive - 是否为俘虏；true 表示需要按俘虏类型补基础年龄和寿命。
+     * @returns {void} 无返回值。
+     */
+    function migrateIndividualLifespanMonthsToYears(individual, isCaptive) {
+        // number 旧年龄月数：v19 及更早按生存月累计，迁移后折算成年。
+        var legacyAgeMonths = Math.max(0, Number(individual.age) || 0);
+
+        individual.age = isCaptive && legacyAgeMonths <= 0 ? createCaptiveInitialAgeYears(individual.type) : legacyAgeMonths / 12;
+
+        if (typeof individual.baseLifespanYears !== "number") {
+            individual.baseLifespanYears = Math.max(1, Math.floor(Number(individual.baseLifespanMonths) || (isCaptive ? createCaptiveBaseLifespanYears(individual.quality, individual.age + 1) : game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanYears)));
+        }
+        if (typeof individual.growthLifespanYears !== "number" && !isCaptive) {
+            individual.growthLifespanYears = Math.max(0, Math.floor(Number(individual.growthLifespanMonths) || 0));
+        }
+        if (typeof individual.technologyLifespanYears !== "number") {
+            individual.technologyLifespanYears = Math.max(0, Math.floor(Number(individual.technologyLifespanMonths) || 0));
+        }
+        if (typeof individual.eventLifespanYears !== "number") {
+            individual.eventLifespanYears = Math.max(0, Math.floor(Number(individual.eventLifespanMonths) || 0));
+        }
+
+        delete individual.baseLifespanMonths;
+        delete individual.growthLifespanMonths;
+        delete individual.technologyLifespanMonths;
+        delete individual.eventLifespanMonths;
     }
 
     /**
@@ -1077,6 +1152,82 @@
     }
 
     /**
+     * 生成俘虏基础年龄。
+     *
+     * @param {string} captiveTypeId - 俘虏类型 ID；未知时使用成年兜底年龄段。
+     * @returns {number} 基础年龄，单位年，非负整数。
+     */
+    function createCaptiveInitialAgeYears(captiveTypeId) {
+        // Object|null 俘虏类型定义：用于读取基础年龄范围。
+        var captiveTypeDefinition = getDefinitionById(game.definitions.CAPTIVE_TYPE_DEFINITIONS, captiveTypeId);
+
+        // number 最小年龄：该类型俘虏生成年龄下限，单位年。
+        var minAgeYears = captiveTypeDefinition ? Math.max(0, Math.floor(Number(captiveTypeDefinition.minInitialAgeYears) || 0)) : 18;
+
+        // number 最大年龄：该类型俘虏生成年龄上限，单位年。
+        var maxAgeYears = captiveTypeDefinition ? Math.max(minAgeYears, Math.floor(Number(captiveTypeDefinition.maxInitialAgeYears) || minAgeYears)) : 35;
+
+        return randomIntegerInclusive(minAgeYears, maxAgeYears);
+    }
+
+    /**
+     * 生成俘虏基础寿命。
+     *
+     * @param {string} qualityId - 俘虏质量 ID；未知时使用兜底寿命。
+     * @param {number=} minimumLifespanYears - 可选寿命下限，单位年；用于避免年龄已超过寿命。
+     * @returns {number} 基础寿命，单位年，范围为 30-100。
+     */
+    function createCaptiveBaseLifespanYears(qualityId, minimumLifespanYears) {
+        // Object|null 俘虏质量定义：用于读取质量寿命范围。
+        var qualityDefinition = getDefinitionById(game.definitions.CAPTIVE_QUALITY_DEFINITIONS, qualityId);
+
+        // number 最小寿命：质量定义下限，单位年。
+        var minLifespanYears = qualityDefinition ? Math.max(30, Math.floor(Number(qualityDefinition.minLifespanYears) || 30)) : game.definitions.POPULATION_CONSTANTS.fallbackCaptiveLifespanYears;
+
+        // number 额外寿命下限：至少高于当前年龄，省略时不额外抬高。
+        var safeMinimumLifespanYears = Math.max(0, Math.floor(Number(minimumLifespanYears) || 0));
+
+        minLifespanYears = Math.min(100, Math.max(minLifespanYears, safeMinimumLifespanYears));
+
+        // number 最大寿命：质量定义上限，单位年，封顶 100。
+        var maxLifespanYears = qualityDefinition ? Math.min(100, Math.max(minLifespanYears, Math.floor(Number(qualityDefinition.maxLifespanYears) || minLifespanYears))) : minLifespanYears;
+
+        return randomIntegerInclusive(minLifespanYears, maxLifespanYears);
+    }
+
+    /**
+     * 按 ID 查找静态定义。
+     *
+     * @param {Object[]} definitions - 静态定义数组；每项应包含 id 字段。
+     * @param {string} definitionId - 要查找的稳定 ID。
+     * @returns {Object|null} 匹配的静态定义；没有时返回 null。
+     */
+    function getDefinitionById(definitions, definitionId) {
+        // number 循环索引：遍历定义数组的整数下标。
+        for (var definitionIndex = 0; definitionIndex < definitions.length; definitionIndex += 1) {
+            // Object 当前定义：用于匹配稳定 ID。
+            var definition = definitions[definitionIndex];
+
+            if (definition.id === definitionId) {
+                return definition;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 生成闭区间整数随机数。
+     *
+     * @param {number} minValue - 随机下限，整数。
+     * @param {number} maxValue - 随机上限，整数且不小于 minValue。
+     * @returns {number} 闭区间内的整数随机值。
+     */
+    function randomIntegerInclusive(minValue, maxValue) {
+        return minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
+    }
+
+    /**
      * 规范化俘虏繁育状态 ID。
      *
      * @param {string|undefined} breedingState - 存档中的繁育状态 ID，可省略。
@@ -1116,11 +1267,11 @@
      * @returns {void} 无返回值。
      */
     function normalizeGoblinLifespanFields(goblin) {
-        goblin.age = Math.max(0, Math.floor(Number(goblin.age) || 0));
-        goblin.baseLifespanMonths = Math.max(1, Math.floor(Number(goblin.baseLifespanMonths) || game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanMonths));
-        goblin.growthLifespanMonths = Math.max(0, Math.floor(Number(goblin.growthLifespanMonths) || 0));
-        goblin.technologyLifespanMonths = Math.max(0, Math.floor(Number(goblin.technologyLifespanMonths) || 0));
-        goblin.eventLifespanMonths = Math.max(0, Math.floor(Number(goblin.eventLifespanMonths) || 0));
+        goblin.age = Math.max(0, Number(goblin.age) || 0);
+        goblin.baseLifespanYears = Math.max(1, Math.floor(Number(goblin.baseLifespanYears) || game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanYears));
+        goblin.growthLifespanYears = Math.max(0, Math.floor(Number(goblin.growthLifespanYears) || 0));
+        goblin.technologyLifespanYears = Math.max(0, Math.floor(Number(goblin.technologyLifespanYears) || 0));
+        goblin.eventLifespanYears = Math.max(0, Math.floor(Number(goblin.eventLifespanYears) || 0));
         goblin.elderDeathCheckCount = Math.max(0, Math.floor(Number(goblin.elderDeathCheckCount) || 0));
     }
 
@@ -1131,10 +1282,10 @@
      * @returns {void} 无返回值。
      */
     function normalizeCaptiveLifespanFields(captive) {
-        captive.age = Math.max(0, Math.floor(Number(captive.age) || 0));
-        captive.baseLifespanMonths = Math.max(1, Math.floor(Number(captive.baseLifespanMonths) || game.definitions.POPULATION_CONSTANTS.baseCaptiveLifespanMonths));
-        captive.technologyLifespanMonths = Math.max(0, Math.floor(Number(captive.technologyLifespanMonths) || 0));
-        captive.eventLifespanMonths = Math.max(0, Math.floor(Number(captive.eventLifespanMonths) || 0));
+        captive.age = Math.max(0, Number(captive.age) || createCaptiveInitialAgeYears(captive.type));
+        captive.baseLifespanYears = Math.max(1, Math.floor(Number(captive.baseLifespanYears) || createCaptiveBaseLifespanYears(captive.quality, captive.age + 1)));
+        captive.technologyLifespanYears = Math.max(0, Math.floor(Number(captive.technologyLifespanYears) || 0));
+        captive.eventLifespanYears = Math.max(0, Math.floor(Number(captive.eventLifespanYears) || 0));
         captive.elderDeathCheckCount = Math.max(0, Math.floor(Number(captive.elderDeathCheckCount) || 0));
     }
 
@@ -1183,8 +1334,8 @@
                 isLeaderValid = true;
             }
 
-            if (game.population && game.population.calculateGoblinGrowthLifespanMonths) {
-                goblin.growthLifespanMonths = game.population.calculateGoblinGrowthLifespanMonths(goblin);
+            if (game.population && game.population.calculateGoblinGrowthLifespanYears) {
+                goblin.growthLifespanYears = game.population.calculateGoblinGrowthLifespanYears(goblin);
             }
         }
 

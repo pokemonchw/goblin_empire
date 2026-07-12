@@ -656,7 +656,7 @@
         },
         cave_ventilation: {
             name: "通风支护",
-            description: "把矿井支柱、风口和炉火排烟连成一套抗天气的生产结构，存活个体寿命 +6 月。"
+            description: "把矿井支柱、风口和炉火排烟连成一套抗天气的生产结构，存活个体寿命 +6 年。"
         },
         beast_pen: {
             name: "兽栏",
@@ -716,7 +716,7 @@
         },
         rituals: {
             name: "祭祀",
-            description: "把战利品、骨片和恐惧献给祖灵，借祖灵回响让存活个体寿命 +12 月。"
+            description: "把战利品、骨片和恐惧献给祖灵，借祖灵回响让存活个体寿命 +12 年。"
         },
         machinery: {
             name: "机械",
@@ -736,7 +736,7 @@
         },
         runology: {
             name: "符文学",
-            description: "让魔晶、黑铁和粗识能被刻进符文板，存活个体寿命 +18 月。"
+            description: "让魔晶、黑铁和粗识能被刻进符文板，存活个体寿命 +18 年。"
         },
         black_iron_smelting: {
             name: "黑铁铸造",

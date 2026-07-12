@@ -288,26 +288,26 @@
      * @returns {void} 无返回值。
      */
     function applyDeepMossFeast(state, eventDefinition) {
-        // number 寿命加成：随机事件提供的额外寿命，单位游戏月。
-        var bonusMonths = game.definitions.POPULATION_CONSTANTS.lifespanEventBonusMonths;
+        // number 寿命加成：随机事件提供的额外寿命，单位年。
+        var bonusYears = game.definitions.POPULATION_CONSTANTS.lifespanEventBonusYears;
 
         // boolean 是否优先给哥布林：有哥布林和俘虏时随机决定目标池。
         var shouldTargetGoblin = Math.random() < 0.5;
 
         // Goblin|null 获得寿命的哥布林对象。
-        var targetGoblin = shouldTargetGoblin ? game.population.applyRandomGoblinLifespanEventBonus(state, bonusMonths) : null;
+        var targetGoblin = shouldTargetGoblin ? game.population.applyRandomGoblinLifespanEventBonus(state, bonusYears) : null;
 
         // CaptiveState|null 获得寿命的俘虏对象。
-        var targetCaptive = targetGoblin ? null : game.captivesSystem.applyRandomCaptiveLifespanEventBonus(state, bonusMonths);
+        var targetCaptive = targetGoblin ? null : game.captivesSystem.applyRandomCaptiveLifespanEventBonus(state, bonusYears);
 
         if (!targetCaptive && !targetGoblin) {
-            targetGoblin = game.population.applyRandomGoblinLifespanEventBonus(state, bonusMonths);
+            targetGoblin = game.population.applyRandomGoblinLifespanEventBonus(state, bonusYears);
         }
 
         if (targetGoblin) {
-            game.simulation.addLog(state, eventDefinition.logLevel, game.text.TEXT_REGISTRY.logs.eventPrefix + eventDefinition.name + "，" + targetGoblin.name + " 吞下发亮苔丝，寿命 +" + bonusMonths + " 月。");
+            game.simulation.addLog(state, eventDefinition.logLevel, game.text.TEXT_REGISTRY.logs.eventPrefix + eventDefinition.name + "，" + targetGoblin.name + " 吞下发亮苔丝，寿命 +" + bonusYears + " 年。");
         } else if (targetCaptive) {
-            game.simulation.addLog(state, eventDefinition.logLevel, game.text.TEXT_REGISTRY.logs.eventPrefix + eventDefinition.name + "，俘虏 " + (targetCaptive.name || targetCaptive.id) + " 被喂下发亮苔丝，寿命 +" + bonusMonths + " 月。");
+            game.simulation.addLog(state, eventDefinition.logLevel, game.text.TEXT_REGISTRY.logs.eventPrefix + eventDefinition.name + "，俘虏 " + (targetCaptive.name || targetCaptive.id) + " 被喂下发亮苔丝，寿命 +" + bonusYears + " 年。");
         }
 
         setCooldown(state, eventDefinition);
