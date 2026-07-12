@@ -23,6 +23,30 @@
         corrupted: "腐化深渊倾向"
     };
 
+    // Object.<string, string> 属性中文名表：key 为属性稳定 ID，value 为俘虏浮窗显示文本。
+    var ATTRIBUTE_LABELS = {
+        strength: "强壮",
+        dexterity: "灵巧",
+        cunning: "狡诈",
+        perception: "感知",
+        will: "意志",
+        attunement: "魔性"
+    };
+
+    // Object.<string, string> 技能中文名表：key 为技能稳定 ID，value 为俘虏浮窗显示文本。
+    var SKILL_LABELS = {
+        foraging: "采菌",
+        woodcutting: "伐木",
+        hauling: "搬运",
+        mining: "采矿",
+        smelting: "冶炼",
+        crafting: "制作",
+        raiding: "掠夺",
+        scribing: "撰刻",
+        ritual: "祭祀",
+        overseeing: "监工"
+    };
+
     /**
      * 创建一个文本节点容器。
      *
@@ -1350,8 +1374,8 @@
             appendDefinitionDetail(listElement, "活跃世界", formatCaptiveRaceWorldName(raceDefinition));
             appendDefinitionDetail(listElement, "主要势力", formatCaptiveRaceFactionName(raceDefinition));
             appendDefinitionDetail(listElement, "种族生态", raceDefinition.description);
-            appendDefinitionDetail(listElement, "种族属性", formatNumericBonusMap(raceDefinition.attributeBonus));
-            appendDefinitionDetail(listElement, "种族技能", formatNumericBonusMap(raceDefinition.skillBonus));
+            appendDefinitionDetail(listElement, "种族属性", formatNumericBonusMap(raceDefinition.attributeBonus, ATTRIBUTE_LABELS));
+            appendDefinitionDetail(listElement, "种族技能", formatNumericBonusMap(raceDefinition.skillBonus, SKILL_LABELS));
             appendDefinitionDetail(listElement, "种族寿命", formatSignedNumber(Number(raceDefinition.lifespanYears) || 0) + " 年");
         }
         appendDefinitionDetail(listElement, "来源", formatCaptiveSource(captive.source));
@@ -5328,9 +5352,10 @@
      * 格式化数值修正字典。
      *
      * @param {Object.<string, number>} bonusMap - 数值修正字典；key 为属性或技能 ID，value 为有符号数值。
+     * @param {Object.<string, string>=} labelById - 可选中文名表；key 为属性或技能 ID，value 为显示名，省略时使用原 ID。
      * @returns {string} 修正文本；无修正时返回“无”。
      */
-    function formatNumericBonusMap(bonusMap) {
+    function formatNumericBonusMap(bonusMap, labelById) {
         if (!bonusMap) {
             return "无";
         }
@@ -5350,10 +5375,13 @@
             // string 修正 ID：属性或技能稳定 ID。
             var bonusId = bonusIds[bonusIndex];
 
+            // string 修正显示名：优先使用中文名表，缺失时回退稳定 ID 便于发现数据问题。
+            var bonusLabel = labelById && labelById[bonusId] ? labelById[bonusId] : bonusId;
+
             // number 修正数值：有符号浮点数，显示时保留整数。
             var bonusValue = Number(bonusMap[bonusId]) || 0;
 
-            bonusTexts.push(bonusId + " " + (bonusValue >= 0 ? "+" : "") + bonusValue.toFixed(0));
+            bonusTexts.push(bonusLabel + " " + (bonusValue >= 0 ? "+" : "") + bonusValue.toFixed(0));
         }
 
         return bonusTexts.join("，");
