@@ -194,7 +194,12 @@
      * @property {string} id - 哥布林稳定 ID。
      * @property {string} name - 中文姓名。
      * @property {string=} nickname - 绰号或氏族名，可省略。
-     * @property {number} age - 年龄，非负整数。
+     * @property {number} age - 年龄，非负整数，单位为游戏月。
+     * @property {number} baseLifespanMonths - 出生基础寿命，单位为游戏月。
+     * @property {number} growthLifespanMonths - 属性和技能成长提供的寿命，单位为游戏月。
+     * @property {number} technologyLifespanMonths - 当前科技提供的寿命，单位为游戏月。
+     * @property {number} eventLifespanMonths - 随机事件提供的寿命，单位为游戏月。
+     * @property {number} elderDeathCheckCount - 达到寿命后已通过的月初老死检查次数，非负整数。
      * @property {"natural"|"captive_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 来源 ID；natural 仅兼容旧存档，不再由当前规则生成。
      * @property {JobId=} jobId - 当前职业 ID；省略表示空闲。
      * @property {Object.<string, number>} attributes - 六项属性字典；key 为属性 ID，value 为 1-10 整数。
@@ -263,6 +268,11 @@
      * @property {"common"|"skilled"|"elite"|"legendary"} quality - 俘虏质量 ID。
      * @property {string} source - 来源 ID 或事件名。
      * @property {"basic"|"strong"|"magic"|"craft"|"trade"|"obedient"|"corrupted"} traitHint - 繁衍或改造倾向 ID。
+     * @property {number} age - 年龄，非负整数，单位为游戏月。
+     * @property {number} baseLifespanMonths - 基础寿命，单位为游戏月。
+     * @property {number} technologyLifespanMonths - 当前科技提供的寿命，单位为游戏月。
+     * @property {number} eventLifespanMonths - 随机事件提供的寿命，单位为游戏月。
+     * @property {number} elderDeathCheckCount - 达到寿命后已通过的月初老死检查次数，非负整数。
      * @property {number} turnsHeld - 持有回合数，非负整数。
      * @property {"bed"|"modify"|"food"=} disposition - 当前处置 ID，可省略。
      * @property {number} brainwashLevel - 洗脑程度，0-100 整数点；数值越高，新生属性越好且孕育失败率越低。

@@ -1278,6 +1278,9 @@
         appendDefinitionDetail(listElement, "种类", (qualityDefinition ? qualityDefinition.name : captive.quality) + " " + (captiveTypeDefinition ? captiveTypeDefinition.name : captive.type));
         appendDefinitionDetail(listElement, "来源", formatCaptiveSource(captive.source));
         appendDefinitionDetail(listElement, "倾向", formatCaptiveTraitHint(captive.traitHint));
+        appendDefinitionDetail(listElement, "年龄", Math.floor(Number(captive.age) || 0) + " 月");
+        appendDefinitionDetail(listElement, "寿命", game.captivesSystem.calculateCaptiveTotalLifespanMonths(captive) + " 月");
+        appendDefinitionDetail(listElement, "寿命拆分", "基础 " + Math.floor(Number(captive.baseLifespanMonths) || 0) + "，科研 " + Math.floor(Number(captive.technologyLifespanMonths) || 0) + "，事件 " + Math.floor(Number(captive.eventLifespanMonths) || 0) + " 月");
         appendDefinitionDetail(listElement, "洗脑程度", Math.round(Number(captive.brainwashLevel) || 0) + "%");
         if (game.captivesSystem.hasDesireEnlightenment(state)) {
             appendDefinitionDetail(listElement, "自动洗脑", captive.isAutoBrainwashEnabled ? "已开启" : "已关闭");
@@ -4883,7 +4886,8 @@
 
         cardElement.className = "action-card";
         cardElement.appendChild(createTextElement("h3", goblin.name));
-        cardElement.appendChild(createTextElement("p", "年龄：" + goblin.age));
+        cardElement.appendChild(createTextElement("p", "年龄：" + goblin.age + " 月，寿命：" + game.population.calculateGoblinTotalLifespanMonths(goblin) + " 月"));
+        cardElement.appendChild(createTextElement("p", "寿命拆分：基础 " + Math.floor(Number(goblin.baseLifespanMonths) || 0) + "，成长 " + Math.floor(Number(goblin.growthLifespanMonths) || 0) + "，科研 " + Math.floor(Number(goblin.technologyLifespanMonths) || 0) + "，事件 " + Math.floor(Number(goblin.eventLifespanMonths) || 0) + " 月"));
         cardElement.appendChild(createTextElement("p", "职业：" + (goblin.jobId || "空闲")));
         cardElement.appendChild(createTextElement("p", "领袖：" + (goblin.isLeader ? "是" : "否") + "，固定：" + (goblin.isPinned ? "是" : "否")));
         cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.attributePrefix + formatAttributes(goblin.attributes)));

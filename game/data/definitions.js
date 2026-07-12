@@ -26,6 +26,12 @@
     /**
      * @typedef {Object} PopulationConstants
      * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏菌菇消耗，单位为菌菇/秒。
+     * @property {number} baseGoblinLifespanMonths - 哥布林出生基础寿命，单位为游戏月。
+     * @property {number} baseCaptiveLifespanMonths - 俘虏基础寿命，单位为游戏月。
+     * @property {number} elderDeathBaseChance - 达到寿命后的首次月初老死概率，范围 0-1。
+     * @property {number} elderDeathChanceIncreasePerMonth - 每次未老死后下月增加的老死概率，范围 0-1。
+     * @property {number} maxGrowthLifespanMonths - 属性和技能成长最多提供的寿命，单位为游戏月。
+     * @property {number} lifespanEventBonusMonths - 寿命随机事件提供的寿命，单位为游戏月。
      */
 
     /**
@@ -52,6 +58,12 @@
      * @property {BuildingId=} requiredBuildingId - 额外要求拥有的建筑 ID；省略表示不要求建筑。
      * @property {WeatherEventResourceChange[]=} resourceChanges - 天气事件一次性资源变化数组；amount 可正可负。
      * @property {string=} logText - 通用天气事件日志正文，不含事件名前缀。
+     */
+
+    /**
+     * @typedef {Object} LifespanTechnologyBonus
+     * @property {TechnologyId} technologyId - 提供寿命加成的科技稳定 ID。
+     * @property {number} months - 研究完成后提供的额外寿命，单位为游戏月。
      */
 
     /**
@@ -219,10 +231,16 @@
      * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏的菌菇口粮消耗，单位为菌菇/秒。
      * @property {number} starvationCheckDays - 断粮死亡检查间隔，单位为游戏日，正整数。
      * @property {number} starvationDeathRatio - 每次断粮死亡比例，范围为 0-1。
+     * @property {number} baseGoblinLifespanMonths - 哥布林出生基础寿命，单位为游戏月。
+     * @property {number} baseCaptiveLifespanMonths - 俘虏基础寿命，单位为游戏月。
+     * @property {number} elderDeathBaseChance - 达到寿命后的首次月初老死概率，范围 0-1。
+     * @property {number} elderDeathChanceIncreasePerMonth - 每次未老死后下月增加的老死概率，范围 0-1。
+     * @property {number} maxGrowthLifespanMonths - 个体属性和技能成长最多提供的寿命，单位为游戏月。
+     * @property {number} lifespanEventBonusMonths - 随机事件单次提供的寿命，单位为游戏月。
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 18;
+    var SAVE_VERSION = 19;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -231,8 +249,30 @@
     var POPULATION_CONSTANTS = {
         fungusConsumptionPerGoblinSecond: 3.125,
         starvationCheckDays: 3,
-        starvationDeathRatio: 0.1
+        starvationDeathRatio: 0.1,
+        baseGoblinLifespanMonths: 72,
+        baseCaptiveLifespanMonths: 96,
+        elderDeathBaseChance: 0.1,
+        elderDeathChanceIncreasePerMonth: 0.1,
+        maxGrowthLifespanMonths: 36,
+        lifespanEventBonusMonths: 6
     };
+
+    // LifespanTechnologyBonus[] 科技寿命加成列表：研究完成后写入当前和新生个体的额外寿命。
+    var LIFESPAN_TECHNOLOGY_BONUSES = [
+        {
+            technologyId: "cave_ventilation",
+            months: 6
+        },
+        {
+            technologyId: "rituals",
+            months: 12
+        },
+        {
+            technologyId: "runology",
+            months: 18
+        }
+    ];
 
     // WeatherDefinition[] 天气定义列表：控制地穴自然波动和生产倍率。
     var WEATHER_DEFINITIONS = [
@@ -3680,6 +3720,14 @@
             cooldownSeconds: 180
         },
         {
+            id: "deep_moss_feast",
+            name: "长生苔",
+            conditionId: "has_fungus_economy",
+            baseChancePerCheck: 0.01,
+            logLevel: "important",
+            cooldownSeconds: 360
+        },
+        {
             id: "mine_collapse",
             name: "矿塌",
             conditionId: "has_mines_and_low_obedience",
@@ -4579,6 +4627,7 @@
         SAVE_VERSION: SAVE_VERSION,
         TICKS_PER_SECOND: TICKS_PER_SECOND,
         POPULATION_CONSTANTS: POPULATION_CONSTANTS,
+        LIFESPAN_TECHNOLOGY_BONUSES: LIFESPAN_TECHNOLOGY_BONUSES,
         WEATHER_DEFINITIONS: WEATHER_DEFINITIONS,
         TAB_DEFINITIONS: TAB_DEFINITIONS,
         RESOURCE_DEFINITIONS: RESOURCE_DEFINITIONS,

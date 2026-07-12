@@ -204,6 +204,11 @@
             return true;
         }
 
+        if (eventId === "deep_moss_feast") {
+            applyDeepMossFeast(state, eventDefinition);
+            return true;
+        }
+
         if (eventId === "mine_collapse") {
             applyMineCollapse(state, eventDefinition);
             return true;
@@ -273,6 +278,39 @@
         state.statistics.fungusBloomSeconds = 60;
         setCooldown(state, eventDefinition);
         game.simulation.addLog(state, eventDefinition.logLevel, game.text.TEXT_REGISTRY.logs.eventPrefix + eventDefinition.name + "，菌菇产出暂时提高。");
+    }
+
+    /**
+     * 应用长生苔事件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会给随机个体增加事件寿命。
+     * @param {EventDefinition} eventDefinition - 事件定义对象。
+     * @returns {void} 无返回值。
+     */
+    function applyDeepMossFeast(state, eventDefinition) {
+        // number 寿命加成：随机事件提供的额外寿命，单位游戏月。
+        var bonusMonths = game.definitions.POPULATION_CONSTANTS.lifespanEventBonusMonths;
+
+        // boolean 是否优先给哥布林：有哥布林和俘虏时随机决定目标池。
+        var shouldTargetGoblin = Math.random() < 0.5;
+
+        // Goblin|null 获得寿命的哥布林对象。
+        var targetGoblin = shouldTargetGoblin ? game.population.applyRandomGoblinLifespanEventBonus(state, bonusMonths) : null;
+
+        // CaptiveState|null 获得寿命的俘虏对象。
+        var targetCaptive = targetGoblin ? null : game.captivesSystem.applyRandomCaptiveLifespanEventBonus(state, bonusMonths);
+
+        if (!targetCaptive && !targetGoblin) {
+            targetGoblin = game.population.applyRandomGoblinLifespanEventBonus(state, bonusMonths);
+        }
+
+        if (targetGoblin) {
+            game.simulation.addLog(state, eventDefinition.logLevel, game.text.TEXT_REGISTRY.logs.eventPrefix + eventDefinition.name + "，" + targetGoblin.name + " 吞下发亮苔丝，寿命 +" + bonusMonths + " 月。");
+        } else if (targetCaptive) {
+            game.simulation.addLog(state, eventDefinition.logLevel, game.text.TEXT_REGISTRY.logs.eventPrefix + eventDefinition.name + "，俘虏 " + (targetCaptive.name || targetCaptive.id) + " 被喂下发亮苔丝，寿命 +" + bonusMonths + " 月。");
+        }
+
+        setCooldown(state, eventDefinition);
     }
 
     /**

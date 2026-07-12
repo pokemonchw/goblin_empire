@@ -165,6 +165,11 @@
             quality: qualityId,
             source: source,
             traitHint: captiveTypeDefinition ? captiveTypeDefinition.traitHint : "basic",
+            age: 0,
+            baseLifespanMonths: game.definitions.POPULATION_CONSTANTS.baseCaptiveLifespanMonths,
+            technologyLifespanMonths: 0,
+            eventLifespanMonths: 0,
+            elderDeathCheckCount: 0,
             turnsHeld: 0,
             disposition: undefined,
             brainwashLevel: 0,
@@ -410,11 +415,162 @@
             // CaptiveState 当前俘虏：用于推进孕育或休养倒计时。
             var captive = state.captives[captiveIndex];
 
+            normalizeCaptiveLifespanFields(state, captive);
             if (safeDeltaSeconds > 0) {
                 applyAutoBrainwashIfNeeded(state, captive);
             }
             updateCaptiveBreedingState(state, captive, safeDeltaSeconds);
         }
+    }
+
+    /**
+     * 按跨过的月初推进俘虏年龄并检查老死。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会更新俘虏年龄并移除老死俘虏。
+     * @param {number} previousElapsedDays - 本次日期推进前的完整游戏日，非负整数天。
+     * @param {number} currentElapsedDays - 本次日期推进后的完整游戏日，非负整数天。
+     * @returns {void} 无返回值。
+     */
+    function updateMonthlyCaptiveAgingAndLifespan(state, previousElapsedDays, currentElapsedDays) {
+        // number 上次月份序号：每 30 天递增 1，代表已越过的月初数量。
+        var previousMonthSerial = Math.floor(Math.max(0, Number(previousElapsedDays) || 0) / 30);
+
+        // number 当前月份序号：每 30 天递增 1，代表当前已越过的月初数量。
+        var currentMonthSerial = Math.floor(Math.max(0, Number(currentElapsedDays) || 0) / 30);
+
+        if (currentMonthSerial <= previousMonthSerial) {
+            return;
+        }
+
+        // number 月份序号：逐月结算，避免长时间离线时跳过老死骰。
+        for (var monthSerial = previousMonthSerial + 1; monthSerial <= currentMonthSerial; monthSerial += 1) {
+            applyOneMonthCaptiveAging(state);
+        }
+    }
+
+    /**
+     * 结算一个月初的俘虏年龄增长和老死骰。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会直接修改俘虏数组。
+     * @returns {void} 无返回值。
+     */
+    function applyOneMonthCaptiveAging(state) {
+        // string[] 老死俘虏姓名数组：用于合并日志。
+        var elderDeadCaptiveNames = [];
+
+        // number 倒序循环索引：遍历俘虏数组并允许安全删除。
+        for (var captiveIndex = state.captives.length - 1; captiveIndex >= 0; captiveIndex -= 1) {
+            // CaptiveState 当前俘虏对象：用于年龄增长和寿命检查。
+            var captive = state.captives[captiveIndex];
+
+            normalizeCaptiveLifespanFields(state, captive);
+            captive.age = Math.max(0, Math.floor(Number(captive.age) || 0)) + 1;
+
+            if (shouldCaptiveDieOfOldAge(captive)) {
+                elderDeadCaptiveNames.push(captive.name || captive.id);
+                state.captives.splice(captiveIndex, 1);
+            }
+        }
+
+        if (elderDeadCaptiveNames.length > 0) {
+            state.statistics.totalCaptiveOldAgeDeaths = (state.statistics.totalCaptiveOldAgeDeaths || 0) + elderDeadCaptiveNames.length;
+            game.simulation.addLog(state, "important", "月初清点囚笼时，俘虏 " + elderDeadCaptiveNames.reverse().join("、") + " 老死了。");
+            syncCaptiveResource(state);
+        }
+    }
+
+    /**
+     * 判断俘虏本月是否老死。
+     *
+     * @param {CaptiveState} captive - 当前俘虏对象，会在未死亡时增加老死检查次数。
+     * @returns {boolean} 是否老死；true 表示本月应从俘虏列表移除。
+     */
+    function shouldCaptiveDieOfOldAge(captive) {
+        // number 总寿命：寿命各组成部分相加后的游戏月数。
+        var totalLifespanMonths = calculateCaptiveTotalLifespanMonths(captive);
+
+        if (captive.age < totalLifespanMonths) {
+            captive.elderDeathCheckCount = 0;
+            return false;
+        }
+
+        // number 已检查次数：达到寿命后每月未死会让下月概率提高。
+        var elderDeathCheckCount = Math.max(0, Math.floor(Number(captive.elderDeathCheckCount) || 0));
+
+        // number 老死概率：首次 10%，每月递增 10%，最高 100%。
+        var deathChance = Math.min(1, game.definitions.POPULATION_CONSTANTS.elderDeathBaseChance + elderDeathCheckCount * game.definitions.POPULATION_CONSTANTS.elderDeathChanceIncreasePerMonth);
+
+        // number 随机骰：0-1 浮点比例，低于概率时死亡。
+        var deathRoll = Math.random();
+
+        if (deathRoll < deathChance) {
+            return true;
+        }
+
+        captive.elderDeathCheckCount = elderDeathCheckCount + 1;
+        return false;
+    }
+
+    /**
+     * 补齐俘虏寿命字段。
+     *
+     * @param {GameState} state - 当前游戏状态对象，用于读取科技寿命加成。
+     * @param {CaptiveState} captive - 俘虏对象，会被补齐寿命字段。
+     * @returns {void} 无返回值。
+     */
+    function normalizeCaptiveLifespanFields(state, captive) {
+        if (typeof captive.age !== "number") {
+            captive.age = 0;
+        }
+        if (typeof captive.baseLifespanMonths !== "number") {
+            captive.baseLifespanMonths = game.definitions.POPULATION_CONSTANTS.baseCaptiveLifespanMonths;
+        }
+        captive.technologyLifespanMonths = game.population.calculateTechnologyLifespanBonusMonths(state);
+        if (typeof captive.eventLifespanMonths !== "number") {
+            captive.eventLifespanMonths = 0;
+        }
+        if (typeof captive.elderDeathCheckCount !== "number") {
+            captive.elderDeathCheckCount = 0;
+        }
+        if (Math.max(0, Math.floor(Number(captive.age) || 0)) < calculateCaptiveTotalLifespanMonths(captive)) {
+            captive.elderDeathCheckCount = 0;
+        }
+    }
+
+    /**
+     * 计算俘虏总寿命。
+     *
+     * @param {CaptiveState} captive - 俘虏对象，不会被修改。
+     * @returns {number} 总寿命，单位游戏月，非负整数。
+     */
+    function calculateCaptiveTotalLifespanMonths(captive) {
+        return Math.max(0, Math.floor(Number(captive.baseLifespanMonths) || 0)) +
+            Math.max(0, Math.floor(Number(captive.technologyLifespanMonths) || 0)) +
+            Math.max(0, Math.floor(Number(captive.eventLifespanMonths) || 0));
+    }
+
+    /**
+     * 对随机俘虏添加事件寿命。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会修改被选中的俘虏。
+     * @param {number} bonusMonths - 寿命加成，单位游戏月，非负整数。
+     * @returns {CaptiveState|null} 获得寿命的俘虏；没有候选时返回 null。
+     */
+    function applyRandomCaptiveLifespanEventBonus(state, bonusMonths) {
+        if (!Array.isArray(state.captives) || state.captives.length <= 0) {
+            return null;
+        }
+
+        // number 随机下标：从当前俘虏中选择一个。
+        var randomIndex = Math.floor(Math.random() * state.captives.length);
+
+        // CaptiveState 目标俘虏：获得事件寿命加成。
+        var targetCaptive = state.captives[randomIndex];
+
+        normalizeCaptiveLifespanFields(state, targetCaptive);
+        targetCaptive.eventLifespanMonths += Math.max(0, Math.floor(Number(bonusMonths) || 0));
+        targetCaptive.elderDeathCheckCount = 0;
+        return targetCaptive;
     }
 
     /**
@@ -766,6 +922,7 @@
             applyCaptiveBiasToGoblin(newGoblin, captiveTypeDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, calculateBrainwashAttributeBonus(captive), getCaptiveNewbornAttributePenalty(state, captive));
         }
 
+        newGoblin.growthLifespanMonths = game.population.calculateGoblinGrowthLifespanMonths(newGoblin);
         state.goblins.push(newGoblin);
         game.simulation.addLog(state, "important", "俘虏苗床产出新哥布林：" + newGoblin.name + "。");
         return newGoblin;
@@ -1075,6 +1232,10 @@
         hasDesireEnlightenment: hasDesireEnlightenment,
         hasPublicNursery: hasPublicNursery,
         calculateCaptiveAttributeValue: calculateCaptiveAttributeValue,
+        updateMonthlyCaptiveAgingAndLifespan: updateMonthlyCaptiveAgingAndLifespan,
+        normalizeCaptiveLifespanFields: normalizeCaptiveLifespanFields,
+        calculateCaptiveTotalLifespanMonths: calculateCaptiveTotalLifespanMonths,
+        applyRandomCaptiveLifespanEventBonus: applyRandomCaptiveLifespanEventBonus,
         updateCaptives: updateCaptives,
         breedGoblinFromCaptive: breedGoblinFromCaptive,
         syncCaptiveResource: syncCaptiveResource

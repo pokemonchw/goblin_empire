@@ -72,6 +72,9 @@
 
         technologyState.isResearched = true;
         game.unlocks.applyUnlockBundle(state, technologyDefinition.unlocks);
+        if (game.population) {
+            game.population.refreshTechnologyLifespanBonus(state);
+        }
         if (technologyId === "calendar") {
             game.calendar.unlockCalendar(state);
         }

@@ -71,7 +71,12 @@
         // number 秒数差：真实时间差换算成模拟 delta，非负浮点秒。
         var deltaSeconds = Math.max(0, (nowTimestamp - state.lastActiveTimestamp) / 1000);
 
+        // number 推进前完整游戏日：用于判断本次 tick 是否跨过月初。
+        var previousElapsedDays = state.calendar ? state.calendar.elapsedDays : 0;
+
         game.calendar.updateCalendar(state, deltaSeconds);
+        game.population.updateMonthlyAgingAndLifespan(state, previousElapsedDays, state.calendar.elapsedDays);
+        game.captivesSystem.updateMonthlyCaptiveAgingAndLifespan(state, previousElapsedDays, state.calendar.elapsedDays);
         game.weather.updateWeather(state);
         game.jobs.resetResourceRates(state);
         game.population.updateLaborFromPopulation(state);

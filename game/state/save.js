@@ -982,6 +982,7 @@
             goblin.skills = goblin.skills || {};
             normalizeGoblinSkills(goblin);
             goblin.attributes = goblin.attributes || {};
+            normalizeGoblinLifespanFields(goblin);
             goblin.isAlive = goblin.isAlive !== false;
             normalizedGoblins.push(goblin);
         }
@@ -1010,6 +1011,7 @@
 
             captive.turnsHeld = Math.max(0, Number(captive.turnsHeld) || 0);
             captive.name = normalizeCaptiveName(captive, captiveIndex);
+            normalizeCaptiveLifespanFields(captive);
             captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
             captive.isAutoBrainwashEnabled = Boolean(captive.isAutoBrainwashEnabled);
             captive.isAutoBreedEnabled = Boolean(captive.isAutoBreedEnabled);
@@ -1108,6 +1110,35 @@
     }
 
     /**
+     * 补齐存档哥布林寿命字段。
+     *
+     * @param {Goblin} goblin - 哥布林对象，会补入寿命拆分字段。
+     * @returns {void} 无返回值。
+     */
+    function normalizeGoblinLifespanFields(goblin) {
+        goblin.age = Math.max(0, Math.floor(Number(goblin.age) || 0));
+        goblin.baseLifespanMonths = Math.max(1, Math.floor(Number(goblin.baseLifespanMonths) || game.definitions.POPULATION_CONSTANTS.baseGoblinLifespanMonths));
+        goblin.growthLifespanMonths = Math.max(0, Math.floor(Number(goblin.growthLifespanMonths) || 0));
+        goblin.technologyLifespanMonths = Math.max(0, Math.floor(Number(goblin.technologyLifespanMonths) || 0));
+        goblin.eventLifespanMonths = Math.max(0, Math.floor(Number(goblin.eventLifespanMonths) || 0));
+        goblin.elderDeathCheckCount = Math.max(0, Math.floor(Number(goblin.elderDeathCheckCount) || 0));
+    }
+
+    /**
+     * 补齐存档俘虏寿命字段。
+     *
+     * @param {CaptiveState} captive - 俘虏对象，会补入寿命拆分字段。
+     * @returns {void} 无返回值。
+     */
+    function normalizeCaptiveLifespanFields(captive) {
+        captive.age = Math.max(0, Math.floor(Number(captive.age) || 0));
+        captive.baseLifespanMonths = Math.max(1, Math.floor(Number(captive.baseLifespanMonths) || game.definitions.POPULATION_CONSTANTS.baseCaptiveLifespanMonths));
+        captive.technologyLifespanMonths = Math.max(0, Math.floor(Number(captive.technologyLifespanMonths) || 0));
+        captive.eventLifespanMonths = Math.max(0, Math.floor(Number(captive.eventLifespanMonths) || 0));
+        captive.elderDeathCheckCount = Math.max(0, Math.floor(Number(captive.elderDeathCheckCount) || 0));
+    }
+
+    /**
      * 补齐哥布林技能字典。
      *
      * @param {Goblin} goblin - 哥布林对象，会补入缺失技能键。
@@ -1151,10 +1182,28 @@
             if (goblin.id === state.leaderGoblinId && goblin.isAlive) {
                 isLeaderValid = true;
             }
+
+            if (game.population && game.population.calculateGoblinGrowthLifespanMonths) {
+                goblin.growthLifespanMonths = game.population.calculateGoblinGrowthLifespanMonths(goblin);
+            }
         }
 
         if (game.jobs && game.jobs.promoteHaulersToMiners) {
             game.jobs.promoteHaulersToMiners(state);
+        }
+
+        if (game.population && game.population.refreshTechnologyLifespanBonus) {
+            game.population.refreshTechnologyLifespanBonus(state);
+        }
+
+        if (game.captivesSystem && game.captivesSystem.normalizeCaptiveLifespanFields) {
+            // number 俘虏循环索引：遍历俘虏数组并刷新科技寿命。
+            for (var captiveIndex = 0; captiveIndex < state.captives.length; captiveIndex += 1) {
+                // CaptiveState 当前俘虏对象：用于补齐并刷新寿命字段。
+                var captive = state.captives[captiveIndex];
+
+                game.captivesSystem.normalizeCaptiveLifespanFields(state, captive);
+            }
         }
 
         if (!isLeaderValid) {
