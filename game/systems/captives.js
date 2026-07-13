@@ -26,6 +26,14 @@
         }
     ];
 
+    // Object.<string, number[]> 俘虏品质血脉纯度范围：key 为质量 ID，value 为 [最小百分比, 最大百分比]。
+    var CAPTIVE_BLOODLINE_PURITY_RANGES = {
+        common: [1, 10],
+        skilled: [11, 35],
+        elite: [36, 70],
+        legendary: [71, 100]
+    };
+
     // Object.<string, string> 旧种族 ID 映射表：key 为旧亚种 ID，value 为合并后的当前种族 ID。
     var LEGACY_CAPTIVE_RACE_ID_ALIASES = {
         mire_human: "human",
@@ -178,12 +186,20 @@
         // number 基础寿命：根据俘虏质量寿命段和种族寿命修正随机生成，单位年。
         var baseLifespanYears = createCaptiveBaseLifespanYears(qualityId, initialAgeYears + 1, normalizedRaceId);
 
+        // string|null 俘虏信仰 ID：用于血脉同源神灵判定，null 表示无信仰。
+        var faithId = game.faithSystem.createRandomCaptiveFaithId(normalizedRaceId);
+
+        // {bloodlineId: string|null, bloodlinePurity: number} 俘虏血脉快照：血脉 ID 和 0-100 百分比纯度会写入个体存档。
+        var bloodlineSnapshot = createCaptiveBloodlineSnapshot(captiveTypeId, qualityId, faithId);
+
         return {
             id: "captive_" + Date.now() + "_" + Math.floor(Math.random() * 100000),
             name: createCaptiveName(captiveTypeId),
             type: captiveTypeId,
             raceId: normalizedRaceId,
-            faithId: game.faithSystem.createRandomCaptiveFaithId(normalizedRaceId),
+            faithId: faithId,
+            bloodlineId: bloodlineSnapshot.bloodlineId,
+            bloodlinePurity: bloodlineSnapshot.bloodlinePurity,
             quality: qualityId,
             source: source,
             traitHint: captiveTypeDefinition ? captiveTypeDefinition.traitHint : "basic",
@@ -286,6 +302,71 @@
      */
     function randomIntegerInclusive(minValue, maxValue) {
         return minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
+    }
+
+    /**
+     * 生成俘虏血脉快照。
+     *
+     * @param {string} captiveTypeId - 俘虏类型 ID；普通村姑固定无血脉。
+     * @param {"common"|"skilled"|"elite"|"legendary"} qualityId - 俘虏质量 ID，用于决定血脉纯度随机区间。
+     * @param {string|null} faithId - 俘虏信仰 ID；有血脉时必须与来源神灵一致。
+     * @returns {{bloodlineId: string|null, bloodlinePurity: number}} 血脉快照；bloodlinePurity 为 0-100 百分比整数。
+     */
+    function createCaptiveBloodlineSnapshot(captiveTypeId, qualityId, faithId) {
+        if (captiveTypeId === "laborer" || !faithId) {
+            return {
+                bloodlineId: null,
+                bloodlinePurity: 0
+            };
+        }
+
+        // BloodlineDefinition|null 血脉定义：由信仰神灵反查同源血脉。
+        var bloodlineDefinition = getBloodlineDefinitionByFaith(faithId);
+
+        if (!bloodlineDefinition) {
+            return {
+                bloodlineId: null,
+                bloodlinePurity: 0
+            };
+        }
+
+        // number[] 纯度范围：质量越高，随机区间越靠近 100%。
+        var purityRange = CAPTIVE_BLOODLINE_PURITY_RANGES[qualityId] || CAPTIVE_BLOODLINE_PURITY_RANGES.common;
+
+        // number 最小纯度：当前品质可随机到的最低百分比，整数。
+        var minPurity = Math.max(1, Math.floor(Number(purityRange[0]) || 1));
+
+        // number 最大纯度：当前品质可随机到的最高百分比，整数。
+        var maxPurity = Math.min(100, Math.max(minPurity, Math.floor(Number(purityRange[1]) || minPurity)));
+
+        return {
+            bloodlineId: bloodlineDefinition.id,
+            bloodlinePurity: randomIntegerInclusive(minPurity, maxPurity)
+        };
+    }
+
+    /**
+     * 按来源神灵取得血脉定义。
+     *
+     * @param {string|null|undefined} faithId - 神灵信仰 ID；null 或 undefined 表示无来源神灵。
+     * @returns {BloodlineDefinition|null} 血脉定义；未找到时返回 null。
+     */
+    function getBloodlineDefinitionByFaith(faithId) {
+        if (!faithId || !Array.isArray(game.definitions.BLOODLINE_DEFINITIONS)) {
+            return null;
+        }
+
+        // number 循环索引：遍历血脉定义数组的整数下标。
+        for (var bloodlineIndex = 0; bloodlineIndex < game.definitions.BLOODLINE_DEFINITIONS.length; bloodlineIndex += 1) {
+            // BloodlineDefinition 当前血脉定义：用于匹配来源神灵 ID。
+            var bloodlineDefinition = game.definitions.BLOODLINE_DEFINITIONS[bloodlineIndex];
+
+            if (bloodlineDefinition.deityFaithId === faithId) {
+                return bloodlineDefinition;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -518,6 +599,7 @@
                 attributeBonus: calculateBrainwashAttributeBonus(captive),
                 attributePenalty: captiveWeatherEffects.captiveNewbornAttributePenalty || 0,
                 raceName: raceDefinition ? raceDefinition.name : "未知种族",
+                bloodlinePurity: Math.max(0, Math.min(100, Math.round(Number(captive.bloodlinePurity) || 0))),
                 inheritedTraitChance: Math.min(0.8, 0.25 * qualityMultiplier),
                 escapeRisk: qualityDefinition ? qualityDefinition.escapeRisk : 0.1,
                 retaliationRisk: qualityDefinition ? qualityDefinition.retaliationRisk : 0.05
@@ -1214,6 +1296,8 @@
         // Goblin 新生哥布林：来源标记为 captive_bed。
         var newGoblin = game.population.createGoblin(state, "captive_bed");
 
+        inheritBloodlineFromCaptive(newGoblin, captive);
+
         if (captiveTypeDefinition) {
             applyCaptiveBiasToGoblin(newGoblin, captiveTypeDefinition, raceDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, calculateBrainwashAttributeBonus(captive), getCaptiveNewbornAttributePenalty(state, captive));
         }
@@ -1222,6 +1306,52 @@
         state.goblins.push(newGoblin);
         game.simulation.addLog(state, "important", "俘虏苗床产出新哥布林：" + newGoblin.name + "。");
         return newGoblin;
+    }
+
+    /**
+     * 将母体俘虏血脉继承给新生哥布林。
+     *
+     * @param {Goblin} goblin - 新生哥布林对象，会写入血脉字段。
+     * @param {CaptiveState} captive - 母体俘虏对象，不会被修改。
+     * @returns {void} 无返回值。
+     */
+    function inheritBloodlineFromCaptive(goblin, captive) {
+        // BloodlineDefinition|null 母体血脉定义：用于校验存档中的 bloodlineId 仍有效。
+        var bloodlineDefinition = getBloodlineDefinition(captive.bloodlineId);
+
+        if (!bloodlineDefinition) {
+            goblin.bloodlineId = null;
+            goblin.bloodlinePurity = 0;
+            return;
+        }
+
+        goblin.bloodlineId = bloodlineDefinition.id;
+        goblin.bloodlinePurity = Math.max(1, Math.min(100, Math.round(Number(captive.bloodlinePurity) || 0)));
+        goblin.traits.push("bloodline_" + bloodlineDefinition.id);
+    }
+
+    /**
+     * 取得血脉定义。
+     *
+     * @param {string|null|undefined} bloodlineId - 血脉稳定 ID；null 或 undefined 表示无血脉。
+     * @returns {BloodlineDefinition|null} 血脉定义；未找到时返回 null。
+     */
+    function getBloodlineDefinition(bloodlineId) {
+        if (!bloodlineId || !Array.isArray(game.definitions.BLOODLINE_DEFINITIONS)) {
+            return null;
+        }
+
+        // number 循环索引：遍历血脉定义数组的整数下标。
+        for (var bloodlineIndex = 0; bloodlineIndex < game.definitions.BLOODLINE_DEFINITIONS.length; bloodlineIndex += 1) {
+            // BloodlineDefinition 当前血脉定义：用于匹配血脉 ID。
+            var bloodlineDefinition = game.definitions.BLOODLINE_DEFINITIONS[bloodlineIndex];
+
+            if (bloodlineDefinition.id === bloodlineId) {
+                return bloodlineDefinition;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1569,6 +1699,8 @@
         getCaptiveTypeDefinition: getCaptiveTypeDefinition,
         getCaptiveQualityDefinition: getCaptiveQualityDefinition,
         getCaptiveRaceDefinition: getCaptiveRaceDefinition,
+        getBloodlineDefinition: getBloodlineDefinition,
+        getBloodlineDefinitionByFaith: getBloodlineDefinitionByFaith,
         previewDisposition: previewDisposition,
         applyDisposition: applyDisposition,
         canApplyDisposition: canApplyDisposition,

@@ -263,6 +263,15 @@
      */
 
     /**
+     * @typedef {Object} BloodlineDefinition
+     * @property {string} id - 血脉稳定 ID，作为个体 bloodlineId 和存档引用。
+     * @property {string} name - 中文显示名。
+     * @property {string} deityFaithId - 来源神灵 ID，必须对应 FaithDefinition.id。
+     * @property {string} description - 中文说明。
+     * @property {Object.<string, number>} jobOutputRatios - 职业产出加成字典；key 为 JobDefinition.id，value 为 100% 纯度时的加成比例。
+     */
+
+    /**
      * @typedef {Object} PopulationConstants
      * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏的菌菇口粮消耗，单位为菌菇/秒。
      * @property {number} starvationCheckDays - 断粮死亡检查间隔，单位为游戏日，正整数。
@@ -278,7 +287,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 26;
+    var SAVE_VERSION = 27;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -4267,6 +4276,91 @@
         }
     ];
 
+    // BloodlineDefinition[] 血脉定义列表：每条血脉都源于一个神灵，纯度保存在个体上。
+    var BLOODLINE_DEFINITIONS = [
+        {
+            id: "green_sun",
+            name: "绿日血脉",
+            deityFaithId: "green_sun",
+            description: "源于绿日的丰饶血脉，纯度越高，采菌与农作类工作产出的菌菇越多。",
+            jobOutputRatios: {
+                forager: 0.3
+            }
+        },
+        {
+            id: "stone_father",
+            name: "石父血脉",
+            deityFaithId: "stone_father",
+            description: "源于石父的矿脉血脉，纯度越高，采矿类工作产出的矿石和碎料越多。",
+            jobOutputRatios: {
+                hauler: 0.2,
+                miner: 0.25,
+                deep_miner: 0.25
+            }
+        },
+        {
+            id: "mud_mother",
+            name: "泥母血脉",
+            deityFaithId: "mud_mother",
+            description: "源于泥母的湿地血脉，纯度越高，采集和搬运湿泥物资时越稳定。",
+            jobOutputRatios: {
+                forager: 0.12,
+                hauler: 0.12
+            }
+        },
+        {
+            id: "rat_queen",
+            name: "鼠后血脉",
+            deityFaithId: "rat_queen",
+            description: "源于鼠后的暗道血脉，纯度越高，账册、搬运和走私类工作越灵活。",
+            jobOutputRatios: {
+                hauler: 0.1,
+                accountant: 0.2
+            }
+        },
+        {
+            id: "moon_root",
+            name: "月根血脉",
+            deityFaithId: "moon_root",
+            description: "源于月根的林月血脉，纯度越高，草药、符文和感知类工作收益越好。",
+            jobOutputRatios: {
+                forager: 0.12,
+                witch_doctor: 0.18,
+                rune_smith: 0.18
+            }
+        },
+        {
+            id: "iron_warlord",
+            name: "铁战王血脉",
+            deityFaithId: "iron_warlord",
+            description: "源于铁战王的战争血脉，纯度越高，抢掠和战斗指挥类工作越强。",
+            jobOutputRatios: {
+                raider: 0.25,
+                war_chief: 0.25
+            }
+        },
+        {
+            id: "grave_lamp",
+            name: "墓灯血脉",
+            deityFaithId: "grave_lamp",
+            description: "源于墓灯的寒墓血脉，纯度越高，祭祀和污染材料处理越有效。",
+            jobOutputRatios: {
+                witch_doctor: 0.2,
+                smelter: 0.08
+            }
+        },
+        {
+            id: "abyss_eye",
+            name: "深渊之眼血脉",
+            deityFaithId: "abyss_eye",
+            description: "源于深渊之眼的裂隙血脉，纯度越高，符文、深矿和深渊作业越危险有效。",
+            jobOutputRatios: {
+                rune_smith: 0.25,
+                deep_miner: 0.2
+            }
+        }
+    ];
+
     // CaptiveRaceDefinition[] 俘虏种族定义列表：种族只表达大类，地域和社会差异交给地点与势力定义承载。
     var CAPTIVE_RACE_DEFINITIONS = [
         {
@@ -5248,6 +5342,7 @@
         CRAFT_RECIPE_DEFINITIONS: CRAFT_RECIPE_DEFINITIONS,
         EVENT_DEFINITIONS: EVENT_DEFINITIONS,
         FAITH_DEFINITIONS: FAITH_DEFINITIONS,
+        BLOODLINE_DEFINITIONS: BLOODLINE_DEFINITIONS,
         CAPTIVE_TYPE_DEFINITIONS: CAPTIVE_TYPE_DEFINITIONS,
         CAPTIVE_QUALITY_DEFINITIONS: CAPTIVE_QUALITY_DEFINITIONS,
         CAPTIVE_RACE_DEFINITIONS: CAPTIVE_RACE_DEFINITIONS,

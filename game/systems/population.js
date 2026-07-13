@@ -194,6 +194,8 @@
             name: givenName + "·" + clanName,
             nickname: nickname,
             faithId: game.faithSystem.hasAncestralAltar(state) ? "goblin_ancestor" : null,
+            bloodlineId: null,
+            bloodlinePurity: 0,
             age: 0,
             origin: origin,
             jobId: undefined,

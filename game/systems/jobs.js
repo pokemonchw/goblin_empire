@@ -538,7 +538,59 @@
      * @returns {number} 职业产出综合倍率，非负浮点数。
      */
     function calculateJobOutputModifier(state, goblin, jobDefinition) {
-        return calculateAttributeModifier(goblin, jobDefinition) * calculateSkillModifier(goblin, jobDefinition.skillId) * calculateWoundModifier(goblin) * calculateBuildingModifier(state, jobDefinition) * calculateTechnologyModifier(state, jobDefinition) * calculateObedienceModifier(state) * calculateWeatherModifier(state, jobDefinition);
+        return calculateAttributeModifier(goblin, jobDefinition) * calculateSkillModifier(goblin, jobDefinition.skillId) * calculateWoundModifier(goblin) * calculateBuildingModifier(state, jobDefinition) * calculateTechnologyModifier(state, jobDefinition) * calculateObedienceModifier(state) * calculateWeatherModifier(state, jobDefinition) * calculateBloodlineModifier(goblin, jobDefinition);
+    }
+
+    /**
+     * 计算血脉对职业产出的修正。
+     *
+     * @param {Goblin} goblin - 当前哥布林对象，不会被修改。
+     * @param {JobDefinition} jobDefinition - 职业定义对象，用于匹配血脉加成职业。
+     * @returns {number} 血脉产出倍率，至少为 1；加成按血脉纯度百分比线性缩放。
+     */
+    function calculateBloodlineModifier(goblin, jobDefinition) {
+        // BloodlineDefinition|null 血脉定义：无血脉或无效血脉不提供加成。
+        var bloodlineDefinition = getBloodlineDefinition(goblin.bloodlineId);
+
+        if (!bloodlineDefinition || !bloodlineDefinition.jobOutputRatios) {
+            return 1;
+        }
+
+        // number 满纯加成比例：该血脉对当前职业在 100% 纯度时的产出加成。
+        var fullPurityRatio = Number(bloodlineDefinition.jobOutputRatios[jobDefinition.id]) || 0;
+
+        if (fullPurityRatio <= 0) {
+            return 1;
+        }
+
+        // number 纯度比例：个体血脉纯度从百分比转为 0-1 浮点比例。
+        var purityRatio = Math.max(0, Math.min(1, (Number(goblin.bloodlinePurity) || 0) / 100));
+
+        return 1 + fullPurityRatio * purityRatio;
+    }
+
+    /**
+     * 取得血脉定义。
+     *
+     * @param {string|null|undefined} bloodlineId - 血脉稳定 ID；null 或 undefined 表示无血脉。
+     * @returns {BloodlineDefinition|null} 血脉定义；未找到时返回 null。
+     */
+    function getBloodlineDefinition(bloodlineId) {
+        if (!bloodlineId || !Array.isArray(game.definitions.BLOODLINE_DEFINITIONS)) {
+            return null;
+        }
+
+        // number 循环索引：遍历血脉定义数组的整数下标。
+        for (var bloodlineIndex = 0; bloodlineIndex < game.definitions.BLOODLINE_DEFINITIONS.length; bloodlineIndex += 1) {
+            // BloodlineDefinition 当前血脉定义：用于匹配血脉 ID。
+            var bloodlineDefinition = game.definitions.BLOODLINE_DEFINITIONS[bloodlineIndex];
+
+            if (bloodlineDefinition.id === bloodlineId) {
+                return bloodlineDefinition;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -840,6 +892,7 @@
         calculateTechnologyModifier: calculateTechnologyModifier,
         calculateObedienceModifier: calculateObedienceModifier,
         calculateWeatherModifier: calculateWeatherModifier,
+        calculateBloodlineModifier: calculateBloodlineModifier,
         calculateJobOutputModifier: calculateJobOutputModifier
     };
 })(window.GoblinEmpire);

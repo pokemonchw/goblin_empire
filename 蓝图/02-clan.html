@@ -82,7 +82,7 @@
                         <option>强壮</option>
                         <option>灵巧</option>
                         <option>狡猾</option>
-                        <option>魔血</option>
+                        <option>绿日血脉</option>
                     </select>
                     <select class="select-box" aria-label="状态筛选">
                         <option>全部状态</option>
@@ -109,10 +109,10 @@
                     <div class="goblin-row">
                         <div>
                             <strong>泥爪</strong>
-                            <span>采菌工，9 岁，感知敏锐</span>
+                            <span>采菌工，9 岁，绿日血脉 32%</span>
                         </div>
                         <div class="goblin-stats">
-                            <span>感知 9</span><span>采菌 老练 12%</span><span>捡柴 生手 64%</span>
+                            <span>感知 9</span><span>采菌 老练 12%</span><span>血脉产出 +9.6%</span>
                         </div>
                         <div class="tool-row">
                             <button class="btn">撤下</button>
@@ -159,7 +159,8 @@
 warbeastConsumers = sum(warbeast.foodConsumptionRatio * restingMultiplier)
 fungusConsumers = population + captiveCount + warbeastConsumers
 fungusConsumption = fungusConsumers * 3.125/s * modifiers</pre>
-                    <pre class="formula">goblinJobOutput = base * attributeModifier * skillModifier
+                    <pre class="formula">goblinJobOutput = base * attributeModifier * skillModifier * bloodlineModifier
+bloodlineModifier = 1 + fullPurityJobRatio * bloodlinePurity / 100
 obedienceModifier = clamp(0.75, 1.25, 1 + (obedience - 100) / 400)
 accidentChance = baseAccidentChance * obedienceRisk</pre>
                 </div>

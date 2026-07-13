@@ -20,6 +20,7 @@
      * @property {string[]} challenges - 挑战稳定 ID 数组；key 空间为挑战 ID。
      * @property {string[]} weather - 天气稳定 ID 数组；key 空间为 WeatherId。
      * @property {string[]} faiths - 信仰稳定 ID 数组；key 空间为 FaithDefinition.id。
+     * @property {string[]} bloodlines - 血脉稳定 ID 数组；key 空间为 BloodlineDefinition.id。
      */
 
     // string[] 资源稳定 ID 列表：覆盖基础、工业、神秘和威望资源。
@@ -204,6 +205,18 @@
         "abyss_eye"
     ];
 
+    // string[] 血脉稳定 ID 列表：每条血脉都源于同名或对应神灵。
+    var BLOODLINE_IDS = [
+        "stone_father",
+        "mud_mother",
+        "rat_queen",
+        "green_sun",
+        "moon_root",
+        "iron_warlord",
+        "grave_lamp",
+        "abyss_eye"
+    ];
+
     // string[] 政策稳定 ID 列表：按后续政策组引用。
     var POLICY_IDS = [
         "trade_focus",
@@ -299,7 +312,8 @@
         prestigePerks: PRESTIGE_PERK_IDS,
         challenges: CHALLENGE_IDS,
         weather: WEATHER_IDS,
-        faiths: FAITH_IDS
+        faiths: FAITH_IDS,
+        bloodlines: BLOODLINE_IDS
     };
 
     /**

@@ -168,6 +168,8 @@
                 type: "laborer",
                 raceId: "human",
                 faithId: game.faithSystem.createRandomCaptiveFaithId("human"),
+                bloodlineId: null,
+                bloodlinePurity: 0,
                 quality: "common",
                 source: "开局",
                 traitHint: "basic",

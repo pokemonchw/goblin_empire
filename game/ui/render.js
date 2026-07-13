@@ -1600,6 +1600,7 @@
         appendDefinitionDetail(listElement, "品质", qualityDefinition ? qualityDefinition.name : captive.quality);
         appendDefinitionDetail(listElement, "种族", raceDefinition ? raceDefinition.name : (captive.raceId || "未知种族"));
         appendDefinitionDetail(listElement, "信仰", game.faithSystem.formatFaithName(captive.faithId));
+        appendDefinitionDetail(listElement, "血脉", formatBloodline(captive));
         appendDefinitionDetail(listElement, "职业", captiveTypeDefinition ? captiveTypeDefinition.name : captive.type);
         if (raceDefinition) {
             appendDefinitionDetail(listElement, "活跃世界", formatCaptiveRaceWorldName(raceDefinition));
@@ -5231,6 +5232,7 @@
         cardElement.appendChild(createTextElement("p", "年龄：" + formatAgeYears(goblin.age) + "，寿命：" + game.population.calculateGoblinTotalLifespanYears(goblin) + " 年"));
         cardElement.appendChild(createTextElement("p", "寿命拆分：基础 " + Math.floor(Number(goblin.baseLifespanYears) || 0) + "，成长 " + Math.floor(Number(goblin.growthLifespanYears) || 0) + "，科研 " + Math.floor(Number(goblin.technologyLifespanYears) || 0) + "，事件 " + Math.floor(Number(goblin.eventLifespanYears) || 0) + " 年"));
         cardElement.appendChild(createTextElement("p", "信仰：" + game.faithSystem.formatFaithName(goblin.faithId)));
+        cardElement.appendChild(createTextElement("p", "血脉：" + formatBloodline(goblin)));
         cardElement.appendChild(createTextElement("p", "职业：" + (goblin.jobId || "空闲")));
         cardElement.appendChild(createTextElement("p", "领袖：" + (goblin.isLeader ? "是" : "否") + "，固定：" + (goblin.isPinned ? "是" : "否")));
         cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.attributePrefix + formatAttributes(goblin.attributes)));
@@ -5241,6 +5243,26 @@
         cardElement.appendChild(createGoblinButton(goblin.id, "pin", goblin.isPinned ? "取消固定" : "固定职业", false));
         cardElement.appendChild(createGoblinButton(goblin.id, "leader", "设为领袖", goblin.isLeader));
         return cardElement;
+    }
+
+    /**
+     * 格式化个体血脉。
+     *
+     * @param {Goblin|CaptiveState} individual - 哥布林或俘虏对象，不会被修改。
+     * @returns {string} 血脉显示文本；无血脉时返回“无”。
+     */
+    function formatBloodline(individual) {
+        // BloodlineDefinition|null 血脉定义：用于显示血脉中文名和来源神灵。
+        var bloodlineDefinition = game.captivesSystem && game.captivesSystem.getBloodlineDefinition ? game.captivesSystem.getBloodlineDefinition(individual.bloodlineId) : null;
+
+        if (!bloodlineDefinition) {
+            return "无";
+        }
+
+        // number 血脉纯度：百分比整数，范围 1-100。
+        var bloodlinePurity = Math.max(1, Math.min(100, Math.round(Number(individual.bloodlinePurity) || 0)));
+
+        return bloodlineDefinition.name + " " + bloodlinePurity + "%（源于" + game.faithSystem.formatFaithName(bloodlineDefinition.deityFaithId) + "）";
     }
 
     /**

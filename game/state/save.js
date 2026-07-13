@@ -246,6 +246,8 @@
                         type: "laborer",
                         raceId: "human",
                         quality: "common",
+                        bloodlineId: null,
+                        bloodlinePurity: 0,
                         source: "开局",
                         traitHint: "basic",
                         turnsHeld: 0,
@@ -398,6 +400,14 @@
             // v25 旧 shape：哥布林和俘虏没有 faithId，战兽也没有信仰字段。
             // v26 新 shape：哥布林在祖灵祭坛前 faithId 为 null，祭坛后为 goblin_ancestor；俘虏按种族随机信仰。
             // 迁移原因：信仰系统需要在个体层保存可显示、可扩展的信仰归属，同时明确战兽无信仰。
+            migratedSaveData.goblins = normalizeSavedGoblins(Array.isArray(migratedSaveData.goblins) ? migratedSaveData.goblins : []);
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
+        }
+
+        if (sourceVersion < 27) {
+            // v26 旧 shape：哥布林和俘虏只有 faithId，没有可继承的神灵血脉字段。
+            // v27 新 shape：个体保存 bloodlineId 和 bloodlinePurity；普通村姑和旧个体默认无血脉。
+            // 迁移原因：血脉系统要求俘虏按品质生成纯度，哥布林只能从母体继承血脉。
             migratedSaveData.goblins = normalizeSavedGoblins(Array.isArray(migratedSaveData.goblins) ? migratedSaveData.goblins : []);
             migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
@@ -1214,6 +1224,7 @@
             if (game.faithSystem) {
                 goblin.faithId = game.faithSystem.getFaithDefinition(goblin.faithId) ? goblin.faithId : null;
             }
+            normalizeBloodlineFields(goblin);
             goblin.isAlive = goblin.isAlive !== false;
             normalizedGoblins.push(goblin);
         }
@@ -1246,6 +1257,7 @@
             if (game.faithSystem) {
                 game.faithSystem.normalizeCaptiveFaith(captive);
             }
+            normalizeBloodlineFields(captive);
             normalizeCaptiveLifespanFields(captive);
             captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
             captive.isAutoBrainwashEnabled = Boolean(captive.isAutoBrainwashEnabled);
@@ -1267,6 +1279,53 @@
         }
 
         return normalizedCaptives;
+    }
+
+    /**
+     * 规范化个体血脉字段。
+     *
+     * @param {Goblin|CaptiveState} individual - 哥布林或俘虏对象，会被直接补齐血脉字段。
+     * @returns {void} 无返回值。
+     */
+    function normalizeBloodlineFields(individual) {
+        // string|null 血脉 ID：必须对应当前血脉定义；无效值按无血脉处理。
+        var bloodlineId = typeof individual.bloodlineId === "string" ? individual.bloodlineId : null;
+
+        // BloodlineDefinition|null 血脉定义：用于验证旧存档或导入文本中的血脉 ID。
+        var bloodlineDefinition = getBloodlineDefinition(bloodlineId);
+
+        if (!bloodlineDefinition) {
+            individual.bloodlineId = null;
+            individual.bloodlinePurity = 0;
+            return;
+        }
+
+        individual.bloodlineId = bloodlineDefinition.id;
+        individual.bloodlinePurity = Math.max(1, Math.min(100, Math.round(Number(individual.bloodlinePurity) || 0)));
+    }
+
+    /**
+     * 取得血脉定义。
+     *
+     * @param {string|null} bloodlineId - 血脉稳定 ID；null 表示无血脉。
+     * @returns {BloodlineDefinition|null} 血脉定义；未找到时返回 null。
+     */
+    function getBloodlineDefinition(bloodlineId) {
+        if (!bloodlineId || !Array.isArray(game.definitions.BLOODLINE_DEFINITIONS)) {
+            return null;
+        }
+
+        // number 循环索引：遍历血脉定义数组的整数下标。
+        for (var bloodlineIndex = 0; bloodlineIndex < game.definitions.BLOODLINE_DEFINITIONS.length; bloodlineIndex += 1) {
+            // BloodlineDefinition 当前血脉定义：用于匹配血脉 ID。
+            var bloodlineDefinition = game.definitions.BLOODLINE_DEFINITIONS[bloodlineIndex];
+
+            if (bloodlineDefinition.id === bloodlineId) {
+                return bloodlineDefinition;
+            }
+        }
+
+        return null;
     }
 
     /**
