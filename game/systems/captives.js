@@ -461,7 +461,7 @@
      * 预览俘虏处置收益和风险。
      *
      * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
-     * @param {"bed"|"modify"|"food"} dispositionId - 处置方式 ID。
+     * @param {"bed"|"modify"|"food"|"beast"} dispositionId - 处置方式 ID。
      * @param {GameState=} state - 当前游戏状态对象；提供时会计入天气和建筑修正。
      * @returns {Object.<string, string|number>} 预览对象；包含收益、继承概率、逃脱风险和报复风险。
      */
@@ -517,6 +517,14 @@
             };
         }
 
+        if (dispositionId === "beast") {
+            return {
+                summary: "移入战兽列表，保留姓名；种族显示为原种族加（兽）标志",
+                species: "战兽转化体",
+                isUnlocked: hasHumanBeast(state)
+            };
+        }
+
         return {
             summary: "菌菇 +" + Math.round(40 * qualityMultiplier) + "，服从波动 -2 到 +4",
             fungusGain: Math.round(40 * qualityMultiplier),
@@ -530,7 +538,7 @@
      *
      * @param {GameState} state - 当前游戏状态对象，会被直接修改。
      * @param {string} captiveId - 俘虏稳定 ID。
-     * @param {"bed"|"modify"|"food"} dispositionId - 处置方式 ID。
+     * @param {"bed"|"modify"|"food"|"beast"} dispositionId - 处置方式 ID。
      * @returns {boolean} 是否执行成功；true 表示已应用收益；培育和洗脑会保留俘虏，食物会移除俘虏。
      */
     function applyDisposition(state, captiveId, dispositionId) {
@@ -548,7 +556,7 @@
         // CaptiveState 当前俘虏：用于计算处置结果。
         var captive = state.captives[captiveIndex];
 
-        if (!canApplyDisposition(null, captive, dispositionId)) {
+        if (!canApplyDisposition(state, captive, dispositionId)) {
             return false;
         }
 
@@ -563,8 +571,11 @@
                 }
 
                 applyModifyReward(state, captive);
-            } else {
+            } else if (dispositionId === "food") {
                 applyFoodReward(state, captive);
+                state.captives.splice(captiveIndex, 1);
+            } else {
+                applyBeastConversion(state, captive);
                 state.captives.splice(captiveIndex, 1);
             }
         }
@@ -578,7 +589,7 @@
      *
      * @param {GameState|null} state - 当前游戏状态对象；传入 null 时只检查俘虏自身状态，不检查资源库存。
      * @param {CaptiveState} captive - 俘虏运行时对象，不会被修改。
-     * @param {"bed"|"modify"|"food"} dispositionId - 处置方式 ID。
+     * @param {"bed"|"modify"|"food"|"beast"} dispositionId - 处置方式 ID。
      * @returns {boolean} 是否可以执行；true 表示按钮可生效。
      */
     function canApplyDisposition(state, captive, dispositionId) {
@@ -598,6 +609,10 @@
             var isBrainwashIncomplete = getCaptiveBrainwashRatio(captive) < 1;
 
             return isBrainwashIncomplete && (!state || game.resources.canAfford(state, calculateBrainwashPrice(state)));
+        }
+
+        if (dispositionId === "beast") {
+            return Boolean(state && hasHumanBeast(state));
         }
 
         return dispositionId === "food";
@@ -1071,6 +1086,23 @@
     }
 
     /**
+     * 判断人即是兽科技是否已经完成。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否完成人即是兽；true 表示俘虏卡片显示战兽转化按钮。
+     */
+    function hasHumanBeast(state) {
+        if (!state) {
+            return false;
+        }
+
+        // TechnologyState|null 人即是兽状态：用于控制俘虏转战兽入口。
+        var technologyState = state.technologiesById.human_beast || null;
+
+        return Boolean(technologyState && technologyState.isResearched);
+    }
+
+    /**
      * 推进单个俘虏苗床的孕育或休养状态。
      *
      * @param {GameState} state - 当前游戏状态对象，孕育成功时会新增哥布林。
@@ -1469,6 +1501,28 @@
     }
 
     /**
+     * 将俘虏转化为战兽并写入战兽列表。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会追加战兽。
+     * @param {CaptiveState} captive - 被转化的俘虏对象，不会在本函数中移出俘虏列表。
+     * @returns {void} 无返回值。
+     */
+    function applyBeastConversion(state, captive) {
+        if (!Array.isArray(state.warbeasts)) {
+            state.warbeasts = [];
+        }
+
+        // WarbeastState 转化战兽：保留俘虏姓名和原种族字段。
+        var warbeast = game.warbeastsSystem.createWarbeastFromCaptive(state, captive);
+
+        // CaptiveRaceDefinition|null 原种族定义：用于日志显示转化前种族。
+        var raceDefinition = getCaptiveRaceDefinition(captive.raceId);
+
+        state.warbeasts.push(warbeast);
+        game.simulation.addLog(state, "important", "俘虏 " + (captive.name || captive.id) + " 被转化为战兽，原种族：" + (raceDefinition ? raceDefinition.name : captive.raceId || "未知") + "。");
+    }
+
+    /**
      * 查找俘虏数组索引。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
@@ -1506,6 +1560,7 @@
         applyAutoBreedingIfNeeded: applyAutoBreedingIfNeeded,
         hasDesireEnlightenment: hasDesireEnlightenment,
         hasPublicNursery: hasPublicNursery,
+        hasHumanBeast: hasHumanBeast,
         calculateCaptiveAttributeValue: calculateCaptiveAttributeValue,
         updateMonthlyCaptiveAgingAndLifespan: updateMonthlyCaptiveAgingAndLifespan,
         normalizeCaptiveLifespanFields: normalizeCaptiveLifespanFields,

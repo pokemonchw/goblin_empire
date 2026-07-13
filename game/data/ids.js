@@ -137,6 +137,7 @@
         "crude_tools",
         "desire_enlightenment",
         "public_nursery",
+        "human_beast",
         "clan_rules",
         "overseer_drills",
         "census",

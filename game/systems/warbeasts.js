@@ -100,6 +100,36 @@
     }
 
     /**
+     * 将俘虏转化为战兽对象。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会读取并更新 nextWarbeastIndex 统计值。
+     * @param {CaptiveState} captive - 被转化的俘虏对象，不会在本函数中移出俘虏列表。
+     * @returns {WarbeastState} 转化后的战兽对象；保留俘虏姓名和原种族字段。
+     */
+    function createWarbeastFromCaptive(state, captive) {
+        // number 战兽序号：用于生成稳定 ID，非负整数。
+        var warbeastIndex = state.statistics.nextWarbeastIndex || 0;
+
+        state.statistics.nextWarbeastIndex = warbeastIndex + 1;
+
+        return {
+            id: "warbeast_" + warbeastIndex,
+            speciesId: "converted_captive_beast",
+            name: captive.name || captive.id,
+            source: "captive_conversion",
+            isTamed: false,
+            breedingState: "idle",
+            tamingProgress: 0,
+            gestationSecondsRemaining: 0,
+            restSecondsRemaining: 0,
+            originalCaptiveId: captive.id,
+            originalCaptiveType: captive.type,
+            originalCaptiveRaceId: captive.raceId || "",
+            isConvertedCaptive: true
+        };
+    }
+
+    /**
      * 生成战兽个体名。
      *
      * @param {WarbeastSpeciesDefinition|null} speciesDefinition - 战兽物种定义；缺失时使用通用前缀。
@@ -472,6 +502,7 @@
         getSpeciesDefinition: getSpeciesDefinition,
         tryCaptureFromRaidTarget: tryCaptureFromRaidTarget,
         createWarbeast: createWarbeast,
+        createWarbeastFromCaptive: createWarbeastFromCaptive,
         previewDisposition: previewDisposition,
         canApplyDisposition: canApplyDisposition,
         applyDisposition: applyDisposition,

@@ -285,7 +285,7 @@
      * @property {number} eventLifespanYears - 随机事件提供的寿命，单位为年。
      * @property {number} elderDeathCheckCount - 达到寿命后已通过的月初老死检查次数，非负整数。
      * @property {number} turnsHeld - 持有回合数，非负整数。
-     * @property {"bed"|"modify"|"food"=} disposition - 当前处置 ID，可省略。
+     * @property {"bed"|"modify"|"food"|"beast"=} disposition - 当前处置 ID，可省略。
      * @property {number} brainwashLevel - 洗脑程度，0-100 整数点；数值越高，新生属性越好且孕育失败率越低。
      * @property {boolean} isAutoBrainwashEnabled - 是否对该俘虏启用自动洗脑；true 表示食物充足且洗脑未满时自动消耗菌菇执行洗脑。
      * @property {boolean} isAutoBreedEnabled - 是否对该俘虏启用自动培育；true 表示公用苗床会在洗脑满值、空闲、食物和住房充足时自动开始培育。
@@ -320,6 +320,10 @@
      * @property {number} tamingProgress - 驯化进度，范围 0-100。
      * @property {number} gestationSecondsRemaining - 孕育剩余游戏秒数，非负浮点数。
      * @property {number} restSecondsRemaining - 休养剩余游戏秒数，非负浮点数。
+     * @property {string=} originalCaptiveId - 转化战兽来源俘虏 ID；普通捕获战兽省略。
+     * @property {string=} originalCaptiveType - 转化战兽来源俘虏职业类型 ID；普通捕获战兽省略。
+     * @property {string=} originalCaptiveRaceId - 转化战兽来源俘虏种族 ID；普通捕获战兽省略。
+     * @property {boolean=} isConvertedCaptive - 是否由俘虏转化而来；true 表示种族显示原种族加“(兽)”。
      */
 
     /**

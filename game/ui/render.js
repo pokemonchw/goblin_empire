@@ -1164,6 +1164,7 @@
         appendCaptiveActionButton(actionsElement, state, captive, "modify", game.text.TEXT_REGISTRY.ui.captiveModify);
         appendCaptiveAutoBrainwashButton(actionsElement, state, captive);
         appendCaptiveAutoBreedButton(actionsElement, state, captive);
+        appendCaptiveBeastConversionButton(actionsElement, state, captive);
         appendCaptiveActionButton(actionsElement, state, captive, "food", game.text.TEXT_REGISTRY.ui.captiveFood);
         cardElement.appendChild(actionsElement);
         cardElement.appendChild(renderCaptiveTooltip(state, captive, captiveTypeDefinition, qualityDefinition));
@@ -1218,8 +1219,8 @@
         // WarbeastSpeciesDefinition|null 物种定义：用于显示战兽中文信息。
         var speciesDefinition = game.warbeastsSystem.getSpeciesDefinition(warbeast.speciesId);
 
-        // string 物种显示名：包含种族和类型，便于区分战兽功能。
-        var speciesLabel = speciesDefinition ? speciesDefinition.name + " / " + speciesDefinition.race : warbeast.speciesId;
+        // string 物种显示名：包含物种和当前显示种族，便于区分战兽功能。
+        var speciesLabel = (speciesDefinition ? speciesDefinition.name : warbeast.speciesId) + " / " + formatWarbeastRaceLabel(warbeast, speciesDefinition);
 
         cardElement.className = "captive-row resource-row";
         cardElement.tabIndex = 0;
@@ -1300,7 +1301,7 @@
         tooltipElement.setAttribute("role", "tooltip");
         tooltipElement.appendChild(createTextElement("h4", warbeast.name || warbeast.id));
         appendDefinitionDetail(listElement, "物种", speciesDefinition ? speciesDefinition.name : warbeast.speciesId);
-        appendDefinitionDetail(listElement, "种族", speciesDefinition ? speciesDefinition.race : "未知");
+        appendDefinitionDetail(listElement, "种族", formatWarbeastRaceLabel(warbeast, speciesDefinition));
         appendDefinitionDetail(listElement, "类型", speciesDefinition ? speciesDefinition.type : "未知");
         appendDefinitionDetail(listElement, "特质", speciesDefinition ? speciesDefinition.trait : "未知");
         appendDefinitionDetail(listElement, "来源", formatCaptiveSource(warbeast.source));
@@ -1313,6 +1314,24 @@
         appendDefinitionDetail(listElement, "状态", formatWarbeastBreedingState(warbeast));
         tooltipElement.appendChild(listElement);
         return tooltipElement;
+    }
+
+    /**
+     * 格式化战兽种族显示。
+     *
+     * @param {WarbeastState} warbeast - 战兽运行时对象，不会被修改。
+     * @param {WarbeastSpeciesDefinition|null} speciesDefinition - 战兽物种定义；普通战兽从中读取种族。
+     * @returns {string} 战兽种族中文文本；俘虏转化战兽显示原俘虏种族并追加“(兽)”。
+     */
+    function formatWarbeastRaceLabel(warbeast, speciesDefinition) {
+        if (warbeast.isConvertedCaptive) {
+            // CaptiveRaceDefinition|null 原俘虏种族定义：用于显示转化前种族。
+            var raceDefinition = game.captivesSystem.getCaptiveRaceDefinition(warbeast.originalCaptiveRaceId);
+
+            return (raceDefinition ? raceDefinition.name : warbeast.originalCaptiveRaceId || "未知种族") + "(兽)";
+        }
+
+        return speciesDefinition ? speciesDefinition.race : "未知";
     }
 
     /**
@@ -1383,6 +1402,10 @@
             return "未知来源";
         }
 
+        if (sourceId === "captive_conversion") {
+            return "俘虏转化";
+        }
+
         // RaidTargetDefinition|null 掠夺目标定义：用于把存档中的英文目标 ID 转成中文地点名。
         var raidTargetDefinition = game.raids ? game.raids.getRaidTargetDefinition(sourceId) : null;
 
@@ -1399,7 +1422,7 @@
      * @param {HTMLElement} actionsElement - 处置按钮组元素，会被追加按钮。
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {CaptiveState} captive - 俘虏运行时对象。
-     * @param {"bed"|"modify"|"food"} dispositionId - 处置方式 ID。
+     * @param {"bed"|"modify"|"food"|"beast"} dispositionId - 处置方式 ID。
      * @param {string} labelText - 处置按钮中文文本。
      * @returns {void} 无返回值。
      */
@@ -1413,6 +1436,22 @@
         buttonElement.textContent = labelText;
         buttonElement.disabled = state.isPaused || !game.captivesSystem.canApplyDisposition(state, captive, dispositionId);
         actionsElement.appendChild(buttonElement);
+    }
+
+    /**
+     * 追加俘虏战兽转化按钮。
+     *
+     * @param {HTMLElement} actionsElement - 处置按钮组元素，会在科技完成后追加按钮。
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {CaptiveState} captive - 俘虏运行时对象。
+     * @returns {void} 无返回值；未完成人即是兽时不追加按钮。
+     */
+    function appendCaptiveBeastConversionButton(actionsElement, state, captive) {
+        if (!game.captivesSystem.hasHumanBeast(state)) {
+            return;
+        }
+
+        appendCaptiveActionButton(actionsElement, state, captive, "beast", game.text.TEXT_REGISTRY.ui.captiveConvertBeast);
     }
 
     /**
@@ -2207,7 +2246,7 @@
             return "制度";
         }
 
-        if (technologyId === "beast_pen" || technologyId === "big_club" || technologyId === "crossbow" || technologyId === "desire_enlightenment" || technologyId === "public_nursery" || technologyId === "surface_lore") {
+        if (technologyId === "beast_pen" || technologyId === "big_club" || technologyId === "crossbow" || technologyId === "desire_enlightenment" || technologyId === "public_nursery" || technologyId === "human_beast" || technologyId === "surface_lore") {
             return "军工";
         }
 

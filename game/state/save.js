@@ -368,6 +368,14 @@
             migratedSaveData.warbeasts = [];
         }
 
+        if (sourceVersion < 24) {
+            // v23 旧 shape：战兽只保存掠夺捕获物种，无法标记俘虏转化来源。
+            // v24 新 shape：转化战兽可保存原俘虏 ID、职业、种族和转化标记。
+            // 迁移原因：“人即是兽”科技要求战兽卡片保留俘虏姓名并显示原种族(兽)。
+            migratedSaveData.warbeasts = normalizeSavedWarbeasts(Array.isArray(migratedSaveData.warbeasts) ? migratedSaveData.warbeasts : []);
+            unlockHumanBeastForPublicNurserySaves(migratedSaveData);
+        }
+
         migratedSaveData.version = game.definitions.SAVE_VERSION;
         return migratedSaveData;
     }
@@ -547,6 +555,53 @@
 
         bigClubTechnology.isUnlocked = true;
         bigClubTechnology.isResearched = Boolean(bigClubTechnology.isResearched || shouldResearchBigClub);
+    }
+
+    /**
+     * 为已完成公用苗床的旧存档解锁人即是兽研究。
+     *
+     * @param {SaveData} saveData - v23 或更早存档对象，会直接修改 technologies 数组。
+     * @returns {void} 无返回值。
+     */
+    function unlockHumanBeastForPublicNurserySaves(saveData) {
+        if (!Array.isArray(saveData.technologies)) {
+            return;
+        }
+
+        // Object|null 公用苗床科技存档：用于判断旧档是否已经走完俘虏改造线前置。
+        var publicNurseryTechnology = null;
+
+        // Object|null 人即是兽科技存档：用于补齐新插入科技的显示状态。
+        var humanBeastTechnology = null;
+
+        // number 循环索引：遍历存档科技数组的整数下标。
+        for (var technologyIndex = 0; technologyIndex < saveData.technologies.length; technologyIndex += 1) {
+            // Object 当前科技存档：包含 id、isUnlocked 和 isResearched。
+            var savedTechnology = saveData.technologies[technologyIndex];
+
+            if (savedTechnology.id === "public_nursery") {
+                publicNurseryTechnology = savedTechnology;
+            }
+
+            if (savedTechnology.id === "human_beast") {
+                humanBeastTechnology = savedTechnology;
+            }
+        }
+
+        if (!publicNurseryTechnology || !publicNurseryTechnology.isResearched) {
+            return;
+        }
+
+        if (!humanBeastTechnology) {
+            saveData.technologies.push({
+                id: "human_beast",
+                isUnlocked: true,
+                isResearched: false
+            });
+            return;
+        }
+
+        humanBeastTechnology.isUnlocked = true;
     }
 
     /**
@@ -1205,6 +1260,10 @@
             warbeast.tamingProgress = Math.min(100, Math.max(0, Number(warbeast.tamingProgress) || 0));
             warbeast.gestationSecondsRemaining = Math.max(0, Number(warbeast.gestationSecondsRemaining) || 0);
             warbeast.restSecondsRemaining = Math.max(0, Number(warbeast.restSecondsRemaining) || 0);
+            warbeast.isConvertedCaptive = Boolean(warbeast.isConvertedCaptive);
+            warbeast.originalCaptiveId = warbeast.isConvertedCaptive && typeof warbeast.originalCaptiveId === "string" ? warbeast.originalCaptiveId : "";
+            warbeast.originalCaptiveType = warbeast.isConvertedCaptive && typeof warbeast.originalCaptiveType === "string" ? warbeast.originalCaptiveType : "";
+            warbeast.originalCaptiveRaceId = warbeast.isConvertedCaptive ? normalizeCaptiveRaceId(warbeast.originalCaptiveRaceId, warbeast.originalCaptiveType || "laborer") : "";
 
             if (warbeast.breedingState === "gestating" && warbeast.gestationSecondsRemaining <= 0) {
                 warbeast.gestationSecondsRemaining = 1;

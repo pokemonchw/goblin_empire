@@ -132,6 +132,7 @@
         captiveAutoBreedOn: "自动培育：开",
         captiveAutoBreedOff: "自动培育：关",
         captiveFood: "做成食物",
+        captiveConvertBeast: "战兽转化",
         policiesTitle: "政策",
         policyActive: "生效中",
         policyEffectPrefix: "收益：",
@@ -683,6 +684,10 @@
         public_nursery: {
             name: "公用苗床",
             description: "把洗脑完成的俘虏排入公共苗床名册，按最有价值的血统自动补充新生。"
+        },
+        human_beast: {
+            name: "人即是兽",
+            description: "用兽栏、骨片和欲望改造术证明俘虏也只是可塑形的战兽。"
         },
         clan_rules: {
             name: "氏族规矩",

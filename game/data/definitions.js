@@ -269,7 +269,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 23;
+    var SAVE_VERSION = 24;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -2094,6 +2094,24 @@
             price: [
                 game.pricing.createPrice("crudeKnowledge", 80),
                 game.pricing.createPrice("fungus", 150)
+            ],
+            unlocks: {
+                technologies: [
+                    "human_beast"
+                ]
+            },
+            unlock: {
+                isDefault: false
+            }
+        },
+        {
+            id: "human_beast",
+            name: game.text.TEXT_REGISTRY.technologies.human_beast.name,
+            description: game.text.TEXT_REGISTRY.technologies.human_beast.description,
+            price: [
+                game.pricing.createPrice("crudeKnowledge", 120),
+                game.pricing.createPrice("boneShard", 20),
+                game.pricing.createPrice("fungus", 200)
             ],
             unlocks: {},
             unlock: {
@@ -4905,6 +4923,21 @@
 
     // WarbeastSpeciesDefinition[] 战兽物种定义：控制掠夺捕获来源、口粮、生育倾向和屠宰收益。
     var WARBEAST_SPECIES_DEFINITIONS = [
+        {
+            id: "converted_captive_beast",
+            name: "战兽转化体",
+            race: "转化兽",
+            type: "converted",
+            trait: "残存理智",
+            description: "由俘虏经粗暴科研改造成的战兽，保留原本姓名和种族痕迹。",
+            offspringTraitHint: "strong",
+            attributeBonus: {
+                strength: 2,
+                will: -1
+            },
+            foodConsumptionRatio: 1,
+            captureDifficulty: 1
+        },
         {
             id: "cave_boar",
             name: "洞穴疣猪",
