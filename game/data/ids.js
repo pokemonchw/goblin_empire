@@ -196,26 +196,24 @@
     var FAITH_IDS = [
         "none",
         "goblin_ancestor",
-        "stone_father",
-        "mud_mother",
-        "rat_queen",
-        "green_sun",
-        "moon_root",
-        "iron_warlord",
-        "grave_lamp",
-        "abyss_eye"
+        "stone_throne",
+        "golden_river",
+        "forge_sun",
+        "silent_moon",
+        "mirror_stars",
+        "fertile_sea",
+        "crimson_abyss"
     ];
 
     // string[] 血脉稳定 ID 列表：每条血脉都源于同名或对应神灵。
     var BLOODLINE_IDS = [
-        "stone_father",
-        "mud_mother",
-        "rat_queen",
-        "green_sun",
-        "moon_root",
-        "iron_warlord",
-        "grave_lamp",
-        "abyss_eye"
+        "stone_throne",
+        "golden_river",
+        "forge_sun",
+        "silent_moon",
+        "mirror_stars",
+        "fertile_sea",
+        "crimson_abyss"
     ];
 
     // string[] 政策稳定 ID 列表：按后续政策组引用。

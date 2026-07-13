@@ -44,6 +44,25 @@
         moon_elf: "elf"
     };
 
+    // Object.<string, string> 旧血脉 ID 映射表：key 为七神重设计前血脉 ID，value 为当前七宗罪神系血脉 ID。
+    var LEGACY_BLOODLINE_ID_ALIASES = {
+        stone_father: "stone_throne",
+        mud_mother: "fertile_sea",
+        rat_queen: "golden_river",
+        green_sun: "fertile_sea",
+        moon_root: "silent_moon",
+        iron_warlord: "forge_sun",
+        grave_lamp: "silent_moon",
+        abyss_eye: "crimson_abyss",
+        arrogant_mountain: "stone_throne",
+        greedy_river: "golden_river",
+        wrath_sun: "forge_sun",
+        sloth_moon: "silent_moon",
+        envious_stars: "mirror_stars",
+        gluttonous_sea: "fertile_sea",
+        lust_abyss: "crimson_abyss"
+    };
+
     // string[] 俘虏名池：生成后写入 CaptiveState.name，避免列表中同类俘虏无法区分。
     var CAPTIVE_NAME_POOL = [
         "阿苔",
@@ -356,12 +375,15 @@
             return null;
         }
 
+        // string|null 当前信仰 ID：兼容旧神灵 ID 后用于反查同源血脉。
+        var normalizedFaithId = game.faithSystem && game.faithSystem.normalizeFaithId ? game.faithSystem.normalizeFaithId(faithId) : faithId;
+
         // number 循环索引：遍历血脉定义数组的整数下标。
         for (var bloodlineIndex = 0; bloodlineIndex < game.definitions.BLOODLINE_DEFINITIONS.length; bloodlineIndex += 1) {
             // BloodlineDefinition 当前血脉定义：用于匹配来源神灵 ID。
             var bloodlineDefinition = game.definitions.BLOODLINE_DEFINITIONS[bloodlineIndex];
 
-            if (bloodlineDefinition.deityFaithId === faithId) {
+            if (bloodlineDefinition.deityFaithId === normalizedFaithId) {
                 return bloodlineDefinition;
             }
         }
@@ -1341,12 +1363,15 @@
             return null;
         }
 
+        // string 规范化血脉 ID：兼容旧存档中的重设计前血脉。
+        var normalizedBloodlineId = LEGACY_BLOODLINE_ID_ALIASES[bloodlineId] || bloodlineId;
+
         // number 循环索引：遍历血脉定义数组的整数下标。
         for (var bloodlineIndex = 0; bloodlineIndex < game.definitions.BLOODLINE_DEFINITIONS.length; bloodlineIndex += 1) {
             // BloodlineDefinition 当前血脉定义：用于匹配血脉 ID。
             var bloodlineDefinition = game.definitions.BLOODLINE_DEFINITIONS[bloodlineIndex];
 
-            if (bloodlineDefinition.id === bloodlineId) {
+            if (bloodlineDefinition.id === normalizedBloodlineId) {
                 return bloodlineDefinition;
             }
         }

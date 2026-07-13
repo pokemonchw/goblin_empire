@@ -79,6 +79,7 @@
      * @property {string} name - 信仰中文显示名。
      * @property {string} description - 信仰中文说明。
      * @property {string} domain - 信仰领域中文标签，用于后续仪式或外交扩展。
+     * @property {string} sin - 七宗罪中文标签；none 和 goblin_ancestor 使用“无”。
      */
 
     /**
@@ -269,6 +270,7 @@
      * @property {string} deityFaithId - 来源神灵 ID，必须对应 FaithDefinition.id。
      * @property {string} description - 中文说明。
      * @property {Object.<string, number>} jobOutputRatios - 职业产出加成字典；key 为 JobDefinition.id，value 为 100% 纯度时的加成比例。
+     * @property {Object.<string, number>} jobPenaltyRatios - 七宗罪负面职业字典；key 为 JobDefinition.id，value 为 100% 纯度时的产出惩罚比例。
      */
 
     /**
@@ -287,7 +289,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 28;
+    var SAVE_VERSION = 29;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -4237,145 +4239,163 @@
             id: "none",
             name: "无信仰",
             description: "没有稳定敬奉对象，或在关押中拒绝透露原本信仰。",
-            domain: "无"
+            domain: "无",
+            sin: "无"
         },
         {
             id: "goblin_ancestor",
             name: "哥布林祖灵",
             description: "祖灵祭坛建立后，氏族哥布林默认敬奉的粗砺祖灵。",
-            domain: "祖灵"
+            domain: "祖灵",
+            sin: "无"
         },
         {
-            id: "stone_father",
-            name: "石父",
-            description: "矿脉、锻炉和地下誓言的守护神。",
-            domain: "矿石"
+            id: "stone_throne",
+            name: "岩座",
+            description: "山脉、矿脉和王权高座的神灵，赐予坚岩耐力，也让血裔难以服从低位命令。",
+            domain: "山脉",
+            sin: "傲慢"
         },
         {
-            id: "mud_mother",
-            name: "泥母",
-            description: "沼泽、鳞皮和湿地生养的古老神灵。",
-            domain: "沼泽"
+            id: "golden_river",
+            name: "金河",
+            description: "河川、商路和暗流财富的神灵，赐予账册嗅觉，也让血裔过度囤积。",
+            domain: "川流",
+            sin: "贪婪"
         },
         {
-            id: "rat_queen",
-            name: "鼠后",
-            description: "商路、窃取、巢群和暗道繁衍的庇护者。",
-            domain: "暗道"
+            id: "forge_sun",
+            name: "炉日",
+            description: "日轮、锻炉和战旗的神灵，赐予熔火与冲锋，也让血裔暴烈难驯。",
+            domain: "日轮",
+            sin: "暴怒"
         },
         {
-            id: "green_sun",
-            name: "绿日",
-            description: "地表农庄、边境村落和草药师常见的丰饶信仰。",
-            domain: "丰饶"
+            id: "silent_moon",
+            name: "静月",
+            description: "月相、梦境和静墓的神灵，赐予祭祀沉思，也让血裔行动迟缓。",
+            domain: "月亮",
+            sin: "懒惰"
         },
         {
-            id: "moon_root",
-            name: "月根",
-            description: "林缘、长寿血脉和古代根系记忆的灵性信仰。",
-            domain: "林月"
+            id: "mirror_stars",
+            name: "镜星",
+            description: "星辰、预兆和符文抄本的神灵，赐予窥秘才能，也让血裔嫉恨同伴成果。",
+            domain: "星辰",
+            sin: "嫉妒"
         },
         {
-            id: "iron_warlord",
-            name: "铁战王",
-            description: "边境军营、兽人战群和强者统治崇拜的战神。",
-            domain: "战争"
+            id: "fertile_sea",
+            name: "沃海",
+            description: "海洋、潮汐和无尽食欲的神灵，赐予丰产体质，也让血裔吞耗更多补给。",
+            domain: "海洋",
+            sin: "暴食"
         },
         {
-            id: "grave_lamp",
-            name: "墓灯",
-            description: "亡灵、寒墓贵胄和不死仆从敬畏的幽暗灯火。",
-            domain: "亡灵"
-        },
-        {
-            id: "abyss_eye",
-            name: "深渊之眼",
-            description: "裂隙、影裔和符文构装背后窥视现实的深渊神性。",
-            domain: "深渊"
+            id: "crimson_abyss",
+            name: "绯渊",
+            description: "深渊、繁衍和魔性欲望的神灵，赐予裂隙亲和，也让血裔沉溺冲动。",
+            domain: "深渊",
+            sin: "色欲"
         }
     ];
 
     // BloodlineDefinition[] 血脉定义列表：每条血脉都源于一个神灵，纯度保存在个体上。
     var BLOODLINE_DEFINITIONS = [
         {
-            id: "green_sun",
-            name: "绿日血脉",
-            deityFaithId: "green_sun",
-            description: "源于绿日的丰饶血脉，纯度越高，采菌与农作类工作产出的菌菇越多。",
+            id: "stone_throne",
+            name: "岩座血脉",
+            deityFaithId: "stone_throne",
+            description: "源于岩座的山脉血脉，纯度越高，采矿和深矿越强；傲慢会削弱监工协调。",
             jobOutputRatios: {
-                forager: 0.3
+                miner: 0.28,
+                deep_miner: 0.22
+            },
+            jobPenaltyRatios: {
+                overseer: 0.08
             }
         },
         {
-            id: "stone_father",
-            name: "石父血脉",
-            deityFaithId: "stone_father",
-            description: "源于石父的矿脉血脉，纯度越高，采矿类工作产出的矿石和碎料越多。",
+            id: "golden_river",
+            name: "金河血脉",
+            deityFaithId: "golden_river",
+            description: "源于金河的川流血脉，纯度越高，账房和搬运越精明；贪婪会拖慢基础采集。",
             jobOutputRatios: {
-                hauler: 0.2,
-                miner: 0.25,
-                deep_miner: 0.25
+                hauler: 0.14,
+                accountant: 0.24
+            },
+            jobPenaltyRatios: {
+                forager: 0.08
             }
         },
         {
-            id: "mud_mother",
-            name: "泥母血脉",
-            deityFaithId: "mud_mother",
-            description: "源于泥母的湿地血脉，纯度越高，采集和搬运湿泥物资时越稳定。",
+            id: "forge_sun",
+            name: "炉日血脉",
+            deityFaithId: "forge_sun",
+            description: "源于炉日的日轮血脉，纯度越高，熔炼、抢掠和战争指挥越强；暴怒会干扰祭祀耐心。",
             jobOutputRatios: {
-                forager: 0.12,
-                hauler: 0.12
+                smelter: 0.12,
+                raider: 0.24,
+                war_chief: 0.24
+            },
+            jobPenaltyRatios: {
+                witch_doctor: 0.1
             }
         },
         {
-            id: "rat_queen",
-            name: "鼠后血脉",
-            deityFaithId: "rat_queen",
-            description: "源于鼠后的暗道血脉，纯度越高，账册、搬运和走私类工作越灵活。",
+            id: "silent_moon",
+            name: "静月血脉",
+            deityFaithId: "silent_moon",
+            description: "源于静月的月相血脉，纯度越高，巫医和符文沉思越深；懒惰会削弱体力劳动。",
             jobOutputRatios: {
-                hauler: 0.1,
-                accountant: 0.2
+                witch_doctor: 0.22,
+                rune_smith: 0.12
+            },
+            jobPenaltyRatios: {
+                hauler: 0.08,
+                miner: 0.08
             }
         },
         {
-            id: "moon_root",
-            name: "月根血脉",
-            deityFaithId: "moon_root",
-            description: "源于月根的林月血脉，纯度越高，草药、符文和感知类工作收益越好。",
+            id: "mirror_stars",
+            name: "镜星血脉",
+            deityFaithId: "mirror_stars",
+            description: "源于镜星的星辰血脉，纯度越高，符文和深矿预兆越敏锐；嫉妒会扰乱账册协作。",
             jobOutputRatios: {
-                forager: 0.12,
-                witch_doctor: 0.18,
-                rune_smith: 0.18
+                rune_smith: 0.26,
+                deep_miner: 0.14
+            },
+            jobPenaltyRatios: {
+                accountant: 0.08
             }
         },
         {
-            id: "iron_warlord",
-            name: "铁战王血脉",
-            deityFaithId: "iron_warlord",
-            description: "源于铁战王的战争血脉，纯度越高，抢掠和战斗指挥类工作越强。",
+            id: "fertile_sea",
+            name: "沃海血脉",
+            deityFaithId: "fertile_sea",
+            description: "源于沃海的海洋血脉，纯度越高，采菌和湿重搬运越旺盛；暴食会削弱精细工坊纪律。",
             jobOutputRatios: {
-                raider: 0.25,
-                war_chief: 0.25
+                forager: 0.3,
+                hauler: 0.1
+            },
+            jobPenaltyRatios: {
+                crafter: 0.08,
+                engineer: 0.08
             }
         },
         {
-            id: "grave_lamp",
-            name: "墓灯血脉",
-            deityFaithId: "grave_lamp",
-            description: "源于墓灯的寒墓血脉，纯度越高，祭祀和污染材料处理越有效。",
+            id: "crimson_abyss",
+            name: "绯渊血脉",
+            deityFaithId: "crimson_abyss",
+            description: "源于绯渊的深渊血脉，纯度越高，深渊、魔性和裂隙作业越强；色欲会削弱战斗纪律。",
             jobOutputRatios: {
-                witch_doctor: 0.2,
-                smelter: 0.08
-            }
-        },
-        {
-            id: "abyss_eye",
-            name: "深渊之眼血脉",
-            deityFaithId: "abyss_eye",
-            description: "源于深渊之眼的裂隙血脉，纯度越高，符文、深矿和深渊作业越危险有效。",
-            jobOutputRatios: {
-                rune_smith: 0.25,
-                deep_miner: 0.2
+                witch_doctor: 0.12,
+                rune_smith: 0.12,
+                deep_miner: 0.24
+            },
+            jobPenaltyRatios: {
+                raider: 0.08,
+                war_chief: 0.08
             }
         }
     ];
@@ -4388,7 +4408,7 @@
             description: "地表村落、边城和商路中最常见的人类俘虏，职业跨度大但寿命普通。",
             worldId: "surface",
             factionId: "surface_border_city",
-            primaryFaithId: "green_sun",
+            primaryFaithId: "fertile_sea",
             locationWeights: [{ id: "surface_village", weight: 6 }, { id: "noble_carriage", weight: 3 }, { id: "surface_barracks", weight: 3 }, { id: "fungus_farm_cave", weight: 1 }],
             captiveTypeWeights: [{ id: "laborer", weight: 4 }, { id: "accountant", weight: 2 }, { id: "artisan", weight: 2 }, { id: "herbalist", weight: 2 }, { id: "warrior", weight: 2 }, { id: "noble", weight: 1 }],
             qualityWeights: [{ id: "common", weight: 58 }, { id: "skilled", weight: 30 }, { id: "elite", weight: 10 }, { id: "legendary", weight: 2 }],
@@ -4402,7 +4422,7 @@
             description: "矿盟、深层宫廷和遗迹中的矮人俘虏，耐久、强壮，擅长矿业和熔炼。",
             worldId: "underground",
             factionId: "gray_dwarf_mine_league",
-            primaryFaithId: "stone_father",
+            primaryFaithId: "stone_throne",
             locationWeights: [{ id: "mine_league_outpost", weight: 8 }, { id: "caravan_camp", weight: 2 }, { id: "ancient_ruin", weight: 2 }],
             captiveTypeWeights: [{ id: "artisan", weight: 4 }, { id: "accountant", weight: 2 }, { id: "warrior", weight: 2 }],
             qualityWeights: [{ id: "common", weight: 35 }, { id: "skilled", weight: 42 }, { id: "elite", weight: 18 }, { id: "legendary", weight: 5 }],
@@ -4416,7 +4436,7 @@
             description: "地下商路和菌田间活动的鼠人，敏捷、短寿、数量多。",
             worldId: "underground",
             factionId: "rat_caravan",
-            primaryFaithId: "rat_queen",
+            primaryFaithId: "golden_river",
             locationWeights: [{ id: "fungus_farm_cave", weight: 7 }, { id: "caravan_camp", weight: 3 }],
             captiveTypeWeights: [{ id: "laborer", weight: 4 }, { id: "accountant", weight: 2 }, { id: "herbalist", weight: 2 }],
             qualityWeights: [{ id: "common", weight: 78 }, { id: "skilled", weight: 18 }, { id: "elite", weight: 3 }, { id: "legendary", weight: 1 }],
@@ -4430,7 +4450,7 @@
             description: "沼部氏族的鳞皮猎手，强壮且适应湿热环境。",
             worldId: "surface",
             factionId: "lizard_swamp_clan",
-            primaryFaithId: "mud_mother",
+            primaryFaithId: "fertile_sea",
             locationWeights: [{ id: "surface_village", weight: 6 }, { id: "surface_barracks", weight: 2 }],
             captiveTypeWeights: [{ id: "warrior", weight: 4 }, { id: "herbalist", weight: 2 }, { id: "laborer", weight: 2 }],
             qualityWeights: [{ id: "common", weight: 52 }, { id: "skilled", weight: 32 }, { id: "elite", weight: 13 }, { id: "legendary", weight: 3 }],
@@ -4444,7 +4464,7 @@
             description: "矿洞边缘的小型族群，擅长搬运、陷坑和浅矿杂活。",
             worldId: "underground",
             factionId: "goblin_black_market",
-            primaryFaithId: "stone_father",
+            primaryFaithId: "stone_throne",
             locationWeights: [{ id: "caravan_camp", weight: 4 }, { id: "mine_league_outpost", weight: 3 }, { id: "fungus_farm_cave", weight: 2 }],
             captiveTypeWeights: [{ id: "laborer", weight: 4 }, { id: "artisan", weight: 2 }, { id: "warrior", weight: 1 }],
             qualityWeights: [{ id: "common", weight: 68 }, { id: "skilled", weight: 24 }, { id: "elite", weight: 7 }, { id: "legendary", weight: 1 }],
@@ -4458,7 +4478,7 @@
             description: "商队和工坊里的小个子机关匠，适合账房和细作。",
             worldId: "underground",
             factionId: "goblin_black_market",
-            primaryFaithId: "stone_father",
+            primaryFaithId: "golden_river",
             locationWeights: [{ id: "caravan_camp", weight: 5 }, { id: "mine_league_outpost", weight: 2 }, { id: "noble_carriage", weight: 1 }],
             captiveTypeWeights: [{ id: "artisan", weight: 4 }, { id: "accountant", weight: 3 }, { id: "magic_talent", weight: 1 }],
             qualityWeights: [{ id: "common", weight: 38 }, { id: "skilled", weight: 42 }, { id: "elite", weight: 16 }, { id: "legendary", weight: 4 }],
@@ -4472,7 +4492,7 @@
             description: "商路和农庄里的半身人，顺从、灵巧，优质个体较少。",
             worldId: "surface",
             factionId: "rat_caravan",
-            primaryFaithId: "green_sun",
+            primaryFaithId: "fertile_sea",
             locationWeights: [{ id: "surface_village", weight: 4 }, { id: "caravan_camp", weight: 3 }, { id: "fungus_farm_cave", weight: 1 }],
             captiveTypeWeights: [{ id: "laborer", weight: 3 }, { id: "accountant", weight: 2 }, { id: "herbalist", weight: 2 }],
             qualityWeights: [{ id: "common", weight: 62 }, { id: "skilled", weight: 30 }, { id: "elite", weight: 7 }, { id: "legendary", weight: 1 }],
@@ -4486,7 +4506,7 @@
             description: "地表林缘、车队和古代遗迹中的精灵俘虏，长寿、感知敏锐且魔性较强。",
             worldId: "surface",
             factionId: "surface_border_city",
-            primaryFaithId: "moon_root",
+            primaryFaithId: "silent_moon",
             locationWeights: [{ id: "surface_village", weight: 2 }, { id: "noble_carriage", weight: 5 }, { id: "ancient_ruin", weight: 4 }],
             captiveTypeWeights: [{ id: "herbalist", weight: 3 }, { id: "magic_talent", weight: 3 }, { id: "noble", weight: 1 }, { id: "shrine_acolyte", weight: 2 }, { id: "warrior", weight: 1 }],
             qualityWeights: [{ id: "common", weight: 23 }, { id: "skilled", weight: 39 }, { id: "elite", weight: 28 }, { id: "legendary", weight: 10 }],
@@ -4500,7 +4520,7 @@
             description: "边境兵营和荒地营寨的战斗种，力量高，细活差。",
             worldId: "surface",
             factionId: "surface_border_city",
-            primaryFaithId: "iron_warlord",
+            primaryFaithId: "forge_sun",
             locationWeights: [{ id: "surface_barracks", weight: 6 }, { id: "surface_village", weight: 2 }],
             captiveTypeWeights: [{ id: "warrior", weight: 5 }, { id: "laborer", weight: 2 }, { id: "ascetic", weight: 1 }],
             qualityWeights: [{ id: "common", weight: 48 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 15 }, { id: "legendary", weight: 3 }],
@@ -4514,7 +4534,7 @@
             description: "少量被兵营或深洞奴役的巨魔血脉，极强壮但反应迟缓。",
             worldId: "surface",
             factionId: "surface_border_city",
-            primaryFaithId: "iron_warlord",
+            primaryFaithId: "forge_sun",
             locationWeights: [{ id: "surface_barracks", weight: 4 }, { id: "ancient_ruin", weight: 1 }],
             captiveTypeWeights: [{ id: "warrior", weight: 4 }, { id: "laborer", weight: 3 }],
             qualityWeights: [{ id: "common", weight: 42 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 19 }, { id: "legendary", weight: 5 }],
@@ -4528,7 +4548,7 @@
             description: "高崖和军路上的飞掠族，敏捷、感知强，关押成本高。",
             worldId: "surface",
             factionId: "surface_border_city",
-            primaryFaithId: "moon_root",
+            primaryFaithId: "mirror_stars",
             locationWeights: [{ id: "noble_carriage", weight: 2 }, { id: "surface_barracks", weight: 3 }],
             captiveTypeWeights: [{ id: "warrior", weight: 3 }, { id: "herbalist", weight: 2 }, { id: "magic_talent", weight: 1 }],
             qualityWeights: [{ id: "common", weight: 44 }, { id: "skilled", weight: 36 }, { id: "elite", weight: 16 }, { id: "legendary", weight: 4 }],
@@ -4542,7 +4562,7 @@
             description: "湿地水道里的水栖族，采药和仪式适性高。",
             worldId: "surface",
             factionId: "lizard_swamp_clan",
-            primaryFaithId: "mud_mother",
+            primaryFaithId: "fertile_sea",
             locationWeights: [{ id: "surface_village", weight: 5 }, { id: "ancient_ruin", weight: 1 }],
             captiveTypeWeights: [{ id: "herbalist", weight: 4 }, { id: "shrine_acolyte", weight: 2 }, { id: "laborer", weight: 2 }],
             qualityWeights: [{ id: "common", weight: 50 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 13 }, { id: "legendary", weight: 3 }],
@@ -4556,7 +4576,7 @@
             description: "菌田深处的半植物族群，寿命怪异，适合早期口粮循环。",
             worldId: "underground",
             factionId: "rat_caravan",
-            primaryFaithId: "green_sun",
+            primaryFaithId: "fertile_sea",
             locationWeights: [{ id: "fungus_farm_cave", weight: 8 }, { id: "ancient_ruin", weight: 1 }],
             captiveTypeWeights: [{ id: "laborer", weight: 3 }, { id: "herbalist", weight: 4 }, { id: "shrine_acolyte", weight: 1 }],
             qualityWeights: [{ id: "common", weight: 72 }, { id: "skilled", weight: 22 }, { id: "elite", weight: 5 }, { id: "legendary", weight: 1 }],
@@ -4570,7 +4590,7 @@
             description: "深渊裂隙附近的半影生灵，魔性强，肉身脆弱。",
             worldId: "abyss",
             factionId: "abyss_emissary",
-            primaryFaithId: "abyss_eye",
+            primaryFaithId: "crimson_abyss",
             locationWeights: [{ id: "ancient_ruin", weight: 6 }, { id: "noble_carriage", weight: 1 }],
             captiveTypeWeights: [{ id: "magic_talent", weight: 4 }, { id: "shrine_acolyte", weight: 3 }, { id: "ascetic", weight: 1 }],
             qualityWeights: [{ id: "common", weight: 22 }, { id: "skilled", weight: 36 }, { id: "elite", weight: 30 }, { id: "legendary", weight: 12 }],
@@ -4584,7 +4604,7 @@
             description: "亡灵领主周边的活尸血脉，耐劳、污染重。",
             worldId: "abyss",
             factionId: "undead_lord",
-            primaryFaithId: "grave_lamp",
+            primaryFaithId: "silent_moon",
             locationWeights: [{ id: "ancient_ruin", weight: 7 }, { id: "mine_league_outpost", weight: 1 }],
             captiveTypeWeights: [{ id: "undead_captive", weight: 4 }, { id: "laborer", weight: 2 }, { id: "ascetic", weight: 2 }],
             qualityWeights: [{ id: "common", weight: 58 }, { id: "skilled", weight: 28 }, { id: "elite", weight: 11 }, { id: "legendary", weight: 3 }],
@@ -4598,7 +4618,7 @@
             description: "古墓贵族的亡灵残裔，少见而危险，仪式价值高。",
             worldId: "abyss",
             factionId: "undead_lord",
-            primaryFaithId: "grave_lamp",
+            primaryFaithId: "silent_moon",
             locationWeights: [{ id: "ancient_ruin", weight: 8 }],
             captiveTypeWeights: [{ id: "undead_captive", weight: 4 }, { id: "noble", weight: 2 }, { id: "shrine_acolyte", weight: 2 }],
             qualityWeights: [{ id: "common", weight: 18 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 34 }, { id: "legendary", weight: 14 }],
@@ -4612,7 +4632,7 @@
             description: "遗迹中残存的仿生构装俘获物，不繁盛但品质上限高。",
             worldId: "abyss",
             factionId: "abyss_emissary",
-            primaryFaithId: "abyss_eye",
+            primaryFaithId: "mirror_stars",
             locationWeights: [{ id: "ancient_ruin", weight: 7 }, { id: "surface_barracks", weight: 1 }],
             captiveTypeWeights: [{ id: "artisan", weight: 3 }, { id: "magic_talent", weight: 3 }, { id: "warrior", weight: 1 }],
             qualityWeights: [{ id: "common", weight: 12 }, { id: "skilled", weight: 34 }, { id: "elite", weight: 38 }, { id: "legendary", weight: 16 }],

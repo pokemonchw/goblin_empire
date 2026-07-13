@@ -36,6 +36,25 @@
         moon_elf: "elf"
     };
 
+    // Object.<string, string> 旧血脉 ID 映射表：key 为七神重设计前血脉 ID，value 为当前七宗罪神系血脉 ID。
+    var LEGACY_BLOODLINE_ID_ALIASES = {
+        stone_father: "stone_throne",
+        mud_mother: "fertile_sea",
+        rat_queen: "golden_river",
+        green_sun: "fertile_sea",
+        moon_root: "silent_moon",
+        iron_warlord: "forge_sun",
+        grave_lamp: "silent_moon",
+        abyss_eye: "crimson_abyss",
+        arrogant_mountain: "stone_throne",
+        greedy_river: "golden_river",
+        wrath_sun: "forge_sun",
+        sloth_moon: "silent_moon",
+        envious_stars: "mirror_stars",
+        gluttonous_sea: "fertile_sea",
+        lust_abyss: "crimson_abyss"
+    };
+
     /**
      * 将运行时状态压缩为存档结构。
      *
@@ -417,6 +436,14 @@
             // v28 新 shape：祖灵作为资源保存，建成祭坛后自然老死 +1，并提供战斗职业全属性加成。
             // 迁移原因：旧档若已经建成祖灵祭坛，读档后应立即看到祖灵资源入口。
             revealAncestorSpiritForBuiltAltarSaveData(migratedSaveData);
+        }
+
+        if (sourceVersion < 29) {
+            // v28 旧 shape：非祖灵神灵和血脉使用八神 ID。
+            // v29 新 shape：非祖灵神灵改为七宗罪七神，旧 faithId 和 bloodlineId 读档时映射到新神系。
+            // 迁移原因：神灵重设计改变了持久 ID 集合，旧档应保留信仰、血脉和纯度语义。
+            migratedSaveData.goblins = normalizeSavedGoblins(Array.isArray(migratedSaveData.goblins) ? migratedSaveData.goblins : []);
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
 
         migratedSaveData.version = game.definitions.SAVE_VERSION;
@@ -1363,7 +1390,7 @@
      */
     function normalizeBloodlineFields(individual) {
         // string|null 血脉 ID：必须对应当前血脉定义；无效值按无血脉处理。
-        var bloodlineId = typeof individual.bloodlineId === "string" ? individual.bloodlineId : null;
+        var bloodlineId = typeof individual.bloodlineId === "string" ? LEGACY_BLOODLINE_ID_ALIASES[individual.bloodlineId] || individual.bloodlineId : null;
 
         // BloodlineDefinition|null 血脉定义：用于验证旧存档或导入文本中的血脉 ID。
         var bloodlineDefinition = getBloodlineDefinition(bloodlineId);
@@ -1389,12 +1416,15 @@
             return null;
         }
 
+        // string 规范化血脉 ID：兼容旧存档中的重设计前血脉。
+        var normalizedBloodlineId = LEGACY_BLOODLINE_ID_ALIASES[bloodlineId] || bloodlineId;
+
         // number 循环索引：遍历血脉定义数组的整数下标。
         for (var bloodlineIndex = 0; bloodlineIndex < game.definitions.BLOODLINE_DEFINITIONS.length; bloodlineIndex += 1) {
             // BloodlineDefinition 当前血脉定义：用于匹配血脉 ID。
             var bloodlineDefinition = game.definitions.BLOODLINE_DEFINITIONS[bloodlineIndex];
 
-            if (bloodlineDefinition.id === bloodlineId) {
+            if (bloodlineDefinition.id === normalizedBloodlineId) {
                 return bloodlineDefinition;
             }
         }

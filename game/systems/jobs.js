@@ -9,6 +9,25 @@
     // number 职业经验基础增长：单位为经验/秒。
     var JOB_XP_PER_SECOND = 0.25;
 
+    // Object.<string, string> 旧血脉 ID 映射：把七神重设计前的血脉迁移到当前七宗罪神系。
+    var LEGACY_BLOODLINE_ID_ALIASES = {
+        stone_father: "stone_throne",
+        mud_mother: "fertile_sea",
+        rat_queen: "golden_river",
+        green_sun: "fertile_sea",
+        moon_root: "silent_moon",
+        iron_warlord: "forge_sun",
+        grave_lamp: "silent_moon",
+        abyss_eye: "crimson_abyss",
+        arrogant_mountain: "stone_throne",
+        greedy_river: "golden_river",
+        wrath_sun: "forge_sun",
+        sloth_moon: "silent_moon",
+        envious_stars: "mirror_stars",
+        gluttonous_sea: "fertile_sea",
+        lust_abyss: "crimson_abyss"
+    };
+
     /**
      * 取得职业定义。
      *
@@ -535,27 +554,32 @@
      *
      * @param {Goblin} goblin - 当前哥布林对象，不会被修改。
      * @param {JobDefinition} jobDefinition - 职业定义对象，用于匹配血脉加成职业。
-     * @returns {number} 血脉产出倍率，至少为 1；加成按血脉纯度百分比线性缩放。
+     * @returns {number} 血脉产出倍率，至少为 0；正面加成和七宗罪惩罚都按血脉纯度百分比线性缩放。
      */
     function calculateBloodlineModifier(goblin, jobDefinition) {
         // BloodlineDefinition|null 血脉定义：无血脉或无效血脉不提供加成。
         var bloodlineDefinition = getBloodlineDefinition(goblin.bloodlineId);
 
-        if (!bloodlineDefinition || !bloodlineDefinition.jobOutputRatios) {
-            return 1;
-        }
-
-        // number 满纯加成比例：该血脉对当前职业在 100% 纯度时的产出加成。
-        var fullPurityRatio = Number(bloodlineDefinition.jobOutputRatios[jobDefinition.id]) || 0;
-
-        if (fullPurityRatio <= 0) {
+        if (!bloodlineDefinition) {
             return 1;
         }
 
         // number 纯度比例：个体血脉纯度从百分比转为 0-1 浮点比例。
         var purityRatio = Math.max(0, Math.min(1, (Number(goblin.bloodlinePurity) || 0) / 100));
 
-        return 1 + fullPurityRatio * purityRatio;
+        // number 满纯加成比例：该血脉对当前职业在 100% 纯度时的正面产出加成。
+        var fullPurityOutputRatio = bloodlineDefinition.jobOutputRatios ? Number(bloodlineDefinition.jobOutputRatios[jobDefinition.id]) || 0 : 0;
+
+        // number 满纯惩罚比例：对应七宗罪在 100% 纯度时对当前职业的负面产出惩罚。
+        var fullPurityPenaltyRatio = bloodlineDefinition.jobPenaltyRatios ? Number(bloodlineDefinition.jobPenaltyRatios[jobDefinition.id]) || 0 : 0;
+
+        // number 正面倍率：权柄相关增幅按纯度线性提升。
+        var positiveModifier = 1 + Math.max(0, fullPurityOutputRatio) * purityRatio;
+
+        // number 负面倍率：七宗罪副作用按纯度线性压低对应职业产出。
+        var negativeModifier = Math.max(0, 1 - Math.max(0, fullPurityPenaltyRatio) * purityRatio);
+
+        return positiveModifier * negativeModifier;
     }
 
     /**
@@ -569,12 +593,15 @@
             return null;
         }
 
+        // string 规范化血脉 ID：兼容旧存档中的重设计前血脉。
+        var normalizedBloodlineId = LEGACY_BLOODLINE_ID_ALIASES[bloodlineId] || bloodlineId;
+
         // number 循环索引：遍历血脉定义数组的整数下标。
         for (var bloodlineIndex = 0; bloodlineIndex < game.definitions.BLOODLINE_DEFINITIONS.length; bloodlineIndex += 1) {
             // BloodlineDefinition 当前血脉定义：用于匹配血脉 ID。
             var bloodlineDefinition = game.definitions.BLOODLINE_DEFINITIONS[bloodlineIndex];
 
-            if (bloodlineDefinition.id === bloodlineId) {
+            if (bloodlineDefinition.id === normalizedBloodlineId) {
                 return bloodlineDefinition;
             }
         }

@@ -18,6 +18,25 @@
     // number 次要信仰权重：允许少量俘虏信仰其他非祖灵神灵。
     var SECONDARY_FAITH_WEIGHT = 1;
 
+    // Object.<string, string> 旧信仰 ID 映射：把七神重设计前的神灵迁移到当前七宗罪神系。
+    var LEGACY_FAITH_ID_ALIASES = {
+        stone_father: "stone_throne",
+        mud_mother: "fertile_sea",
+        rat_queen: "golden_river",
+        green_sun: "fertile_sea",
+        moon_root: "silent_moon",
+        iron_warlord: "forge_sun",
+        grave_lamp: "silent_moon",
+        abyss_eye: "crimson_abyss",
+        arrogant_mountain: "stone_throne",
+        greedy_river: "golden_river",
+        wrath_sun: "forge_sun",
+        sloth_moon: "silent_moon",
+        envious_stars: "mirror_stars",
+        gluttonous_sea: "fertile_sea",
+        lust_abyss: "crimson_abyss"
+    };
+
     /**
      * 取得信仰定义。
      *
@@ -29,12 +48,15 @@
             return null;
         }
 
+        // string 规范化信仰 ID：兼容旧存档中的重设计前神名。
+        var normalizedFaithId = LEGACY_FAITH_ID_ALIASES[faithId] || faithId;
+
         // number 循环索引：遍历信仰定义数组的整数下标。
         for (var faithIndex = 0; faithIndex < game.definitions.FAITH_DEFINITIONS.length; faithIndex += 1) {
             // FaithDefinition 当前信仰定义：用于匹配稳定 ID。
             var faithDefinition = game.definitions.FAITH_DEFINITIONS[faithIndex];
 
-            if (faithDefinition.id === faithId) {
+            if (faithDefinition.id === normalizedFaithId) {
                 return faithDefinition;
             }
         }
@@ -74,7 +96,7 @@
         var raceDefinition = getCaptiveRaceDefinition(raceId);
 
         // string 主要信仰 ID：缺失或未知时退回丰饶信仰。
-        var primaryFaithId = raceDefinition && getFaithDefinition(raceDefinition.primaryFaithId) ? raceDefinition.primaryFaithId : "green_sun";
+        var primaryFaithId = raceDefinition && getFaithDefinition(raceDefinition.primaryFaithId) ? normalizeFaithId(raceDefinition.primaryFaithId) : "fertile_sea";
 
         return selectWeightedFaithId(primaryFaithId);
     }
@@ -87,7 +109,7 @@
      */
     function normalizeCaptiveFaith(captive) {
         if (Object.prototype.hasOwnProperty.call(captive, "faithId")) {
-            captive.faithId = getFaithDefinition(captive.faithId) ? captive.faithId : null;
+            captive.faithId = getFaithDefinition(captive.faithId) ? normalizeFaithId(captive.faithId) : null;
             return;
         }
 
@@ -103,6 +125,7 @@
      */
     function normalizeGoblinFaith(state, goblin) {
         if (getFaithDefinition(goblin.faithId)) {
+            goblin.faithId = normalizeFaithId(goblin.faithId);
             return;
         }
 
@@ -148,6 +171,20 @@
         var altarState = state.buildingsById && state.buildingsById.ancestral_altar ? state.buildingsById.ancestral_altar : null;
 
         return Boolean(altarState && altarState.owned > 0);
+    }
+
+    /**
+     * 规范化信仰 ID。
+     *
+     * @param {string|null|undefined} faithId - 信仰稳定 ID；可能是旧神灵 ID。
+     * @returns {string|null} 当前信仰 ID；无输入时返回 null。
+     */
+    function normalizeFaithId(faithId) {
+        if (!faithId) {
+            return null;
+        }
+
+        return LEGACY_FAITH_ID_ALIASES[faithId] || faithId;
     }
 
     /**
@@ -253,5 +290,7 @@
         normalizeGoblinFaith: normalizeGoblinFaith,
         applyGoblinAncestorFaith: applyGoblinAncestorFaith,
         hasAncestralAltar: hasAncestralAltar
+        ,
+        normalizeFaithId: normalizeFaithId
     };
 })(window.GoblinEmpire);
