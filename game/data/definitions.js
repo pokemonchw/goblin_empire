@@ -26,6 +26,7 @@
     /**
      * @typedef {Object} PopulationConstants
      * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏菌菇消耗，单位为菌菇/秒。
+     * @property {number} captiveStarvationFungusGain - 单个俘虏断粮死亡返还的菌菇数量，非负资源数量。
      * @property {number} baseGoblinLifespanYears - 哥布林出生基础寿命，单位为年。
      * @property {number} fallbackCaptiveLifespanYears - 俘虏缺失质量定义时使用的兜底基础寿命，单位为年。
      * @property {number} elderDeathBaseChance - 达到寿命后的首次月初老死概率，范围 0-1。
@@ -257,6 +258,7 @@
      * @property {number} fungusConsumptionPerGoblinSecond - 单个哥布林或俘虏的菌菇口粮消耗，单位为菌菇/秒。
      * @property {number} starvationCheckDays - 断粮死亡检查间隔，单位为游戏日，正整数。
      * @property {number} starvationDeathRatio - 每次断粮死亡比例，范围为 0-1。
+     * @property {number} captiveStarvationFungusGain - 单个俘虏断粮死亡返还的菌菇数量，非负资源数量。
      * @property {number} baseGoblinLifespanYears - 哥布林出生基础寿命，单位为年。
      * @property {number} fallbackCaptiveLifespanYears - 俘虏缺失质量定义时使用的兜底基础寿命，单位为年。
      * @property {number} elderDeathBaseChance - 达到寿命后的首次月初老死概率，范围 0-1。
@@ -276,6 +278,7 @@
         fungusConsumptionPerGoblinSecond: 3.125,
         starvationCheckDays: 3,
         starvationDeathRatio: 0.1,
+        captiveStarvationFungusGain: 10,
         baseGoblinLifespanYears: 72,
         fallbackCaptiveLifespanYears: 60,
         elderDeathBaseChance: 0.1,

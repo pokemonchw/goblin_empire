@@ -76,7 +76,7 @@
         builtPrefix: "建造完成：",
         destroyedPrefix: "建筑摧毁：",
         bornPrefix: "新哥布林加入：",
-        foodWarning: "菌菇不足，存活哥布林开始挨饿。",
+        foodWarning: "菌菇不足，哥布林和俘虏开始挨饿。",
         researchedPrefix: "研究完成："
         ,
         resourceMissingPrefix: "资源不足：",

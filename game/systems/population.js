@@ -818,9 +818,9 @@
     }
 
     /**
-     * 推进断粮后果计时并在每满三天时随机杀死部分人口。
+     * 推进断粮后果计时并在每满三天时随机杀死部分口粮对象。
      *
-     * @param {GameState} state - 当前游戏状态对象，会累计断粮秒数并标记具体哥布林死亡。
+     * @param {GameState} state - 当前游戏状态对象，会累计断粮秒数并移除俘虏或标记具体哥布林死亡。
      * @param {number} deltaSeconds - 本次模拟推进秒数，非负浮点秒。
      * @returns {void} 无返回值。
      */
@@ -833,7 +833,7 @@
         // number 触发间隔秒数：每 3 个游戏日触发一次死亡结算，单位为模拟秒。
         var starvationCheckSeconds = game.calendar.getSecondsPerDay() * game.definitions.POPULATION_CONSTANTS.starvationCheckDays;
 
-        while (starvationSeconds >= starvationCheckSeconds && countAliveGoblins(state) > 0) {
+        while (starvationSeconds >= starvationCheckSeconds && countStarvationVictims(state) > 0) {
             starvationSeconds -= starvationCheckSeconds;
             applyStarvationDeaths(state);
         }
@@ -853,27 +853,71 @@
     }
 
     /**
-     * 随机杀死当前存活人口的 10%，至少 1 个。
+     * 统计当前可被断粮杀死的对象数量。
      *
-     * @param {GameState} state - 当前游戏状态对象，会把被选中的哥布林标记为死亡。
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 可被断粮杀死的俘虏和哥布林总数，非负整数。
+     */
+    function countStarvationVictims(state) {
+        // number 存活哥布林数量：断粮死亡在俘虏不足时才会作用到这些对象。
+        var aliveGoblinCount = countAliveGoblins(state);
+
+        // number 俘虏数量：断粮死亡的优先候选数量。
+        var captiveCount = Array.isArray(state.captives) ? state.captives.length : 0;
+
+        return aliveGoblinCount + captiveCount;
+    }
+
+    /**
+     * 随机杀死当前口粮对象的 10%，至少 1 个；俘虏优先并返还菌菇。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会移除被选中的俘虏，或把被选中的哥布林标记为死亡。
      * @returns {Goblin[]} 本次断粮死亡的哥布林对象数组。
      */
     function applyStarvationDeaths(state) {
-        // Goblin[] 存活哥布林列表：作为随机死亡候选池。
-        var aliveGoblins = getAliveGoblins(state);
+        // number 可死亡对象数量：按当前存活哥布林和当前俘虏共同计算断粮死亡比例。
+        var starvationVictimCount = countStarvationVictims(state);
 
-        if (aliveGoblins.length <= 0) {
+        if (starvationVictimCount <= 0) {
             return [];
         }
 
-        // number 死亡数量：当前存活人口的 10% 向上取整，至少 1 个。
-        var deathCount = Math.max(1, Math.ceil(aliveGoblins.length * game.definitions.POPULATION_CONSTANTS.starvationDeathRatio));
+        // number 死亡数量：当前口粮对象的 10% 向上取整，至少 1 个。
+        var deathCount = Math.max(1, Math.ceil(starvationVictimCount * game.definitions.POPULATION_CONSTANTS.starvationDeathRatio));
+
+        // number 剩余死亡数量：先用于抽取俘虏，俘虏不足时再抽取哥布林。
+        var remainingDeathCount = deathCount;
+
+        // string[] 死亡俘虏姓名列表：用于写入日志和统计。
+        var deadCaptiveNames = [];
+
+        while (remainingDeathCount > 0 && Array.isArray(state.captives) && state.captives.length > 0) {
+            // number 随机俘虏下标：从当前关押俘虏中抽取优先饿死对象。
+            var captiveIndex = Math.floor(Math.random() * state.captives.length);
+
+            // CaptiveState 死亡俘虏：本次断粮选中的具体俘虏对象。
+            var deadCaptive = state.captives.splice(captiveIndex, 1)[0];
+
+            deadCaptiveNames.push(deadCaptive.name || deadCaptive.id);
+            remainingDeathCount -= 1;
+        }
+
+        if (deadCaptiveNames.length > 0) {
+            // number 俘虏返还菌菇：断粮死亡俘虏被粗暴处理后带回的食物数量。
+            var captiveFungusGain = deadCaptiveNames.length * game.definitions.POPULATION_CONSTANTS.captiveStarvationFungusGain;
+
+            addCaptiveStarvationFungus(state, captiveFungusGain);
+            state.statistics.totalCaptiveStarvationDeaths = (state.statistics.totalCaptiveStarvationDeaths || 0) + deadCaptiveNames.length;
+        }
+
+        // Goblin[] 存活哥布林列表：俘虏不足以覆盖死亡数量时才作为随机死亡候选池。
+        var aliveGoblins = getAliveGoblins(state);
 
         // Goblin[] 死亡哥布林列表：用于写入日志和统计。
         var deadGoblins = [];
 
         // number 死亡循环索引：控制随机抽取次数的非负整数。
-        for (var deathIndex = 0; deathIndex < deathCount && aliveGoblins.length > 0; deathIndex += 1) {
+        for (var deathIndex = 0; deathIndex < remainingDeathCount && aliveGoblins.length > 0; deathIndex += 1) {
             // number 随机候选下标：从剩余存活候选池中抽取。
             var randomIndex = Math.floor(Math.random() * aliveGoblins.length);
 
@@ -888,11 +932,41 @@
 
         state.statistics.totalStarvationDeaths = (state.statistics.totalStarvationDeaths || 0) + deadGoblins.length;
 
-        if (deadGoblins.length > 0) {
-            game.simulation.addLog(state, "important", "断粮持续三天，" + formatGoblinNames(deadGoblins) + " 饿死了。");
+        if (deadCaptiveNames.length > 0 || deadGoblins.length > 0) {
+            game.simulation.addLog(state, "important", formatStarvationDeathLog(deadCaptiveNames, deadGoblins));
+        }
+
+        if (deadCaptiveNames.length > 0 && game.captivesSystem && game.captivesSystem.syncCaptiveResource) {
+            game.captivesSystem.syncCaptiveResource(state);
         }
 
         return deadGoblins;
+    }
+
+    /**
+     * 发放俘虏断粮死亡返还的菌菇。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会直接增加菌菇库存。
+     * @param {number} fungusAmount - 返还菌菇数量，非负资源数量；不吃资源收益倍率，只受容量上限限制。
+     * @returns {number} 实际增加的菌菇数量，范围为 0 到 fungusAmount。
+     */
+    function addCaptiveStarvationFungus(state, fungusAmount) {
+        // ResourceState|null 菌菇状态：用于写入断粮俘虏返还的食物。
+        var fungusState = state.resourcesById.fungus || null;
+
+        if (!fungusState || fungusAmount <= 0) {
+            return 0;
+        }
+
+        // number 增加前菌菇：用于计算实际增加量。
+        var previousFungusValue = fungusState.value;
+
+        // number 目标菌菇：返还后尚未按容量截断的菌菇数量。
+        var targetFungusValue = fungusState.value + fungusAmount;
+
+        fungusState.value = Math.min(fungusState.maxValue, targetFungusValue);
+        fungusState.isVisible = true;
+        return Math.max(0, fungusState.value - previousFungusValue);
     }
 
     /**
@@ -939,6 +1013,31 @@
         return nameTexts.join("、");
     }
 
+    /**
+     * 格式化断粮死亡日志。
+     *
+     * @param {string[]} captiveNames - 断粮死亡俘虏姓名数组。
+     * @param {Goblin[]} goblins - 断粮死亡哥布林对象数组。
+     * @returns {string} 中文日志文本，说明死亡名单和俘虏返还菌菇。
+     */
+    function formatStarvationDeathLog(captiveNames, goblins) {
+        // string[] 日志片段数组：按俘虏和哥布林分别描述死亡对象。
+        var logParts = [];
+
+        if (captiveNames.length > 0) {
+            // number 俘虏返还菌菇：用于在日志中显示本次回收的菌菇资源数量。
+            var captiveFungusGain = captiveNames.length * game.definitions.POPULATION_CONSTANTS.captiveStarvationFungusGain;
+
+            logParts.push("俘虏 " + captiveNames.join("、") + " 饿死并被回收，菌菇 +" + captiveFungusGain);
+        }
+
+        if (goblins.length > 0) {
+            logParts.push(formatGoblinNames(goblins) + " 饿死了");
+        }
+
+        return "断粮持续三天，" + logParts.join("；") + "。";
+    }
+
     // Object 人口模块命名空间：提供从状态派生人口和住房统计的函数。
     game.population = {
         countAliveGoblins: countAliveGoblins,
@@ -965,6 +1064,8 @@
         applyRandomGoblinLifespanEventBonus: applyRandomGoblinLifespanEventBonus,
         prepareStarvationConsequence: prepareStarvationConsequence,
         updateStarvationConsequence: updateStarvationConsequence,
+        countStarvationVictims: countStarvationVictims,
+        addCaptiveStarvationFungus: addCaptiveStarvationFungus,
         applyStarvationDeaths: applyStarvationDeaths
     };
 })(window.GoblinEmpire);
