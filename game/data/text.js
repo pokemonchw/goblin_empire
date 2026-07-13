@@ -369,6 +369,10 @@
             name: "俘虏",
             description: "抢回地穴的地表人口，可洗脑、培育新生，实在断粮时也会被当成食物。"
         },
+        ancestorSpirit: {
+            name: "祖灵",
+            description: "在祖灵祭坛建成后自然老死的哥布林会成为祖灵；每个祖灵让所有战斗职业哥布林全属性 +1%。"
+        },
         ancestralEcho: {
             name: "祖灵回响",
             description: "战利品、骨片和牺牲唤来的地下回声，本局内可换取祖灵赐下的粗暴加护。"

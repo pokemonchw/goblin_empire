@@ -54,6 +54,7 @@
         "infamy",
         "goodwill",
         "captive",
+        "ancestorSpirit",
         "ancestralEcho",
         "tar",
         "blackIron",

@@ -287,7 +287,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 27;
+    var SAVE_VERSION = 28;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -746,6 +746,15 @@
             isVisibleAtStart: false,
             isCapacityLimited: false,
             description: game.text.TEXT_REGISTRY.resources.captive.description
+        },
+        {
+            id: "ancestorSpirit",
+            name: game.text.TEXT_REGISTRY.resources.ancestorSpirit.name,
+            category: "mystic",
+            defaultMaxValue: 0,
+            isVisibleAtStart: false,
+            isCapacityLimited: false,
+            description: game.text.TEXT_REGISTRY.resources.ancestorSpirit.description
         },
         {
             id: "ancestralEcho",
@@ -1496,6 +1505,7 @@
                     "ritual"
                 ],
                 resources: [
+                    "ancestorSpirit",
                     "ancestralEcho"
                 ]
             },

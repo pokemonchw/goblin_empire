@@ -116,7 +116,7 @@
         var raidParty = availableRaiders.slice(0, raiderCount);
 
         // number 基础队伍强度：由具体哥布林属性、技能和职业计算。
-        var baseTeamStrength = calculateRaidPartyBaseStrength(raidParty);
+        var baseTeamStrength = calculateRaidPartyBaseStrength(state, raidParty);
 
         // number 队伍强度倍率：由建筑、装备、政策、契约和领袖组成。
         var strengthRatio = calculateRaidStrengthRatio(state, raidParty);
@@ -363,7 +363,9 @@
             }
         }
 
-        availableRaiders.sort(compareRaidersByStrength);
+        availableRaiders.sort(function (leftGoblin, rightGoblin) {
+            return compareRaidersByStrength(state, leftGoblin, rightGoblin);
+        });
         return availableRaiders;
     }
 
@@ -464,12 +466,13 @@
     /**
      * 按掠夺强度降序比较两个哥布林。
      *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改，用于读取祖灵资源。
      * @param {Goblin} leftGoblin - 左侧哥布林对象，不会被修改。
      * @param {Goblin} rightGoblin - 右侧哥布林对象，不会被修改。
      * @returns {number} 排序比较值；负数表示 left 应排在前面。
      */
-    function compareRaidersByStrength(leftGoblin, rightGoblin) {
-        return calculateGoblinRaidStrength(rightGoblin) - calculateGoblinRaidStrength(leftGoblin);
+    function compareRaidersByStrength(state, leftGoblin, rightGoblin) {
+        return calculateGoblinRaidStrength(state, rightGoblin) - calculateGoblinRaidStrength(state, leftGoblin);
     }
 
     /**
@@ -508,10 +511,11 @@
     /**
      * 计算掠夺队伍基础强度。
      *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改，用于读取祖灵资源。
      * @param {Goblin[]} raidParty - 本次派出的战斗职业哥布林数组。
      * @returns {number} 队伍基础强度，非负浮点数。
      */
-    function calculateRaidPartyBaseStrength(raidParty) {
+    function calculateRaidPartyBaseStrength(state, raidParty) {
         // number 队伍强度总和：逐个累加哥布林个人掠夺强度。
         var teamStrength = 0;
 
@@ -520,7 +524,7 @@
             // Goblin 当前队员：用于累加个人强度。
             var raidMember = raidParty[memberIndex];
 
-            teamStrength += calculateGoblinRaidStrength(raidMember);
+            teamStrength += calculateGoblinRaidStrength(state, raidMember);
         }
 
         return teamStrength;
@@ -529,12 +533,16 @@
     /**
      * 计算单个哥布林的掠夺强度。
      *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改，用于读取祖灵资源。
      * @param {Goblin} goblin - 当前哥布林对象，不会被修改。
      * @returns {number} 个人掠夺强度，非负浮点数。
      */
-    function calculateGoblinRaidStrength(goblin) {
+    function calculateGoblinRaidStrength(state, goblin) {
+        // number 祖灵属性倍率：每个祖灵让战斗职业哥布林全属性 +1%。
+        var ancestorAttributeMultiplier = 1 + calculateAncestorSpiritAttributeRatio(state);
+
         // number 属性强度：强壮、狡诈、灵巧和意志共同决定战斗表现。
-        var attributeStrength = (goblin.attributes.strength || 0) * 1.2 + (goblin.attributes.cunning || 0) * 0.9 + (goblin.attributes.dexterity || 0) * 0.6 + (goblin.attributes.will || 0) * 0.4;
+        var attributeStrength = ((goblin.attributes.strength || 0) * 1.2 + (goblin.attributes.cunning || 0) * 0.9 + (goblin.attributes.dexterity || 0) * 0.6 + (goblin.attributes.will || 0) * 0.4) * ancestorAttributeMultiplier;
 
         // number 技能强度：掠夺经验提供温和加成，避免老兵完全碾压数值曲线。
         var skillStrength = Math.min(8, (goblin.skills.raiding || 0) / 150);
@@ -546,6 +554,26 @@
         var woundMultiplier = Math.max(0.5, 1 - goblin.wounds.length * 0.1);
 
         return (attributeStrength + skillStrength + jobStrength) * woundMultiplier;
+    }
+
+    /**
+     * 计算祖灵提供的战斗职业全属性加成比例。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 属性加成比例，非负小数；每 1 点祖灵提供 0.01。
+     */
+    function calculateAncestorSpiritAttributeRatio(state) {
+        if (game.jobs && game.jobs.calculateAncestorSpiritAttributeRatio) {
+            return game.jobs.calculateAncestorSpiritAttributeRatio(state);
+        }
+
+        // ResourceState|null 祖灵资源状态：用于读取当前祖灵数量。
+        var ancestorSpiritState = state && state.resourcesById ? state.resourcesById.ancestorSpirit || null : null;
+
+        // number 当前祖灵数量：资源缺失时按 0 处理。
+        var ancestorSpiritAmount = ancestorSpiritState ? Math.max(0, Number(ancestorSpiritState.value) || 0) : 0;
+
+        return ancestorSpiritAmount * 0.01;
     }
 
     /**

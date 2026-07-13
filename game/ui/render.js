@@ -3290,15 +3290,37 @@
      * @returns {HTMLElement} 神秘资源状态卡片元素。
      */
     function renderRitualResourceStatus(state) {
-        // HTMLElement 卡片元素：显示祖灵回响、战利品和深渊回响。
+        // HTMLElement 卡片元素：显示祖灵、祖灵回响、战利品和深渊回响。
         var cardElement = document.createElement("div");
 
         cardElement.className = "action-card";
         cardElement.appendChild(createTextElement("h3", "神秘资源"));
+        cardElement.appendChild(createTextElement("p", formatRitualResource(state, "ancestorSpirit")));
+        cardElement.appendChild(createTextElement("p", "战斗祖灵加成：" + formatSignedNumber(calculateAncestorSpiritCombatBonusRatio(state) * 100) + "% 全属性。"));
         cardElement.appendChild(createTextElement("p", formatRitualResource(state, "ancestralEcho")));
         cardElement.appendChild(createTextElement("p", formatRitualResource(state, "loot")));
         cardElement.appendChild(createTextElement("p", formatRitualResource(state, "abyssEcho")));
         return cardElement;
+    }
+
+    /**
+     * 计算祖灵对战斗职业哥布林的全属性加成比例。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 战斗职业全属性加成比例，非负小数；每 1 点祖灵为 0.01。
+     */
+    function calculateAncestorSpiritCombatBonusRatio(state) {
+        if (game.jobs && game.jobs.calculateAncestorSpiritAttributeRatio) {
+            return game.jobs.calculateAncestorSpiritAttributeRatio(state);
+        }
+
+        // ResourceState|null 祖灵资源状态：用于读取当前祖灵数量。
+        var ancestorSpiritState = state.resourcesById.ancestorSpirit || null;
+
+        // number 当前祖灵数量：资源缺失时按 0 处理。
+        var ancestorSpiritAmount = ancestorSpiritState ? Math.max(0, Number(ancestorSpiritState.value) || 0) : 0;
+
+        return ancestorSpiritAmount * 0.01;
     }
 
     /**

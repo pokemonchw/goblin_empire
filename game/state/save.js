@@ -412,8 +412,80 @@
             migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
 
+        if (sourceVersion < 28) {
+            // v27 旧 shape：祖灵祭坛只解锁祖灵回响，未保存独立祖灵资源。
+            // v28 新 shape：祖灵作为资源保存，建成祭坛后自然老死 +1，并提供战斗职业全属性加成。
+            // 迁移原因：旧档若已经建成祖灵祭坛，读档后应立即看到祖灵资源入口。
+            revealAncestorSpiritForBuiltAltarSaveData(migratedSaveData);
+        }
+
         migratedSaveData.version = game.definitions.SAVE_VERSION;
         return migratedSaveData;
+    }
+
+    /**
+     * 为已经建成祖灵祭坛的旧存档补齐祖灵资源可见性。
+     *
+     * @param {SaveData} saveData - v27 或更早存档对象，会在资源数组中补齐 ancestorSpirit。
+     * @returns {void} 无返回值。
+     */
+    function revealAncestorSpiritForBuiltAltarSaveData(saveData) {
+        if (!hasSavedBuildingOwned(saveData, "ancestral_altar")) {
+            return;
+        }
+
+        // Object[] 资源存档列表：用于查找并补齐祖灵资源状态。
+        var savedResources = Array.isArray(saveData.resources) ? saveData.resources : [];
+
+        // boolean 是否已找到祖灵资源：true 表示只需更新可见性。
+        var hasAncestorSpiritResource = false;
+
+        // number 资源循环索引：遍历资源存档数组的整数下标。
+        for (var resourceIndex = 0; resourceIndex < savedResources.length; resourceIndex += 1) {
+            // Object 当前资源存档：包含 id、value 和 isVisible。
+            var savedResource = savedResources[resourceIndex];
+
+            if (savedResource.id === "ancestorSpirit") {
+                savedResource.isVisible = true;
+                hasAncestorSpiritResource = true;
+                break;
+            }
+        }
+
+        if (!hasAncestorSpiritResource) {
+            savedResources.push({
+                id: "ancestorSpirit",
+                value: 0,
+                isVisible: true
+            });
+        }
+
+        saveData.resources = savedResources;
+    }
+
+    /**
+     * 判断存档是否拥有指定建筑。
+     *
+     * @param {SaveData} saveData - 当前迁移中的存档对象，不会被修改。
+     * @param {BuildingId} buildingId - 建筑稳定 ID。
+     * @returns {boolean} 是否已拥有至少 1 座该建筑。
+     */
+    function hasSavedBuildingOwned(saveData, buildingId) {
+        if (!Array.isArray(saveData.buildings)) {
+            return false;
+        }
+
+        // number 建筑循环索引：遍历建筑存档数组的整数下标。
+        for (var buildingIndex = 0; buildingIndex < saveData.buildings.length; buildingIndex += 1) {
+            // Object 当前建筑存档：包含 id 和 owned。
+            var savedBuilding = saveData.buildings[buildingIndex];
+
+            if (savedBuilding.id === buildingId && Number(savedBuilding.owned) > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -816,6 +888,8 @@
                 restoredState.buildingsById[savedBuilding.id].isUnlocked = Boolean(savedBuilding.isUnlocked);
             }
         }
+
+        revealAncestorSpiritForBuiltAltarState(restoredState);
 
         if (game.faithSystem && game.faithSystem.hasAncestralAltar(restoredState)) {
             game.faithSystem.applyGoblinAncestorFaith(restoredState);
@@ -1754,6 +1828,24 @@
 
         if (!isLeaderValid) {
             state.leaderGoblinId = undefined;
+        }
+    }
+
+    /**
+     * 为已经建成祖灵祭坛的运行时状态显示祖灵资源。
+     *
+     * @param {GameState} state - 恢复后的游戏状态对象，会改写祖灵资源可见性。
+     * @returns {void} 无返回值。
+     */
+    function revealAncestorSpiritForBuiltAltarState(state) {
+        // BuildingState|null 祖灵祭坛状态：用于判断旧档是否已经拥有祭坛。
+        var altarState = state.buildingsById.ancestral_altar || null;
+
+        // ResourceState|null 祖灵资源状态：用于写入可见性。
+        var ancestorSpiritState = state.resourcesById.ancestorSpirit || null;
+
+        if (altarState && altarState.owned > 0 && ancestorSpiritState) {
+            ancestorSpiritState.isVisible = true;
         }
     }
 

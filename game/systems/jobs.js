@@ -147,7 +147,7 @@
             }
 
             // number 当前评分：综合技能和属性权重。
-            var candidateScore = calculateJobFitScore(goblin, jobDefinition);
+            var candidateScore = calculateJobFitScore(state, goblin, jobDefinition);
 
             if (candidateScore > bestScore) {
                 bestScore = candidateScore;
@@ -335,7 +335,7 @@
             }
 
             // number 适配分数：越高越优先分配到目标职业。
-            var score = jobDefinition ? calculateJobFitScore(goblin, jobDefinition) : 0;
+            var score = jobDefinition ? calculateJobFitScore(state, goblin, jobDefinition) : 0;
 
             if (score > bestScore) {
                 bestGoblin = goblin;
@@ -404,17 +404,6 @@
         }
 
         return ["forager", "woodcutter", "hauler"];
-    }
-
-    /**
-     * 计算哥布林对职业的适配分。
-     *
-     * @param {Goblin} goblin - 当前哥布林对象，不会被修改。
-     * @param {JobDefinition} jobDefinition - 职业定义对象。
-     * @returns {number} 适配分数，非负浮点数。
-     */
-    function calculateJobFitScore(goblin, jobDefinition) {
-        return calculateAttributeModifier(goblin, jobDefinition.attributeWeights) + calculateSkillModifier(goblin, jobDefinition.skillId);
     }
 
     /**
@@ -538,7 +527,7 @@
      * @returns {number} 职业产出综合倍率，非负浮点数。
      */
     function calculateJobOutputModifier(state, goblin, jobDefinition) {
-        return calculateAttributeModifier(goblin, jobDefinition) * calculateSkillModifier(goblin, jobDefinition.skillId) * calculateWoundModifier(goblin) * calculateBuildingModifier(state, jobDefinition) * calculateTechnologyModifier(state, jobDefinition) * calculateObedienceModifier(state) * calculateWeatherModifier(state, jobDefinition) * calculateBloodlineModifier(goblin, jobDefinition);
+        return calculateAttributeModifier(state, goblin, jobDefinition) * calculateSkillModifier(goblin, jobDefinition.skillId) * calculateWoundModifier(goblin) * calculateBuildingModifier(state, jobDefinition) * calculateTechnologyModifier(state, jobDefinition) * calculateObedienceModifier(state) * calculateWeatherModifier(state, jobDefinition) * calculateBloodlineModifier(goblin, jobDefinition);
     }
 
     /**
@@ -611,24 +600,26 @@
     /**
      * 计算职业适配评分。
      *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改，用于读取祖灵资源。
      * @param {Goblin} goblin - 候选哥布林对象，不会被修改。
      * @param {JobDefinition} jobDefinition - 职业定义对象。
      * @returns {number} 适配评分，数值越高越优先分配。
      */
-    function calculateJobFitScore(goblin, jobDefinition) {
-        return calculateWeightedAttribute(goblin, jobDefinition) + getSkillXp(goblin, jobDefinition.skillId) / 100;
+    function calculateJobFitScore(state, goblin, jobDefinition) {
+        return calculateWeightedAttribute(state, goblin, jobDefinition) + getSkillXp(goblin, jobDefinition.skillId) / 100;
     }
 
     /**
      * 计算属性修正。
      *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改，用于读取祖灵资源。
      * @param {Goblin} goblin - 当前哥布林对象，不会被修改。
      * @param {JobDefinition} jobDefinition - 职业定义对象。
      * @returns {number} 属性产出倍率，范围为 0.75-1.25。
      */
-    function calculateAttributeModifier(goblin, jobDefinition) {
+    function calculateAttributeModifier(state, goblin, jobDefinition) {
         // number 加权属性：按职业权重合成的属性值。
-        var weightedAttribute = calculateWeightedAttribute(goblin, jobDefinition);
+        var weightedAttribute = calculateWeightedAttribute(state, goblin, jobDefinition);
 
         // 属性修正保持温和，避免早期单个高属性个体破坏增量曲线。
         return Math.min(1.25, Math.max(0.75, 1 + (weightedAttribute - 5) / 40));
@@ -637,11 +628,12 @@
     /**
      * 计算职业加权属性值。
      *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改，用于读取祖灵资源。
      * @param {Goblin} goblin - 当前哥布林对象，不会被修改。
      * @param {JobDefinition} jobDefinition - 职业定义对象。
      * @returns {number} 加权属性值，通常在 1-10 区间。
      */
-    function calculateWeightedAttribute(goblin, jobDefinition) {
+    function calculateWeightedAttribute(state, goblin, jobDefinition) {
         // string[] 属性 ID 数组：用于遍历职业权重。
         var attributeIds = Object.keys(jobDefinition.attributeWeights);
 
@@ -659,11 +651,57 @@
             // number 当前权重：职业定义中的属性贡献比例。
             var weight = jobDefinition.attributeWeights[attributeId];
 
-            weightedTotal += (goblin.attributes[attributeId] || 0) * weight;
+            weightedTotal += getEffectiveAttributeValue(state, goblin, jobDefinition, attributeId) * weight;
             weightTotal += weight;
         }
 
         return weightTotal > 0 ? weightedTotal / weightTotal : 5;
+    }
+
+    /**
+     * 读取职业结算使用的有效属性值。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改，用于读取祖灵资源。
+     * @param {Goblin} goblin - 当前哥布林对象，不会被修改。
+     * @param {JobDefinition} jobDefinition - 职业定义对象，用于判断是否为战斗职业。
+     * @param {string} attributeId - 属性稳定 ID。
+     * @returns {number} 有效属性值，非负浮点数；战斗职业会按祖灵数量获得百分比加成。
+     */
+    function getEffectiveAttributeValue(state, goblin, jobDefinition, attributeId) {
+        // number 基础属性值：来自哥布林个体六维属性。
+        var baseAttributeValue = Math.max(0, Number(goblin.attributes[attributeId]) || 0);
+
+        if (!isCombatJob(jobDefinition.id)) {
+            return baseAttributeValue;
+        }
+
+        return baseAttributeValue * (1 + calculateAncestorSpiritAttributeRatio(state));
+    }
+
+    /**
+     * 判断职业是否属于战斗职业。
+     *
+     * @param {JobId} jobId - 职业稳定 ID。
+     * @returns {boolean} 是否为战斗职业；true 表示可获得祖灵全属性加成。
+     */
+    function isCombatJob(jobId) {
+        return jobId === "raider" || jobId === "war_chief";
+    }
+
+    /**
+     * 计算祖灵提供的战斗职业全属性加成比例。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 属性加成比例，非负小数；每 1 点祖灵提供 0.01。
+     */
+    function calculateAncestorSpiritAttributeRatio(state) {
+        // ResourceState|null 祖灵资源状态：用于读取当前祖灵数量。
+        var ancestorSpiritState = state && state.resourcesById ? state.resourcesById.ancestorSpirit || null : null;
+
+        // number 当前祖灵数量：资源缺失时按 0 处理。
+        var ancestorSpiritAmount = ancestorSpiritState ? Math.max(0, Number(ancestorSpiritState.value) || 0) : 0;
+
+        return ancestorSpiritAmount * 0.01;
     }
 
     /**
@@ -886,6 +924,7 @@
         applyJobProduction: applyJobProduction,
         updateJobs: updateJobs,
         calculateAttributeModifier: calculateAttributeModifier,
+        calculateAncestorSpiritAttributeRatio: calculateAncestorSpiritAttributeRatio,
         calculateSkillModifier: calculateSkillModifier,
         calculateWoundModifier: calculateWoundModifier,
         calculateBuildingModifier: calculateBuildingModifier,

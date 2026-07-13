@@ -364,10 +364,39 @@
 
         if (elderDeadGoblins.length > 0) {
             state.statistics.totalOldAgeDeaths = (state.statistics.totalOldAgeDeaths || 0) + elderDeadGoblins.length;
-            game.simulation.addLog(state, "important", "月初点名时，" + formatGoblinNames(elderDeadGoblins) + " 老死了。");
+            // number 新增祖灵数量：只有祖灵祭坛建成后，自然老死才会沉入氏族祖灵。
+            var ancestorSpiritGain = addAncestorSpiritsForOldAgeDeaths(state, elderDeadGoblins.length);
+
+            if (ancestorSpiritGain > 0) {
+                game.simulation.addLog(state, "important", "月初点名时，" + formatGoblinNames(elderDeadGoblins) + " 老死了，祖灵 +" + ancestorSpiritGain.toFixed(0) + "。");
+            } else {
+                game.simulation.addLog(state, "important", "月初点名时，" + formatGoblinNames(elderDeadGoblins) + " 老死了。");
+            }
         }
 
         state.statistics.lastLifespanMonthSerial = monthSerial;
+    }
+
+    /**
+     * 根据自然老死数量增加祖灵资源。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会在有祖灵祭坛时增加祖灵资源。
+     * @param {number} oldAgeDeathCount - 本次自然老死哥布林数量，非负整数。
+     * @returns {number} 实际增加的祖灵数量，非负资源数量。
+     */
+    function addAncestorSpiritsForOldAgeDeaths(state, oldAgeDeathCount) {
+        if (!game.faithSystem || !game.faithSystem.hasAncestralAltar(state)) {
+            return 0;
+        }
+
+        // number 祖灵增量：每名自然老死哥布林转化为 1 点祖灵资源。
+        var spiritGain = Math.max(0, Math.floor(Number(oldAgeDeathCount) || 0));
+
+        if (spiritGain <= 0) {
+            return 0;
+        }
+
+        return game.resources.addResource(state, "ancestorSpirit", spiritGain);
     }
 
     /**
