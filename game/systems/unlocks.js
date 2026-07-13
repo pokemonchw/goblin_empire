@@ -118,6 +118,9 @@
         if (state.tabsUnlockedById.diplomacy) {
             applyDiplomacyUnlocks(state);
         }
+
+        applyConditionalBuildingLocks(state);
+        applyConditionalBuildingUnlocks(state);
     }
 
     /**
@@ -152,10 +155,103 @@
             // BuildingId 当前建筑 ID：用于查找并显示运行时建筑状态。
             var buildingId = buildingIds[buildingIndex];
 
-            if (state.buildingsById[buildingId]) {
+            // BuildingDefinition|null 当前建筑定义：用于检查额外统计门槛。
+            var buildingDefinition = game.buildings && game.buildings.getBuildingDefinition ? game.buildings.getBuildingDefinition(buildingId) : null;
+
+            if (state.buildingsById[buildingId] && canUnlockBuilding(state, buildingDefinition)) {
                 state.buildingsById[buildingId].isUnlocked = true;
             }
         }
+    }
+
+    /**
+     * 同步已经满足科技来源和运行时门槛的建筑解锁。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会补齐满足条件但尚未显示的建筑。
+     * @returns {void} 无返回值。
+     */
+    function applyConditionalBuildingUnlocks(state) {
+        // number 科技循环索引：遍历科技定义以查找建筑解锁来源。
+        for (var technologyIndex = 0; technologyIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            // TechnologyDefinition 当前科技定义：用于读取研究状态和建筑解锁包。
+            var technologyDefinition = game.definitions.TECHNOLOGY_DEFINITIONS[technologyIndex];
+
+            // TechnologyState|null 当前科技状态：用于确认建筑来源科技已经完成。
+            var technologyState = state.technologiesById[technologyDefinition.id] || null;
+
+            if (!technologyState || !technologyState.isResearched || !technologyDefinition.unlocks || !technologyDefinition.unlocks.buildings) {
+                continue;
+            }
+
+            applyBuildingUnlocks(state, technologyDefinition.unlocks.buildings);
+        }
+    }
+
+    /**
+     * 收紧带额外门槛的未建造建筑，避免旧存档绕过新条件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会隐藏尚未建造且不满足门槛的建筑。
+     * @returns {void} 无返回值。
+     */
+    function applyConditionalBuildingLocks(state) {
+        // number 建筑循环索引：遍历建筑定义以检查额外门槛。
+        for (var buildingIndex = 0; buildingIndex < game.definitions.BUILDING_DEFINITIONS.length; buildingIndex += 1) {
+            // BuildingDefinition 当前建筑定义：用于读取额外运行时门槛。
+            var buildingDefinition = game.definitions.BUILDING_DEFINITIONS[buildingIndex];
+
+            if (!buildingDefinition.unlockRequirements) {
+                continue;
+            }
+
+            // BuildingState|null 当前建筑状态：用于判断是否需要重新隐藏。
+            var buildingState = state.buildingsById[buildingDefinition.id] || null;
+
+            if (buildingState && buildingState.owned <= 0 && !canUnlockBuilding(state, buildingDefinition)) {
+                buildingState.isUnlocked = false;
+            }
+        }
+    }
+
+    /**
+     * 判断建筑是否满足额外运行时解锁门槛。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {BuildingDefinition|null} buildingDefinition - 建筑定义对象；缺失时视为没有额外门槛。
+     * @returns {boolean} 是否满足额外门槛；true 表示可以显示该建筑。
+     */
+    function canUnlockBuilding(state, buildingDefinition) {
+        if (!buildingDefinition || !buildingDefinition.unlockRequirements) {
+            return true;
+        }
+
+        return areStatisticRequirementsMet(state, buildingDefinition.unlockRequirements.statistics || []);
+    }
+
+    /**
+     * 判断统计门槛是否全部满足。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {StatisticUnlockRequirement[]} statisticRequirements - 统计门槛数组；每项包含 id 和 minValue。
+     * @returns {boolean} 是否全部满足；true 表示所有统计值达到最低要求。
+     */
+    function areStatisticRequirementsMet(state, statisticRequirements) {
+        // number 循环索引：遍历统计门槛数组的整数下标。
+        for (var requirementIndex = 0; requirementIndex < statisticRequirements.length; requirementIndex += 1) {
+            // StatisticUnlockRequirement 当前统计门槛：用于比较状态统计值。
+            var statisticRequirement = statisticRequirements[requirementIndex];
+
+            // number 当前统计值：缺省按 0 处理，单位由统计项定义。
+            var statisticValue = Math.max(0, Number(state.statistics[statisticRequirement.id]) || 0);
+
+            // number 最低统计值：达到该值才满足门槛，非负累计数值。
+            var minValue = Math.max(0, Number(statisticRequirement.minValue) || 0);
+
+            if (statisticValue < minValue) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -223,6 +319,7 @@
         applyUnlockBundle: applyUnlockBundle,
         applyPopulationUnlocks: applyPopulationUnlocks,
         applyDerivedUnlocks: applyDerivedUnlocks,
-        applyFlagUnlocks: applyFlagUnlocks
+        applyFlagUnlocks: applyFlagUnlocks,
+        areStatisticRequirementsMet: areStatisticRequirementsMet
     };
 })(window.GoblinEmpire);

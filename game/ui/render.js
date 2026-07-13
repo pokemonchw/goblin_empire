@@ -2619,7 +2619,7 @@
         cardElement.appendChild(createTextElement("p", "状态：" + (buildingState.isUnlocked ? "已解锁" : "未解锁") + "，拥有 " + buildingState.owned + " 座"));
         cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.costPrefix + formatPriceList(price)));
         cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.effectPrefix + formatBuildingEffects(buildingDefinition.effects)));
-        cardElement.appendChild(createTextElement("p", "解锁：" + formatBuildingUnlockCondition(buildingDefinition)));
+        cardElement.appendChild(createTextElement("p", "解锁：" + formatBuildingUnlockCondition(state, buildingDefinition)));
 
         if (missingTexts.length > 0) {
             cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.missingPrefix + missingTexts.join("，")));
@@ -2751,10 +2751,11 @@
     /**
      * 格式化行政建筑解锁条件。
      *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {BuildingDefinition} buildingDefinition - 建筑定义对象。
      * @returns {string} 建筑解锁条件中文文本。
      */
-    function formatBuildingUnlockCondition(buildingDefinition) {
+    function formatBuildingUnlockCondition(state, buildingDefinition) {
         if (buildingDefinition.unlock && buildingDefinition.unlock.isDefault) {
             return "默认可见";
         }
@@ -2770,7 +2771,38 @@
             conditionTexts.push("显示资源 " + buildingDefinition.unlock.resources.join("，"));
         }
 
+        if (buildingDefinition.unlockRequirements && buildingDefinition.unlockRequirements.statistics) {
+            appendStatisticRequirementTexts(state, conditionTexts, buildingDefinition.unlockRequirements.statistics);
+        }
+
         return conditionTexts.length > 0 ? conditionTexts.join("；") : "由科技、建筑或阶段解锁";
+    }
+
+    /**
+     * 追加统计门槛文本，用于解释建筑额外解锁条件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string[]} conditionTexts - 条件文本数组，会被追加统计门槛说明。
+     * @param {StatisticUnlockRequirement[]} statisticRequirements - 统计门槛数组；每项包含 id、minValue 和 description。
+     * @returns {void} 无返回值。
+     */
+    function appendStatisticRequirementTexts(state, conditionTexts, statisticRequirements) {
+        // number 循环索引：遍历统计门槛数组的整数下标。
+        for (var requirementIndex = 0; requirementIndex < statisticRequirements.length; requirementIndex += 1) {
+            // StatisticUnlockRequirement 当前统计门槛：用于生成中文条件说明。
+            var statisticRequirement = statisticRequirements[requirementIndex];
+
+            // number 当前统计值：缺省按 0 处理，非负累计数值。
+            var statisticValue = Math.max(0, Number(state.statistics[statisticRequirement.id]) || 0);
+
+            // number 最低统计值：达到该值才显示为满足。
+            var minValue = Math.max(0, Number(statisticRequirement.minValue) || 0);
+
+            // string 条件说明：优先使用数据表中文说明。
+            var requirementDescription = statisticRequirement.description || statisticRequirement.id + " >= " + minValue;
+
+            conditionTexts.push(requirementDescription + "（" + (statisticValue >= minValue ? "满足" : "未满足") + "）");
+        }
     }
 
     /**
@@ -3017,7 +3049,7 @@
         gridElement.appendChild(renderPaceCard("5-15 分钟", "解锁储物坑、浅矿井、工匠棚", hasBuildingOwned(state, "storage_pit") && hasBuildingOwned(state, "shallow_mine") && hasBuildingOwned(state, "artisan_shed")));
         gridElement.appendChild(renderPaceCard("15-30 分钟", "完成第一条加工链，建造粗熔炉", hasBuildingOwned(state, "crude_furnace")));
         gridElement.appendChild(renderPaceCard("30-60 分钟", "进入矿坑氏族阶段", hasTechnologyResearched(state, "mining") && game.population.countAliveGoblins(state) >= 5));
-        gridElement.appendChild(renderPaceCard("1-3 小时", "建立酋长厅、黑市、训练坑和祖灵祭坛", hasBuildingOwned(state, "chief_hall") && hasBuildingOwned(state, "black_market") && hasBuildingOwned(state, "training_pit") && hasBuildingOwned(state, "ancestral_altar")));
+        gridElement.appendChild(renderPaceCard("1-3 小时", "建立酋长厅、黑市、训练坑；自然老死后建立祖灵祭坛", hasBuildingOwned(state, "chief_hall") && hasBuildingOwned(state, "black_market") && hasBuildingOwned(state, "training_pit") && hasBuildingOwned(state, "ancestral_altar")));
         gridElement.appendChild(renderPaceCard("3-8 小时", "进入钢铁、机械、政策分支和自动制作阶段", hasTechnologyResearched(state, "steel") && hasTechnologyResearched(state, "machinery") && hasTechnologyResearched(state, "imperial_code")));
         gridElement.appendChild(renderPaceCard("8-20 小时", "建成黑铁要塞、符文机房和高阶外交网络", hasBuildingOwned(state, "black_iron_fortress") && hasBuildingOwned(state, "rune_machine_room") && hasTechnologyResearched(state, "diplomacy")));
         gridElement.appendChild(renderPaceCard("20-60 小时", "打开深渊门，完成第一次帝国迁徙", hasBuildingOwned(state, "abyss_gate") && state.statistics.hasMigratedEmpire));

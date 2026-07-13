@@ -118,6 +118,18 @@
      */
 
     /**
+     * @typedef {Object} StatisticUnlockRequirement
+     * @property {string} id - 统计稳定 ID，必须对应 GameState.statistics 的 key。
+     * @property {number} minValue - 解锁所需的最低统计值，非负累计数值。
+     * @property {string} description - 中文条件说明，用于界面提示。
+     */
+
+    /**
+     * @typedef {Object} BuildingUnlockRequirements
+     * @property {StatisticUnlockRequirement[]=} statistics - 建筑显示前必须满足的统计门槛数组。
+     */
+
+    /**
      * @typedef {Object} ResourceDefinition
      * @property {ResourceId} id - 资源稳定 ID。
      * @property {string} name - 中文显示名。
@@ -159,6 +171,7 @@
      * @property {number=} effects.weatherNegativeMitigationRatio - 每个已拥有建筑削弱资源产出负面天气的比例，范围通常为 0-1。
      * @property {number=} effects.weatherPositiveAmplificationRatio - 每个已拥有建筑放大资源产出正面天气的比例，范围通常为 0-1。
      * @property {UnlockBundle} unlock - 显示该建筑所需的解锁条件或默认解锁标记。
+     * @property {BuildingUnlockRequirements=} unlockRequirements - 建筑显示前额外必须满足的运行时门槛。
      */
 
     /**

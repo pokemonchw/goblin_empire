@@ -1498,6 +1498,15 @@
                 resources: [
                     "ancestralEcho"
                 ]
+            },
+            unlockRequirements: {
+                statistics: [
+                    {
+                        id: "totalOldAgeDeaths",
+                        minValue: 1,
+                        description: "至少 1 名哥布林自然老死"
+                    }
+                ]
             }
         },
         {
