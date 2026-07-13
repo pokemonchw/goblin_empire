@@ -266,7 +266,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 21;
+    var SAVE_VERSION = 22;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -466,6 +466,7 @@
             id: "fungus",
             name: game.text.TEXT_REGISTRY.resources.fungus.name,
             category: "basic",
+            initialValue: 100,
             defaultMaxValue: 100,
             isVisibleAtStart: true,
             isCapacityLimited: true,

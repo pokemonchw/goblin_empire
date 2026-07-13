@@ -23,7 +23,7 @@
 
             resourcesById[resourceDefinition.id] = {
                 id: resourceDefinition.id,
-                value: 0,
+                value: resourceDefinition.initialValue || 0,
                 maxValue: resourceDefinition.defaultMaxValue,
                 isVisible: resourceDefinition.isVisibleAtStart,
                 perSecond: 0,

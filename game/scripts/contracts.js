@@ -122,6 +122,7 @@
      * @property {ResourceId} id - 资源稳定 ID。
      * @property {string} name - 中文显示名。
      * @property {"basic"|"crafted"|"rare"|"mystic"|"prestige"} category - 资源显示分组。
+     * @property {number=} initialValue - 新存档初始库存，非负资源数量；省略时为 0。
      * @property {number} defaultMaxValue - 默认容量上限，非负资源数量。
      * @property {boolean} isVisibleAtStart - 新存档是否立即显示。
      * @property {boolean} isCapacityLimited - 是否受到容量上限限制。

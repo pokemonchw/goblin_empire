@@ -353,8 +353,59 @@
             migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
 
+        if (sourceVersion < 22) {
+            // v21 旧 shape：空白新局菌菇为 0，但开局俘虏会立即消耗菌菇口粮。
+            // v22 新 shape：未开始且无进度的旧存档补到 100 菌菇，与新局初始库存一致。
+            // 迁移原因：避免旧空白存档仍要求玩家狂点采菌才能进入第一轮建造与苗床繁育。
+            grantInitialFungusToUnstartedSave(migratedSaveData);
+        }
+
         migratedSaveData.version = game.definitions.SAVE_VERSION;
         return migratedSaveData;
+    }
+
+    /**
+     * 为未开始的旧存档补发开局菌菇。
+     *
+     * @param {SaveData} saveData - v21 或更早存档对象，会在符合条件时改写 resources。
+     * @returns {void} 无返回值。
+     */
+    function grantInitialFungusToUnstartedSave(saveData) {
+        // Object 挑战状态：用于确认玩家尚未选择正常模式或挑战模式。
+        var challengeState = saveData.challenges || {};
+
+        if (challengeState.runMode !== "undecided" || hasLegacySaveProgress(saveData)) {
+            return;
+        }
+
+        // Object[] 资源存档列表：用于查找并改写菌菇库存。
+        var savedResources = Array.isArray(saveData.resources) ? saveData.resources : [];
+
+        // boolean 是否已找到菌菇资源：true 表示已在原数组中补发库存。
+        var hasFungusResource = false;
+
+        // number 资源循环索引：遍历资源存档数组的整数下标。
+        for (var resourceIndex = 0; resourceIndex < savedResources.length; resourceIndex += 1) {
+            // Object 当前资源存档：包含 id、value 和 isVisible。
+            var savedResource = savedResources[resourceIndex];
+
+            if (savedResource.id === "fungus") {
+                savedResource.value = 100;
+                savedResource.isVisible = true;
+                hasFungusResource = true;
+                break;
+            }
+        }
+
+        if (!hasFungusResource) {
+            savedResources.push({
+                id: "fungus",
+                value: 100,
+                isVisible: true
+            });
+        }
+
+        saveData.resources = savedResources;
     }
 
     /**
