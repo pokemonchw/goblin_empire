@@ -26,6 +26,16 @@
         }
     ];
 
+    // Object.<string, string> 旧种族 ID 映射表：key 为旧亚种 ID，value 为合并后的当前种族 ID。
+    var LEGACY_CAPTIVE_RACE_ID_ALIASES = {
+        mire_human: "human",
+        frontier_human: "human",
+        hill_dwarf: "dwarf",
+        deep_dwarf: "dwarf",
+        wood_elf: "elf",
+        moon_elf: "elf"
+    };
+
     // string[] 俘虏名池：生成后写入 CaptiveState.name，避免列表中同类俘虏无法区分。
     var CAPTIVE_NAME_POOL = [
         "阿苔",
@@ -173,6 +183,7 @@
             name: createCaptiveName(captiveTypeId),
             type: captiveTypeId,
             raceId: normalizedRaceId,
+            faithId: game.faithSystem.createRandomCaptiveFaithId(normalizedRaceId),
             quality: qualityId,
             source: source,
             traitHint: captiveTypeDefinition ? captiveTypeDefinition.traitHint : "basic",
@@ -201,7 +212,7 @@
      */
     function createCaptiveFromRaidTarget(targetDefinition) {
         // string 种族 ID：先由地点权重决定俘虏来自哪个非哥布林种族。
-        var raceId = selectWeightedId(targetDefinition.captiveRaceWeights, "mire_human");
+        var raceId = selectWeightedId(targetDefinition.captiveRaceWeights, "human");
 
         // CaptiveRaceDefinition|null 种族定义：用于读取职业和品质权重。
         var raceDefinition = getCaptiveRaceDefinition(raceId);
@@ -365,6 +376,13 @@
      * @returns {string} 有效种族 ID。
      */
     function normalizeCaptiveRaceId(raceId, captiveTypeId) {
+        // string|undefined 合并后种族 ID：兼容旧存档中的地域亚种 ID。
+        var mergedRaceId = LEGACY_CAPTIVE_RACE_ID_ALIASES[raceId];
+
+        if (getCaptiveRaceDefinition(mergedRaceId)) {
+            return mergedRaceId;
+        }
+
         if (getCaptiveRaceDefinition(raceId)) {
             return raceId;
         }
@@ -374,10 +392,10 @@
         }
 
         if (captiveTypeId === "magic_talent" || captiveTypeId === "shrine_acolyte") {
-            return "mire_human";
+            return "human";
         }
 
-        return "mire_human";
+        return "human";
     }
 
     /**

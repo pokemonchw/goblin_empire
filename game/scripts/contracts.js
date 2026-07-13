@@ -201,6 +201,7 @@
      * @property {string} id - 哥布林稳定 ID。
      * @property {string} name - 中文姓名。
      * @property {string=} nickname - 绰号或氏族名，可省略。
+     * @property {string|null} faithId - 当前信仰 ID；null 表示祖灵祭坛建立前没有信仰。
      * @property {number} age - 年龄，非负浮点数，单位为年。
      * @property {number} baseLifespanYears - 出生基础寿命，单位为年。
      * @property {number} growthLifespanYears - 属性和技能成长提供的寿命，单位为年。
@@ -276,6 +277,7 @@
      * @property {string} name - 俘虏中文姓名；生成后写入存档，确保每个俘虏可被单独识别。
      * @property {"laborer"|"warrior"|"magic_talent"|"artisan"|"accountant"|"noble"|"undead_captive"|"ascetic"|"herbalist"|"shrine_acolyte"} type - 俘虏类型 ID。
      * @property {string} raceId - 俘虏种族 ID，必须对应 CaptiveRaceDefinition.id，且不是哥布林。
+     * @property {string|null} faithId - 俘虏信仰 ID；null 表示无信仰，有值时必须对应 FaithDefinition.id。
      * @property {"common"|"skilled"|"elite"|"legendary"} quality - 俘虏质量 ID。
      * @property {string} source - 来源 ID 或事件名。
      * @property {"basic"|"strong"|"magic"|"craft"|"trade"|"obedient"|"corrupted"} traitHint - 繁衍或改造倾向 ID。

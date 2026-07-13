@@ -193,6 +193,7 @@
             id: "goblin_" + goblinIndex,
             name: givenName + "·" + clanName,
             nickname: nickname,
+            faithId: game.faithSystem.hasAncestralAltar(state) ? "goblin_ancestor" : null,
             age: 0,
             origin: origin,
             jobId: undefined,

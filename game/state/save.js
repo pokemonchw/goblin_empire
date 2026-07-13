@@ -26,6 +26,16 @@
         "overseeing"
     ];
 
+    // Object.<string, string> 旧俘虏种族 ID 映射表：key 为旧亚种 ID，value 为合并后的当前种族 ID。
+    var LEGACY_CAPTIVE_RACE_ID_ALIASES = {
+        mire_human: "human",
+        frontier_human: "human",
+        hill_dwarf: "dwarf",
+        deep_dwarf: "dwarf",
+        wood_elf: "elf",
+        moon_elf: "elf"
+    };
+
     /**
      * 将运行时状态压缩为存档结构。
      *
@@ -234,7 +244,7 @@
                         id: "captive_start_laborer",
                         name: "阿苔",
                         type: "laborer",
-                        raceId: "mire_human",
+                        raceId: "human",
                         quality: "common",
                         source: "开局",
                         traitHint: "basic",
@@ -374,6 +384,22 @@
             // 迁移原因：“人即是兽”科技要求战兽卡片保留俘虏姓名并显示原种族(兽)。
             migratedSaveData.warbeasts = normalizeSavedWarbeasts(Array.isArray(migratedSaveData.warbeasts) ? migratedSaveData.warbeasts : []);
             unlockHumanBeastForPublicNurserySaves(migratedSaveData);
+        }
+
+        if (sourceVersion < 25) {
+            // v24 旧 shape：俘虏种族包含沼地人、边城人、丘陵矮人、深岩矮人、林地精灵和月裔精灵等地域亚种。
+            // v25 新 shape：同类种族合并为人类、矮人和精灵，地域差异由掠夺地点和外交势力表达。
+            // 迁移原因：种族 ID 应表达稳定大类，避免显示和存档层把同族地域标签当成独立种族。
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
+            migratedSaveData.warbeasts = normalizeSavedWarbeasts(Array.isArray(migratedSaveData.warbeasts) ? migratedSaveData.warbeasts : []);
+        }
+
+        if (sourceVersion < 26) {
+            // v25 旧 shape：哥布林和俘虏没有 faithId，战兽也没有信仰字段。
+            // v26 新 shape：哥布林在祖灵祭坛前 faithId 为 null，祭坛后为 goblin_ancestor；俘虏按种族随机信仰。
+            // 迁移原因：信仰系统需要在个体层保存可显示、可扩展的信仰归属，同时明确战兽无信仰。
+            migratedSaveData.goblins = normalizeSavedGoblins(Array.isArray(migratedSaveData.goblins) ? migratedSaveData.goblins : []);
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
 
         migratedSaveData.version = game.definitions.SAVE_VERSION;
@@ -781,6 +807,10 @@
             }
         }
 
+        if (game.faithSystem && game.faithSystem.hasAncestralAltar(restoredState)) {
+            game.faithSystem.applyGoblinAncestorFaith(restoredState);
+        }
+
         // Object[] 科技存档列表：用于恢复研究和解锁状态。
         var savedTechnologies = Array.isArray(saveData.technologies) ? saveData.technologies : [];
 
@@ -1181,6 +1211,9 @@
             normalizeGoblinSkills(goblin);
             goblin.attributes = goblin.attributes || {};
             normalizeGoblinLifespanFields(goblin);
+            if (game.faithSystem) {
+                goblin.faithId = game.faithSystem.getFaithDefinition(goblin.faithId) ? goblin.faithId : null;
+            }
             goblin.isAlive = goblin.isAlive !== false;
             normalizedGoblins.push(goblin);
         }
@@ -1210,6 +1243,9 @@
             captive.turnsHeld = Math.max(0, Number(captive.turnsHeld) || 0);
             captive.name = normalizeCaptiveName(captive, captiveIndex);
             captive.raceId = normalizeCaptiveRaceId(captive.raceId, captive.type);
+            if (game.faithSystem) {
+                game.faithSystem.normalizeCaptiveFaith(captive);
+            }
             normalizeCaptiveLifespanFields(captive);
             captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
             captive.isAutoBrainwashEnabled = Boolean(captive.isAutoBrainwashEnabled);
@@ -1402,6 +1438,13 @@
      * @returns {string} 有效种族 ID。
      */
     function normalizeCaptiveRaceId(raceId, captiveTypeId) {
+        // string|undefined 合并后种族 ID：把旧地域亚种转为当前大类种族。
+        var mergedRaceId = LEGACY_CAPTIVE_RACE_ID_ALIASES[raceId];
+
+        if (isKnownCaptiveRaceId(mergedRaceId)) {
+            return mergedRaceId;
+        }
+
         if (isKnownCaptiveRaceId(raceId)) {
             return raceId;
         }
@@ -1410,7 +1453,7 @@
             return "ghoulkin";
         }
 
-        return "mire_human";
+        return "human";
     }
 
     /**

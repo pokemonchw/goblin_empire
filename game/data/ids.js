@@ -19,6 +19,7 @@
      * @property {string[]} prestigePerks - 威望天赋稳定 ID 数组；key 空间为威望天赋 ID。
      * @property {string[]} challenges - 挑战稳定 ID 数组；key 空间为挑战 ID。
      * @property {string[]} weather - 天气稳定 ID 数组；key 空间为 WeatherId。
+     * @property {string[]} faiths - 信仰稳定 ID 数组；key 空间为 FaithDefinition.id。
      */
 
     // string[] 资源稳定 ID 列表：覆盖基础、工业、神秘和威望资源。
@@ -189,6 +190,20 @@
         "lust_wind"
     ];
 
+    // string[] 信仰稳定 ID 列表：覆盖无信仰、哥布林祖灵和非哥布林神灵。
+    var FAITH_IDS = [
+        "none",
+        "goblin_ancestor",
+        "stone_father",
+        "mud_mother",
+        "rat_queen",
+        "green_sun",
+        "moon_root",
+        "iron_warlord",
+        "grave_lamp",
+        "abyss_eye"
+    ];
+
     // string[] 政策稳定 ID 列表：按后续政策组引用。
     var POLICY_IDS = [
         "trade_focus",
@@ -283,7 +298,8 @@
         raidTargets: RAID_TARGET_IDS,
         prestigePerks: PRESTIGE_PERK_IDS,
         challenges: CHALLENGE_IDS,
-        weather: WEATHER_IDS
+        weather: WEATHER_IDS,
+        faiths: FAITH_IDS
     };
 
     /**

@@ -153,6 +153,15 @@
             state.statistics.hasBuiltChiefHall = 1;
         }
 
+        if (buildingId === "ancestral_altar" && game.faithSystem) {
+            // number 获得祖灵信仰数量：首次建立祖灵祭坛会让既有哥布林转向祖灵。
+            var ancestorFaithCount = game.faithSystem.applyGoblinAncestorFaith(state);
+
+            if (ancestorFaithCount > 0) {
+                game.simulation.addLog(state, "important", "祖灵祭坛点燃，" + ancestorFaithCount + " 名哥布林开始信仰哥布林祖灵。");
+            }
+        }
+
         return true;
     }
 

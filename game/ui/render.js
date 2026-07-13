@@ -1302,6 +1302,7 @@
         tooltipElement.appendChild(createTextElement("h4", warbeast.name || warbeast.id));
         appendDefinitionDetail(listElement, "物种", speciesDefinition ? speciesDefinition.name : warbeast.speciesId);
         appendDefinitionDetail(listElement, "种族", formatWarbeastRaceLabel(warbeast, speciesDefinition));
+        appendDefinitionDetail(listElement, "信仰", "无信仰");
         appendDefinitionDetail(listElement, "类型", speciesDefinition ? speciesDefinition.type : "未知");
         appendDefinitionDetail(listElement, "特质", speciesDefinition ? speciesDefinition.trait : "未知");
         appendDefinitionDetail(listElement, "来源", formatCaptiveSource(warbeast.source));
@@ -1598,6 +1599,7 @@
         tooltipElement.appendChild(createTextElement("h4", captive.name || captive.id));
         appendDefinitionDetail(listElement, "品质", qualityDefinition ? qualityDefinition.name : captive.quality);
         appendDefinitionDetail(listElement, "种族", raceDefinition ? raceDefinition.name : (captive.raceId || "未知种族"));
+        appendDefinitionDetail(listElement, "信仰", game.faithSystem.formatFaithName(captive.faithId));
         appendDefinitionDetail(listElement, "职业", captiveTypeDefinition ? captiveTypeDefinition.name : captive.type);
         if (raceDefinition) {
             appendDefinitionDetail(listElement, "活跃世界", formatCaptiveRaceWorldName(raceDefinition));
@@ -5228,6 +5230,7 @@
         cardElement.appendChild(createTextElement("h3", goblin.name));
         cardElement.appendChild(createTextElement("p", "年龄：" + formatAgeYears(goblin.age) + "，寿命：" + game.population.calculateGoblinTotalLifespanYears(goblin) + " 年"));
         cardElement.appendChild(createTextElement("p", "寿命拆分：基础 " + Math.floor(Number(goblin.baseLifespanYears) || 0) + "，成长 " + Math.floor(Number(goblin.growthLifespanYears) || 0) + "，科研 " + Math.floor(Number(goblin.technologyLifespanYears) || 0) + "，事件 " + Math.floor(Number(goblin.eventLifespanYears) || 0) + " 年"));
+        cardElement.appendChild(createTextElement("p", "信仰：" + game.faithSystem.formatFaithName(goblin.faithId)));
         cardElement.appendChild(createTextElement("p", "职业：" + (goblin.jobId || "空闲")));
         cardElement.appendChild(createTextElement("p", "领袖：" + (goblin.isLeader ? "是" : "否") + "，固定：" + (goblin.isPinned ? "是" : "否")));
         cardElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.attributePrefix + formatAttributes(goblin.attributes)));
