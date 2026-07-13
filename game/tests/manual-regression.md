@@ -8,6 +8,7 @@
 - 职业产出：创建已解锁职业和具体哥布林，调用 `game.jobs.assignWorker` 与 `game.jobs.updateJobs`，确认资源每秒变化和职业技能经验同步增长。
 - 技能等级：给哥布林写入不同技能经验，确认职业适配和远征评分随技能经验提高。
 - 苗床繁育：创建普通俘虏并调用 `game.captivesSystem.applyDisposition(state, captiveId, "bed")`，确认俘虏进入 `breedingState = "gestating"` 且不会弹确认框；推进一个月后按失败概率结算，成功时生成 1 个 `origin = "captive_bed"` 的新哥布林，随后进入 `resting`；休养期间确认 `培育新生` 不可执行，但 `洗脑改造` 和 `做成食物` 可执行；再推进一个月后回到 `idle`，同一俘虏可再次培育；随后调用 `game.population.updatePopulation`，确认不会因空住房和菌菇自动新增人口。
+- 战兽：调用 `game.warbeastsSystem.createWarbeast("cave_boar", "manual_test", state)` 并加入 `state.warbeasts`，确认口粮口数增加；连续 4 次 `applyDisposition(state, warbeastId, "tame")` 后可执行 `breed`；推进一个月后生成 1 个 `origin = "warbeast_bed"` 的新哥布林并进入 `resting`，休养期间 `calculateFoodConsumerUnits` 翻倍；执行 `butcher` 后战兽移除且菌菇固定 +100。
 - 满仓口粮：设置 1 个存活哥布林、5 个启用 `fungus_bed`、菌菇达到容量上限，调用 `game.simulation.updateGame` 推进 60 秒，确认不会产生断粮计时或饿死日志；再设置无菌菇、无菌菇产出且有俘虏，推进超过 3 个游戏日，确认真实断粮会优先移除俘虏并每名返还 10 菌菇；俘虏耗尽后继续断粮才会杀死哥布林。
 - 日期速度：调用 `game.calendar.updateCalendar(state, 1)` 后，确认 `state.calendar.elapsedDays` 增加 1；调用 `game.calendar.calculateDaysFromSeconds(30)` 后，确认返回 30。
 - 月末自动存档：准备未暂停状态并记录 localStorage 原存档，将 `state.calendar.elapsedDays` 设为 29 后调用 `game.simulation.updateGame(state, state.lastActiveTimestamp + 1000)`，确认 `localStorage.getItem("goblinEmpireSave")` 被更新且存档中的 `calendar.elapsedDays >= 30`；再将 `state.isPaused` 设为 `true` 后等待或调用 `updateGame`，确认不会因为暂停推进而写入新月末存档。

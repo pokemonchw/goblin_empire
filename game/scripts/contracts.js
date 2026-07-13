@@ -207,7 +207,7 @@
      * @property {number} technologyLifespanYears - 当前科技提供的寿命，单位为年。
      * @property {number} eventLifespanYears - 随机事件提供的寿命，单位为年。
      * @property {number} elderDeathCheckCount - 达到寿命后已通过的月初老死检查次数，非负整数。
-     * @property {"natural"|"captive_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 来源 ID；natural 仅兼容旧存档，不再由当前规则生成。
+     * @property {"natural"|"captive_bed"|"warbeast_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 来源 ID；natural 仅兼容旧存档，不再由当前规则生成。
      * @property {JobId=} jobId - 当前职业 ID；省略表示空闲。
      * @property {Object.<string, number>} attributes - 六项属性字典；key 为属性 ID，value 为 1-10 整数。
      * @property {string[]} traits - 特质 ID 数组。
@@ -260,6 +260,8 @@
      * @property {Object.<string, number>} rewards - 成功收益字典；key 为资源 ID，value 为资源数量。
      * @property {string[]} captiveTypes - 可能获得的俘虏类型 ID 数组。
      * @property {WeightedId[]} captiveRaceWeights - 可能获得的俘虏种族权重数组；id 为 CaptiveRaceDefinition.id。
+     * @property {number} warbeastCaptureChance - 掠夺成功后捕获战兽的概率，范围为 0-1。
+     * @property {WeightedId[]} warbeastSpeciesWeights - 可能捕获的战兽物种权重数组；id 为 WarbeastSpeciesDefinition.id。
      * @property {number} relationPenalty - 掠夺后关系下降基础值，非负整数。
      * @property {number} infamyReward - 掠夺成功后获得的恶名数量，非负资源数量。
      * @property {number} infamyFailurePenalty - 掠夺失败后损失的恶名数量，非负资源数量。
@@ -289,6 +291,33 @@
      * @property {boolean} isAutoBreedEnabled - 是否对该俘虏启用自动培育；true 表示公用苗床会在洗脑满值、空闲、食物和住房充足时自动开始培育。
      * @property {"idle"|"gestating"|"resting"} breedingState - 苗床繁育状态；idle 可培育，gestating 孕育中且锁定处置，resting 休养中且只锁定培育。
      * @property {string=} gestationWeatherId - 开始本次孕育时的天气 ID；只在 gestating 状态下用于锁定孕育修正。
+     * @property {number} gestationSecondsRemaining - 孕育剩余游戏秒数，非负浮点数。
+     * @property {number} restSecondsRemaining - 休养剩余游戏秒数，非负浮点数。
+     */
+
+    /**
+     * @typedef {Object} WarbeastSpeciesDefinition
+     * @property {string} id - 战兽物种稳定 ID。
+     * @property {string} name - 中文显示名。
+     * @property {string} race - 战兽种族中文名，例如地底兽、菌兽或深渊兽。
+     * @property {string} type - 战兽类型 ID，用于分类展示和后续规则扩展。
+     * @property {string} trait - 战兽特质中文名，用于卡片和后代倾向说明。
+     * @property {string} description - 中文说明。
+     * @property {"basic"|"strong"|"magic"|"craft"|"trade"|"obedient"|"corrupted"} offspringTraitHint - 苗床后代倾向 ID。
+     * @property {Object.<string, number>} attributeBonus - 后代属性偏置字典；key 为哥布林属性 ID，value 为整数加成。
+     * @property {number} foodConsumptionRatio - 基础口粮倍率，非负浮点数；休养时会再翻倍。
+     * @property {number} captureDifficulty - 捕获难度倍率，正浮点数；用于日志和后续平衡。
+     */
+
+    /**
+     * @typedef {Object} WarbeastState
+     * @property {string} id - 战兽稳定 ID。
+     * @property {string} speciesId - 战兽物种 ID，必须对应 WarbeastSpeciesDefinition.id。
+     * @property {string} name - 中文个体名，生成后写入存档。
+     * @property {string} source - 来源掠夺目标 ID 或事件 ID。
+     * @property {boolean} isTamed - 是否已驯化；true 表示可作为苗床培育哥布林。
+     * @property {"idle"|"gestating"|"resting"} breedingState - 战兽苗床状态；idle 可行动，gestating 孕育中，resting 休养中且口粮翻倍。
+     * @property {number} tamingProgress - 驯化进度，范围 0-100。
      * @property {number} gestationSecondsRemaining - 孕育剩余游戏秒数，非负浮点数。
      * @property {number} restSecondsRemaining - 休养剩余游戏秒数，非负浮点数。
      */
@@ -385,6 +414,7 @@
      * @property {CalendarState} calendar - 日期运行时状态；保存季节日序、历法解锁状态和纪元日。
      * @property {WeatherState} weather - 天气运行时状态；保存当前天气和下次变化日。
      * @property {CaptiveState[]} captives - 俘虏运行时状态数组。
+     * @property {WarbeastState[]} warbeasts - 战兽运行时状态数组。
      * @property {{legacy: number, perks: string[]}} prestige - 威望状态；legacy 为非负数量，perks 为已购天赋 ID。
      * @property {Object.<string, number>} statistics - 统计字典；key 为统计 ID，value 为累计数值。
      * @property {string} activeTabId - 当前标签页 ID。
@@ -415,6 +445,7 @@
      * @property {CalendarState} calendar - 日期存档状态；保存季节日序、历法解锁状态和纪元日。
      * @property {WeatherState} weather - 天气存档状态；保存当前天气和下次变化日。
      * @property {CaptiveState[]} captives - 俘虏存档数组。
+     * @property {WarbeastState[]} warbeasts - 战兽存档数组。
      * @property {{legacy: number, perks: string[]}} prestige - 威望存档状态。
      * @property {Object.<string, number>} statistics - 统计存档字典。
      */

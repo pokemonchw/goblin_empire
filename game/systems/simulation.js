@@ -85,6 +85,7 @@
         game.population.consumeFungusForPopulation(state, deltaSeconds);
         game.crafting.updateAutoCrafting(state, deltaSeconds);
         game.captivesSystem.updateCaptives(state, deltaSeconds);
+        game.warbeastsSystem.updateWarbeasts(state, deltaSeconds);
         game.eventsSystem.updateEvents(state, deltaSeconds);
         game.diplomacy.updateDiplomacyMissions(state, deltaSeconds);
         game.expeditions.updateExpeditions(state, deltaSeconds);
@@ -156,7 +157,7 @@
      * 判断当前局是否已经灭亡。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @returns {boolean} 是否灭亡；true 表示已进入正式局且无存活哥布林、无俘虏。
+     * @returns {boolean} 是否灭亡；true 表示已进入正式局且无存活哥布林、无俘虏、无战兽。
      */
     function isRunExtinct(state) {
         if (!state.challenges || !state.challenges.runMode || state.challenges.runMode === "undecided") {
@@ -169,7 +170,10 @@
         // number 俘虏数量：灭亡判定要求没有任何可继续繁衍或处置的俘虏。
         var captiveCount = Array.isArray(state.captives) ? state.captives.length : 0;
 
-        return aliveGoblinCount <= 0 && captiveCount <= 0;
+        // number 战兽数量：战兽属于人口单位，仍可屠宰或驯化为繁育入口。
+        var warbeastCount = Array.isArray(state.warbeasts) ? state.warbeasts.length : 0;
+
+        return aliveGoblinCount <= 0 && captiveCount <= 0 && warbeastCount <= 0;
     }
 
     /**

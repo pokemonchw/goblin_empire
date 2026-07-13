@@ -271,6 +271,7 @@
             calendar: initialCalendar,
             weather: initialWeather,
             captives: createInitialCaptives(),
+            warbeasts: [],
             prestige: {
                 legacy: 0,
                 perks: []

@@ -917,6 +917,7 @@
         }
 
         tabContentElement.appendChild(renderCaptiveSection(state));
+        tabContentElement.appendChild(renderWarbeastSection(state));
     }
 
     /**
@@ -1167,6 +1168,195 @@
         cardElement.appendChild(actionsElement);
         cardElement.appendChild(renderCaptiveTooltip(state, captive, captiveTypeDefinition, qualityDefinition));
         return cardElement;
+    }
+
+    /**
+     * 渲染战兽区块。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 战兽区块元素。
+     */
+    function renderWarbeastSection(state) {
+        // HTMLElement 区块元素：承载战兽列表和处置预览。
+        var sectionElement = document.createElement("section");
+
+        sectionElement.appendChild(createTextElement("h3", "战兽"));
+
+        if (!Array.isArray(state.warbeasts) || state.warbeasts.length === 0) {
+            sectionElement.appendChild(createTextElement("p", "暂无战兽。"));
+            return sectionElement;
+        }
+
+        // HTMLElement 列表元素：承载战兽卡片行。
+        var listElement = document.createElement("div");
+
+        listElement.className = "captive-list";
+
+        // number 循环索引：遍历战兽数组的整数下标。
+        for (var warbeastIndex = 0; warbeastIndex < state.warbeasts.length; warbeastIndex += 1) {
+            // WarbeastState 当前战兽：用于渲染战兽卡片。
+            var warbeast = state.warbeasts[warbeastIndex];
+
+            listElement.appendChild(renderWarbeastCard(state, warbeast));
+        }
+
+        sectionElement.appendChild(listElement);
+        return sectionElement;
+    }
+
+    /**
+     * 渲染战兽卡片。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {WarbeastState} warbeast - 战兽运行时对象，不会被修改。
+     * @returns {HTMLElement} 战兽卡片元素。
+     */
+    function renderWarbeastCard(state, warbeast) {
+        // HTMLElement 卡片行元素：承载单个战兽摘要、倒计时和处置按钮。
+        var cardElement = document.createElement("div");
+
+        // WarbeastSpeciesDefinition|null 物种定义：用于显示战兽中文信息。
+        var speciesDefinition = game.warbeastsSystem.getSpeciesDefinition(warbeast.speciesId);
+
+        // string 物种显示名：包含种族和类型，便于区分战兽功能。
+        var speciesLabel = speciesDefinition ? speciesDefinition.name + " / " + speciesDefinition.race : warbeast.speciesId;
+
+        cardElement.className = "captive-row resource-row";
+        cardElement.tabIndex = 0;
+
+        // HTMLElement 摘要元素：显示战兽物种和个体名。
+        var summaryElement = document.createElement("div");
+
+        summaryElement.className = "captive-summary";
+        summaryElement.appendChild(createTextElement("strong", speciesLabel));
+        summaryElement.appendChild(createTextElement("span", warbeast.name || warbeast.id));
+        cardElement.appendChild(summaryElement);
+
+        // HTMLElement 倒计时元素：显示驯化或苗床状态。
+        var cooldownElement = createTextElement("span", formatWarbeastCooldown(warbeast));
+
+        cooldownElement.className = "captive-cooldown";
+        cardElement.appendChild(cooldownElement);
+
+        // HTMLElement 操作按钮组：显示驯化、苗床和屠宰入口。
+        var actionsElement = document.createElement("div");
+
+        actionsElement.className = "captive-actions";
+        appendWarbeastActionButton(actionsElement, state, warbeast, "tame", "驯化");
+        appendWarbeastActionButton(actionsElement, state, warbeast, "breed", "作为苗床");
+        appendWarbeastActionButton(actionsElement, state, warbeast, "butcher", "屠宰");
+        cardElement.appendChild(actionsElement);
+        cardElement.appendChild(renderWarbeastTooltip(state, warbeast, speciesDefinition));
+        return cardElement;
+    }
+
+    /**
+     * 追加战兽处置按钮。
+     *
+     * @param {HTMLElement} actionsElement - 处置按钮组元素，会被追加按钮。
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {WarbeastState} warbeast - 战兽运行时对象，不会被修改。
+     * @param {"tame"|"breed"|"butcher"} dispositionId - 处置方式 ID。
+     * @param {string} labelText - 处置按钮中文文本。
+     * @returns {void} 无返回值。
+     */
+    function appendWarbeastActionButton(actionsElement, state, warbeast, dispositionId, labelText) {
+        // HTMLButtonElement 处置按钮：点击后执行战兽处置。
+        var buttonElement = document.createElement("button");
+
+        buttonElement.type = "button";
+        buttonElement.dataset.warbeastId = warbeast.id;
+        buttonElement.dataset.warbeastDisposition = dispositionId;
+        buttonElement.textContent = labelText;
+        buttonElement.disabled = state.isPaused || !game.warbeastsSystem.canApplyDisposition(state, warbeast, dispositionId);
+        actionsElement.appendChild(buttonElement);
+    }
+
+    /**
+     * 渲染战兽悬浮框。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {WarbeastState} warbeast - 战兽运行时对象，不会被修改。
+     * @param {WarbeastSpeciesDefinition|null} speciesDefinition - 战兽物种定义；缺失时显示物种 ID。
+     * @returns {HTMLElement} 战兽悬浮框元素。
+     */
+    function renderWarbeastTooltip(state, warbeast, speciesDefinition) {
+        // HTMLElement 悬浮框元素：承载战兽详细信息。
+        var tooltipElement = document.createElement("div");
+
+        // HTMLElement 明细列表：显示驯化、口粮和苗床规则。
+        var listElement = document.createElement("dl");
+
+        // Object.<string, string|number> 驯化预览：读取本次驯化进度。
+        var tamePreview = game.warbeastsSystem.previewDisposition(state, warbeast, "tame");
+
+        // Object.<string, string|number> 苗床预览：读取孕育和休养规则。
+        var breedPreview = game.warbeastsSystem.previewDisposition(state, warbeast, "breed");
+
+        // Object.<string, string|number> 屠宰预览：读取固定菌菇收益。
+        var butcherPreview = game.warbeastsSystem.previewDisposition(state, warbeast, "butcher");
+
+        tooltipElement.className = "resource-tooltip captive-tooltip";
+        tooltipElement.setAttribute("role", "tooltip");
+        tooltipElement.appendChild(createTextElement("h4", warbeast.name || warbeast.id));
+        appendDefinitionDetail(listElement, "物种", speciesDefinition ? speciesDefinition.name : warbeast.speciesId);
+        appendDefinitionDetail(listElement, "种族", speciesDefinition ? speciesDefinition.race : "未知");
+        appendDefinitionDetail(listElement, "类型", speciesDefinition ? speciesDefinition.type : "未知");
+        appendDefinitionDetail(listElement, "特质", speciesDefinition ? speciesDefinition.trait : "未知");
+        appendDefinitionDetail(listElement, "来源", formatCaptiveSource(warbeast.source));
+        appendDefinitionDetail(listElement, "说明", speciesDefinition ? speciesDefinition.description : "缺失战兽定义");
+        appendDefinitionDetail(listElement, "驯化", warbeast.isTamed ? "已驯化" : Math.round(Number(warbeast.tamingProgress) || 0) + "%，本次 +" + tamePreview.tamingGain);
+        appendDefinitionDetail(listElement, "口粮", formatNumber(game.warbeastsSystem.calculateFoodConsumerUnits(warbeast)) + " 口；休养时翻倍");
+        appendDefinitionDetail(listElement, "苗床", breedPreview.summary + "，孕育 " + breedPreview.gestationMonths + " 个月，休养 " + breedPreview.restMonths + " 个月");
+        appendDefinitionDetail(listElement, "后代偏置", speciesDefinition ? formatNumericBonusMap(speciesDefinition.attributeBonus, ATTRIBUTE_LABELS) : "未知");
+        appendDefinitionDetail(listElement, "屠宰", "固定菌菇 +" + butcherPreview.fungusGain);
+        appendDefinitionDetail(listElement, "状态", formatWarbeastBreedingState(warbeast));
+        tooltipElement.appendChild(listElement);
+        return tooltipElement;
+    }
+
+    /**
+     * 格式化战兽卡片行倒计时。
+     *
+     * @param {WarbeastState} warbeast - 战兽运行时对象，不会被修改。
+     * @returns {string} CD 中文文本；空闲时显示驯化或可行动。
+     */
+    function formatWarbeastCooldown(warbeast) {
+        if (warbeast.breedingState === "gestating") {
+            return "孕育 " + formatSecondsAsDays(warbeast.gestationSecondsRemaining) + " 天";
+        }
+
+        if (warbeast.breedingState === "resting") {
+            return "休养 " + formatSecondsAsDays(warbeast.restSecondsRemaining) + " 天";
+        }
+
+        if (!warbeast.isTamed) {
+            return "驯化 " + Math.round(Number(warbeast.tamingProgress) || 0) + "%";
+        }
+
+        return "可行动";
+    }
+
+    /**
+     * 格式化战兽苗床状态。
+     *
+     * @param {WarbeastState} warbeast - 战兽运行时对象，不会被修改。
+     * @returns {string} 中文状态文本。
+     */
+    function formatWarbeastBreedingState(warbeast) {
+        if (warbeast.breedingState === "gestating") {
+            return "孕育中，约 " + formatSecondsAsDays(warbeast.gestationSecondsRemaining) + " 天后产出新哥布林";
+        }
+
+        if (warbeast.breedingState === "resting") {
+            return "休养中，约 " + formatSecondsAsDays(warbeast.restSecondsRemaining) + " 天后解除苗床锁定；当前口粮翻倍";
+        }
+
+        if (!warbeast.isTamed) {
+            return "未驯化，需要驯化到 100% 后才能作为苗床";
+        }
+
+        return "已驯化，可作为苗床或屠宰";
     }
 
     /**
@@ -2694,7 +2884,7 @@
         // number 存活人口：用于食物消耗和拥挤度。
         var aliveCount = game.population.countAliveGoblins(state);
 
-        // number 食物口数：当前消耗菌菇的哥布林和俘虏总数。
+        // number 食物口数：当前消耗菌菇的哥布林、俘虏和战兽总数。
         var fungusConsumerCount = game.population.countFungusConsumers(state);
 
         // number 住房上限：用于拥挤度来源。
@@ -2703,19 +2893,22 @@
         // number 拥挤度比例：来自人口系统。
         var crowdingRatio = game.population.calculateCrowdingRatio(state);
 
-        // number 菌菇消耗：当前哥布林和俘虏理论消耗，单位菌菇/秒。
+        // number 菌菇消耗：当前哥布林、俘虏和战兽理论消耗，单位菌菇/秒。
         var fungusConsumption = game.population.calculateFungusConsumptionPerSecond(state);
 
         // number 待处置俘虏数量：苗床繁育的直接入口数量。
         var captiveCount = state.captives.length;
 
+        // number 战兽口粮口数：战兽按物种倍率统计，休养时翻倍。
+        var warbeastConsumerCount = game.population.countWarbeastFungusConsumers(state);
+
         cardElement.className = "action-card";
         cardElement.appendChild(createTextElement("h3", "人口压力"));
         cardElement.appendChild(createTextElement("p", "人口/住房：" + aliveCount + " / " + housingMax));
-        cardElement.appendChild(createTextElement("p", "口粮口数：" + fungusConsumerCount + "（含俘虏 " + captiveCount + "）"));
+        cardElement.appendChild(createTextElement("p", "口粮口数：" + formatNumber(fungusConsumerCount) + "（俘虏 " + captiveCount + "，战兽 " + formatNumber(warbeastConsumerCount) + "）"));
         cardElement.appendChild(createTextElement("p", "拥挤度：" + Math.round(crowdingRatio * 100) + "%"));
         cardElement.appendChild(createTextElement("p", "菌菇消耗：" + fungusConsumption.toFixed(2) + "/秒"));
-        cardElement.appendChild(createTextElement("p", "繁育入口：俘虏卡牌培育新生"));
+        cardElement.appendChild(createTextElement("p", "繁育入口：俘虏卡牌培育新生，驯化战兽苗床"));
         cardElement.appendChild(createTextElement("p", "待处置俘虏：" + captiveCount));
         return cardElement;
     }
@@ -4375,11 +4568,10 @@
         buttonElement.textContent = "派出";
         buttonElement.disabled = state.isPaused || !preview.canTradeByGoodwill || !game.resources.canAfford(state, factionDefinition.cost) || (game.challengesSystem && game.challengesSystem.isTradeDisabled(state));
 
-        rowElement.appendChild(createLocationMainElement(factionDefinition.name, "关系 " + game.diplomacy.getRelation(state, factionDefinition.id)));
-        rowElement.appendChild(createTextElement("span", "消耗：" + formatPriceList(factionDefinition.cost)));
-        rowElement.appendChild(createTextElement("span", "收益：" + (rewardDefinition ? rewardDefinition.name : factionDefinition.rewardResource) + " " + preview.minReward.toFixed(1) + "-" + preview.maxReward.toFixed(1)));
-        rowElement.appendChild(createTextElement("span", "距离 " + formatSecondsText(preview.distanceSeconds)));
-        rowElement.appendChild(createTextElement("span", missingTexts.length > 0 ? game.text.TEXT_REGISTRY.ui.missingPrefix + missingTexts.join("，") : (activeMissionCount > 0 ? "在途 " + activeMissionCount : "可派出")));
+        rowElement.appendChild(createLocationMainElement(factionDefinition.name, ""));
+        if (missingTexts.length > 0 || activeMissionCount > 0) {
+            rowElement.appendChild(createTextElement("span", missingTexts.length > 0 ? game.text.TEXT_REGISTRY.ui.missingPrefix + missingTexts.join("，") : "在途 " + activeMissionCount));
+        }
         rowElement.appendChild(buttonElement);
         rowElement.appendChild(renderFactionLocationTooltip(state, factionDefinition, preview, rewardDefinition, missingTexts));
         return rowElement;
@@ -4389,7 +4581,7 @@
      * 创建地点行左侧主信息。
      *
      * @param {string} nameText - 地点或势力中文名称。
-     * @param {string} detailText - 右侧短说明文本。
+     * @param {string} detailText - 右侧短说明文本；空字符串表示不显示详情。
      * @returns {HTMLElement} 主信息元素。
      */
     function createLocationMainElement(nameText, detailText) {
@@ -4399,14 +4591,16 @@
         // HTMLElement 名称元素：显示地点或势力名称。
         var nameElement = document.createElement("strong");
 
-        // HTMLElement 详情元素：显示关系、强度等短状态。
-        var detailElement = document.createElement("span");
-
         mainElement.className = "location-main";
         nameElement.textContent = nameText;
-        detailElement.textContent = detailText;
         mainElement.appendChild(nameElement);
-        mainElement.appendChild(detailElement);
+        if (detailText) {
+            // HTMLElement 详情元素：显示关系、强度等短状态。
+            var detailElement = document.createElement("span");
+
+            detailElement.textContent = detailText;
+            mainElement.appendChild(detailElement);
+        }
         return mainElement;
     }
 
@@ -4463,21 +4657,24 @@
         // HTMLButtonElement 掠夺按钮：点击后执行掠夺。
         var buttonElement = document.createElement("button");
 
+        // HTMLElement 掠夺操作区：把人数控件和发起按钮固定在同一网格列中，避免按钮被摘要字段挤出行尾。
+        var actionElement = document.createElement("div");
+
         rowElement.className = "resource-row location-row raid-location-row";
         rowElement.tabIndex = 0;
         rowElement.dataset.raidMemberCount = String(displayedRaiderCount);
+        actionElement.className = "raid-location-actions";
         buttonElement.type = "button";
         buttonElement.dataset.raidTargetId = targetDefinition.id;
         buttonElement.textContent = "派出";
         buttonElement.disabled = state.isPaused || !preview.canStart;
-        rowElement.appendChild(createLocationMainElement(targetDefinition.name, factionDefinition.name));
-        rowElement.appendChild(createTextElement("span", "强度 " + targetDefinition.targetStrength));
-        rowElement.appendChild(createTextElement("span", "消耗：" + formatRaidCostText(preview)));
-        rowElement.appendChild(createTextElement("span", "成功率 " + Math.round(preview.successChance * 100) + "%"));
-        rowElement.appendChild(createTextElement("span", "距离 " + formatSecondsText(preview.distanceSeconds)));
-        rowElement.appendChild(createTextElement("span", preview.canStart ? (activeMissionCount > 0 ? "在途 " + activeMissionCount : "可派出") : getRaidMissingSummary(preview, targetDefinition, missingCostTexts)));
-        rowElement.appendChild(memberControlElement);
-        rowElement.appendChild(buttonElement);
+        actionElement.appendChild(memberControlElement);
+        actionElement.appendChild(buttonElement);
+        rowElement.appendChild(createLocationMainElement(targetDefinition.name, ""));
+        if (!preview.canStart || activeMissionCount > 0) {
+            rowElement.appendChild(createTextElement("span", preview.canStart ? "在途 " + activeMissionCount : getRaidMissingSummary(preview, targetDefinition, missingCostTexts)));
+        }
+        rowElement.appendChild(actionElement);
         rowElement.appendChild(renderRaidTargetLocationTooltip(state, targetDefinition, factionDefinition, preview, missingCostTexts));
         return rowElement;
     }
@@ -4675,6 +4872,7 @@
         appendDefinitionDetail(listElement, "收益", formatRewardDictionary(targetDefinition.rewards));
         appendDefinitionDetail(listElement, "俘虏职业", String(preview.captiveTypes));
         appendDefinitionDetail(listElement, "俘虏种族", String(preview.captiveRaces));
+        appendDefinitionDetail(listElement, "战兽", String(preview.warbeastSpecies) + "（捕获 " + Math.round(Number(preview.warbeastCaptureChance || 0) * 100) + "%）");
 
         if (!preview.canStartByRaiders) {
             appendDefinitionDetail(listElement, "缺少", "战斗职业哥布林 " + Math.max(0, targetDefinition.minRaiders - preview.availableRaiderCount));

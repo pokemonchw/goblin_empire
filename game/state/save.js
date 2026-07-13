@@ -108,6 +108,7 @@
             calendar: Object.assign({}, state.calendar || game.calendar.createInitialCalendar()),
             weather: Object.assign({}, state.weather || game.weather.createInitialWeather()),
             captives: state.captives.slice(),
+            warbeasts: Array.isArray(state.warbeasts) ? state.warbeasts.slice() : [],
             prestige: {
                 legacy: state.prestige.legacy,
                 perks: state.prestige.perks.slice()
@@ -358,6 +359,13 @@
             // v22 新 shape：未开始且无进度的旧存档补到 100 菌菇，与新局初始库存一致。
             // 迁移原因：避免旧空白存档仍要求玩家狂点采菌才能进入第一轮建造与苗床繁育。
             grantInitialFungusToUnstartedSave(migratedSaveData);
+        }
+
+        if (sourceVersion < 23) {
+            // v22 旧 shape：没有战兽列表，掠夺只会带回资源和俘虏。
+            // v23 新 shape：warbeasts 保存掠夺捕获的战兽个体、驯化进度和苗床状态。
+            // 迁移原因：战兽属于额外人口单位，需要持久化口粮、驯化和繁育状态。
+            migratedSaveData.warbeasts = [];
         }
 
         migratedSaveData.version = game.definitions.SAVE_VERSION;
@@ -679,6 +687,7 @@
         restoredState.calendar = game.calendar.normalizeCalendarState(saveData.calendar);
         restoredState.weather = game.weather.normalizeWeatherState(saveData.weather, restoredState.calendar);
         restoredState.captives = normalizeSavedCaptives(Array.isArray(saveData.captives) ? saveData.captives : []);
+        restoredState.warbeasts = normalizeSavedWarbeasts(Array.isArray(saveData.warbeasts) ? saveData.warbeasts : []);
         restoredState.prestige = saveData.prestige || { legacy: 0, perks: [] };
         restoredState.statistics = saveData.statistics || {};
         // Object[] 日志数组：日志不进入存档，读档后清空新建状态的默认日志，避免显示错误日期。
@@ -1167,6 +1176,121 @@
         }
 
         return normalizedCaptives;
+    }
+
+    /**
+     * 规范化存档中的战兽对象。
+     *
+     * @param {WarbeastState[]} savedWarbeasts - 存档战兽数组。
+     * @returns {WarbeastState[]} 规范化后的战兽数组。
+     */
+    function normalizeSavedWarbeasts(savedWarbeasts) {
+        // WarbeastState[] 规范化数组：过滤没有稳定 ID 的无效战兽。
+        var normalizedWarbeasts = [];
+
+        // number 循环索引：遍历存档战兽数组的整数下标。
+        for (var warbeastIndex = 0; warbeastIndex < savedWarbeasts.length; warbeastIndex += 1) {
+            // WarbeastState 当前战兽对象：用于补齐驯化和苗床状态字段。
+            var warbeast = savedWarbeasts[warbeastIndex];
+
+            if (!warbeast || !warbeast.id) {
+                continue;
+            }
+
+            warbeast.speciesId = normalizeWarbeastSpeciesId(warbeast.speciesId);
+            warbeast.name = normalizeWarbeastName(warbeast, warbeastIndex);
+            warbeast.source = typeof warbeast.source === "string" && warbeast.source ? warbeast.source : "旧存档";
+            warbeast.isTamed = Boolean(warbeast.isTamed);
+            warbeast.breedingState = normalizeWarbeastBreedingState(warbeast.breedingState);
+            warbeast.tamingProgress = Math.min(100, Math.max(0, Number(warbeast.tamingProgress) || 0));
+            warbeast.gestationSecondsRemaining = Math.max(0, Number(warbeast.gestationSecondsRemaining) || 0);
+            warbeast.restSecondsRemaining = Math.max(0, Number(warbeast.restSecondsRemaining) || 0);
+
+            if (warbeast.breedingState === "gestating" && warbeast.gestationSecondsRemaining <= 0) {
+                warbeast.gestationSecondsRemaining = 1;
+            }
+
+            if (warbeast.breedingState === "resting" && warbeast.restSecondsRemaining <= 0) {
+                warbeast.restSecondsRemaining = 1;
+            }
+
+            normalizedWarbeasts.push(warbeast);
+        }
+
+        return normalizedWarbeasts;
+    }
+
+    /**
+     * 规范化战兽物种 ID。
+     *
+     * @param {string|undefined} speciesId - 存档中的战兽物种 ID。
+     * @returns {string} 有效战兽物种 ID。
+     */
+    function normalizeWarbeastSpeciesId(speciesId) {
+        if (isKnownWarbeastSpeciesId(speciesId)) {
+            return speciesId;
+        }
+
+        return "cave_boar";
+    }
+
+    /**
+     * 判断战兽物种 ID 是否存在于当前静态定义。
+     *
+     * @param {string|undefined} speciesId - 待校验战兽物种 ID。
+     * @returns {boolean} 是否为已定义战兽物种 ID。
+     */
+    function isKnownWarbeastSpeciesId(speciesId) {
+        if (!speciesId || !Array.isArray(game.definitions.WARBEAST_SPECIES_DEFINITIONS)) {
+            return false;
+        }
+
+        // number 循环索引：遍历战兽物种定义数组的整数下标。
+        for (var speciesIndex = 0; speciesIndex < game.definitions.WARBEAST_SPECIES_DEFINITIONS.length; speciesIndex += 1) {
+            // WarbeastSpeciesDefinition 当前物种定义：用于匹配物种 ID。
+            var speciesDefinition = game.definitions.WARBEAST_SPECIES_DEFINITIONS[speciesIndex];
+
+            if (speciesDefinition.id === speciesId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 规范化战兽姓名。
+     *
+     * @param {WarbeastState} warbeast - 战兽对象，用于读取旧存档 ID。
+     * @param {number} warbeastIndex - 战兽数组下标，非负整数。
+     * @returns {string} 战兽中文姓名。
+     */
+    function normalizeWarbeastName(warbeast, warbeastIndex) {
+        if (typeof warbeast.name === "string" && warbeast.name.trim()) {
+            return warbeast.name.trim();
+        }
+
+        // WarbeastSpeciesDefinition|null 物种定义：用于生成兜底名称。
+        var speciesDefinition = game.warbeastsSystem ? game.warbeastsSystem.getSpeciesDefinition(warbeast.speciesId) : null;
+
+        // string 物种名：缺失定义时回退为战兽。
+        var speciesName = speciesDefinition ? speciesDefinition.name : "战兽";
+
+        return speciesName + "·旧笼" + (warbeastIndex + 1);
+    }
+
+    /**
+     * 规范化战兽苗床状态。
+     *
+     * @param {string|undefined} breedingState - 存档中的状态 ID。
+     * @returns {"idle"|"gestating"|"resting"} 有效状态 ID。
+     */
+    function normalizeWarbeastBreedingState(breedingState) {
+        if (breedingState === "gestating" || breedingState === "resting") {
+            return breedingState;
+        }
+
+        return "idle";
     }
 
     /**

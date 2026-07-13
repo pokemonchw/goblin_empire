@@ -259,6 +259,7 @@
      * @property {number} starvationCheckDays - 断粮死亡检查间隔，单位为游戏日，正整数。
      * @property {number} starvationDeathRatio - 每次断粮死亡比例，范围为 0-1。
      * @property {number} captiveStarvationFungusGain - 单个俘虏断粮死亡返还的菌菇数量，非负资源数量。
+     * @property {number} warbeastButcherFungusGain - 单只战兽屠宰或断粮回收获得的菌菇数量，非负资源数量。
      * @property {number} baseGoblinLifespanYears - 哥布林出生基础寿命，单位为年。
      * @property {number} fallbackCaptiveLifespanYears - 俘虏缺失质量定义时使用的兜底基础寿命，单位为年。
      * @property {number} elderDeathBaseChance - 达到寿命后的首次月初老死概率，范围 0-1。
@@ -268,7 +269,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 22;
+    var SAVE_VERSION = 23;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -279,6 +280,7 @@
         starvationCheckDays: 3,
         starvationDeathRatio: 0.1,
         captiveStarvationFungusGain: 10,
+        warbeastButcherFungusGain: 100,
         baseGoblinLifespanYears: 72,
         fallbackCaptiveLifespanYears: 60,
         elderDeathBaseChance: 0.1,
@@ -4641,6 +4643,12 @@
                 { id: "mire_human", weight: 2 },
                 { id: "kobold", weight: 1 }
             ],
+            warbeastCaptureChance: 0.18,
+            warbeastSpeciesWeights: [
+                { id: "cave_boar", weight: 5 },
+                { id: "spore_hound", weight: 3 },
+                { id: "mud_lizard", weight: 2 }
+            ],
             relationPenalty: 8,
             infamyReward: 3,
             infamyFailurePenalty: 1,
@@ -4672,6 +4680,11 @@
                 { id: "gnome", weight: 3 },
                 { id: "halfling", weight: 2 },
                 { id: "kobold", weight: 2 }
+            ],
+            warbeastCaptureChance: 0.12,
+            warbeastSpeciesWeights: [
+                { id: "spore_hound", weight: 4 },
+                { id: "cave_boar", weight: 2 }
             ],
             relationPenalty: 12,
             infamyReward: 5,
@@ -4705,6 +4718,12 @@
                 { id: "deep_dwarf", weight: 3 },
                 { id: "kobold", weight: 2 },
                 { id: "ghoulkin", weight: 1 }
+            ],
+            warbeastCaptureChance: 0.16,
+            warbeastSpeciesWeights: [
+                { id: "stone_maw", weight: 4 },
+                { id: "cave_boar", weight: 3 },
+                { id: "mud_lizard", weight: 2 }
             ],
             relationPenalty: 15,
             infamyReward: 7,
@@ -4742,6 +4761,12 @@
                 { id: "halfling", weight: 1 },
                 { id: "wood_elf", weight: 1 }
             ],
+            warbeastCaptureChance: 0.22,
+            warbeastSpeciesWeights: [
+                { id: "mud_lizard", weight: 5 },
+                { id: "razor_wolf", weight: 3 },
+                { id: "spore_hound", weight: 2 }
+            ],
             relationPenalty: 20,
             infamyReward: 9,
             infamyFailurePenalty: 4,
@@ -4777,6 +4802,11 @@
                 { id: "harpy", weight: 1 },
                 { id: "gnome", weight: 1 }
             ],
+            warbeastCaptureChance: 0.1,
+            warbeastSpeciesWeights: [
+                { id: "razor_wolf", weight: 4 },
+                { id: "cave_boar", weight: 1 }
+            ],
             relationPenalty: 30,
             infamyReward: 12,
             infamyFailurePenalty: 5,
@@ -4811,6 +4841,12 @@
                 { id: "trollkin", weight: 2 },
                 { id: "harpy", weight: 1 },
                 { id: "lizardfolk", weight: 1 }
+            ],
+            warbeastCaptureChance: 0.24,
+            warbeastSpeciesWeights: [
+                { id: "razor_wolf", weight: 4 },
+                { id: "war_warg", weight: 3 },
+                { id: "mud_lizard", weight: 1 }
             ],
             relationPenalty: 40,
             infamyReward: 15,
@@ -4849,6 +4885,12 @@
                 { id: "moon_elf", weight: 1 },
                 { id: "deep_dwarf", weight: 1 }
             ],
+            warbeastCaptureChance: 0.14,
+            warbeastSpeciesWeights: [
+                { id: "abyss_mantis", weight: 4 },
+                { id: "stone_maw", weight: 2 },
+                { id: "war_warg", weight: 1 }
+            ],
             relationPenalty: 45,
             infamyReward: 18,
             infamyFailurePenalty: 8,
@@ -4858,6 +4900,116 @@
             unlock: {
                 isDefault: true
             }
+        }
+    ];
+
+    // WarbeastSpeciesDefinition[] 战兽物种定义：控制掠夺捕获来源、口粮、生育倾向和屠宰收益。
+    var WARBEAST_SPECIES_DEFINITIONS = [
+        {
+            id: "cave_boar",
+            name: "洞穴疣猪",
+            race: "地底兽",
+            type: "brute",
+            trait: "耐饿",
+            description: "皮厚、能撞开木栅的地底杂食兽，适合给新生哥布林提供强壮倾向。",
+            offspringTraitHint: "strong",
+            attributeBonus: {
+                strength: 2,
+                endurance: 1
+            },
+            foodConsumptionRatio: 1,
+            captureDifficulty: 1
+        },
+        {
+            id: "spore_hound",
+            name: "孢子猎犬",
+            race: "菌兽",
+            type: "stalker",
+            trait: "嗅孢",
+            description: "会追踪血味和孢粉的瘦长猎兽，驯化后更容易产出灵巧而狡诈的新生。",
+            offspringTraitHint: "basic",
+            attributeBonus: {
+                dexterity: 1,
+                cunning: 1
+            },
+            foodConsumptionRatio: 0.9,
+            captureDifficulty: 1
+        },
+        {
+            id: "mud_lizard",
+            name: "泥沼巨蜥",
+            race: "沼泽兽",
+            type: "brood",
+            trait: "湿鳞",
+            description: "从沼泽掠回的冷血巨蜥，休养慢但能稳定承担苗床职责。",
+            offspringTraitHint: "obedient",
+            attributeBonus: {
+                endurance: 2,
+                will: 1
+            },
+            foodConsumptionRatio: 1.1,
+            captureDifficulty: 1.1
+        },
+        {
+            id: "stone_maw",
+            name: "石颚兽",
+            race: "矿脉兽",
+            type: "crusher",
+            trait: "碎岩",
+            description: "颚骨能咬碎矿石的灰皮怪兽，后代倾向更强壮也更倔。",
+            offspringTraitHint: "strong",
+            attributeBonus: {
+                strength: 2,
+                will: 1
+            },
+            foodConsumptionRatio: 1.25,
+            captureDifficulty: 1.25
+        },
+        {
+            id: "razor_wolf",
+            name: "剃刀狼",
+            race: "荒原兽",
+            type: "stalker",
+            trait: "群猎",
+            description: "边境荒原常见的快腿猎兽，适合培育敏捷掠夺苗子。",
+            offspringTraitHint: "strong",
+            attributeBonus: {
+                dexterity: 2,
+                strength: 1
+            },
+            foodConsumptionRatio: 1.15,
+            captureDifficulty: 1.2
+        },
+        {
+            id: "war_warg",
+            name: "战嚎座狼",
+            race: "军用兽",
+            type: "war",
+            trait: "战嚎",
+            description: "被地表军队拴在营地边的凶兽，驯服困难但繁育出的哥布林更适合战斗。",
+            offspringTraitHint: "strong",
+            attributeBonus: {
+                strength: 2,
+                dexterity: 1,
+                will: 1
+            },
+            foodConsumptionRatio: 1.35,
+            captureDifficulty: 1.4
+        },
+        {
+            id: "abyss_mantis",
+            name: "深渊螳兽",
+            race: "深渊兽",
+            type: "corrupted",
+            trait: "裂梦",
+            description: "甲壳上长着暗纹的深渊猎兽，会把暴躁和怪梦带进苗床后代。",
+            offspringTraitHint: "corrupted",
+            attributeBonus: {
+                cunning: 2,
+                will: 2
+            },
+            foodConsumptionRatio: 1.5,
+            captureDifficulty: 1.6
         }
     ];
 
@@ -5016,6 +5168,7 @@
         CAPTIVE_TYPE_DEFINITIONS: CAPTIVE_TYPE_DEFINITIONS,
         CAPTIVE_QUALITY_DEFINITIONS: CAPTIVE_QUALITY_DEFINITIONS,
         CAPTIVE_RACE_DEFINITIONS: CAPTIVE_RACE_DEFINITIONS,
+        WARBEAST_SPECIES_DEFINITIONS: WARBEAST_SPECIES_DEFINITIONS,
         DIPLOMACY_WORLD_DEFINITIONS: DIPLOMACY_WORLD_DEFINITIONS,
         FACTION_DEFINITIONS: FACTION_DEFINITIONS,
         RAID_TARGET_DEFINITIONS: RAID_TARGET_DEFINITIONS,

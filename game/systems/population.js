@@ -47,7 +47,7 @@
      * 统计需要消耗菌菇口粮的总口数。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @returns {number} 食物口数，非负整数；包含存活哥布林和当前关押俘虏。
+     * @returns {number} 食物口数，非负浮点数；包含存活哥布林、当前关押俘虏和战兽。
      */
     function countFungusConsumers(state) {
         // number 存活人口：当前需要完整口粮的哥布林数量，非负整数。
@@ -56,7 +56,35 @@
         // number 俘虏数量：当前关押且需要口粮维持的俘虏数量，非负整数。
         var captiveCount = Array.isArray(state.captives) ? state.captives.length : 0;
 
-        return aliveCount + captiveCount;
+        // number 战兽口粮口数：当前战兽按物种倍率消耗菌菇，休养时会翻倍。
+        var warbeastConsumerUnits = countWarbeastFungusConsumers(state);
+
+        return aliveCount + captiveCount + warbeastConsumerUnits;
+    }
+
+    /**
+     * 统计战兽口粮口数。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 战兽食物口数，非负浮点数。
+     */
+    function countWarbeastFungusConsumers(state) {
+        if (!Array.isArray(state.warbeasts) || !game.warbeastsSystem) {
+            return 0;
+        }
+
+        // number 口粮口数总和：按每只战兽物种倍率累加。
+        var consumerUnits = 0;
+
+        // number 循环索引：遍历战兽数组的整数下标。
+        for (var warbeastIndex = 0; warbeastIndex < state.warbeasts.length; warbeastIndex += 1) {
+            // WarbeastState 当前战兽：用于读取口粮倍率。
+            var warbeast = state.warbeasts[warbeastIndex];
+
+            consumerUnits += game.warbeastsSystem.calculateFoodConsumerUnits(warbeast);
+        }
+
+        return consumerUnits;
     }
 
     /**
@@ -139,7 +167,7 @@
      * 创建哥布林对象。
      *
      * @param {GameState} state - 当前游戏状态对象，会读取并更新 nextGoblinIndex 统计值。
-     * @param {"captive_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 哥布林来源 ID。
+     * @param {"captive_bed"|"warbeast_bed"|"migrant"|"vassal"|"event"|"legacy"} origin - 哥布林来源 ID。
      * @returns {Goblin} 新哥布林对象。
      */
     function createGoblin(state, origin) {
@@ -792,7 +820,7 @@
      * @returns {number} 菌菇消耗速度，单位为菌菇/秒，非负浮点数。
      */
     function calculateFungusConsumptionPerSecond(state) {
-        // number 食物口数：哥布林和俘虏都会消耗同规格菌菇口粮。
+        // number 食物口数：哥布林、俘虏和战兽都会消耗菌菇口粮。
         var fungusConsumerCount = countFungusConsumers(state);
 
         // Object.<string, number> 政策效果字典：读取食物消耗修正。
@@ -856,7 +884,7 @@
      * 统计当前可被断粮杀死的对象数量。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
-     * @returns {number} 可被断粮杀死的俘虏和哥布林总数，非负整数。
+     * @returns {number} 可被断粮杀死的俘虏、战兽和哥布林总数，非负整数。
      */
     function countStarvationVictims(state) {
         // number 存活哥布林数量：断粮死亡在俘虏不足时才会作用到这些对象。
@@ -865,13 +893,16 @@
         // number 俘虏数量：断粮死亡的优先候选数量。
         var captiveCount = Array.isArray(state.captives) ? state.captives.length : 0;
 
-        return aliveGoblinCount + captiveCount;
+        // number 战兽数量：断粮死亡会在俘虏之后、哥布林之前作用到这些对象。
+        var warbeastCount = Array.isArray(state.warbeasts) ? state.warbeasts.length : 0;
+
+        return aliveGoblinCount + captiveCount + warbeastCount;
     }
 
     /**
-     * 随机杀死当前口粮对象的 10%，至少 1 个；俘虏优先并返还菌菇。
+     * 随机杀死当前口粮对象的 10%，至少 1 个；俘虏优先，其次战兽，最后哥布林。
      *
-     * @param {GameState} state - 当前游戏状态对象，会移除被选中的俘虏，或把被选中的哥布林标记为死亡。
+     * @param {GameState} state - 当前游戏状态对象，会移除被选中的俘虏和战兽，或把被选中的哥布林标记为死亡。
      * @returns {Goblin[]} 本次断粮死亡的哥布林对象数组。
      */
     function applyStarvationDeaths(state) {
@@ -910,6 +941,28 @@
             state.statistics.totalCaptiveStarvationDeaths = (state.statistics.totalCaptiveStarvationDeaths || 0) + deadCaptiveNames.length;
         }
 
+        // string[] 死亡战兽姓名列表：用于写入日志和统计。
+        var deadWarbeastNames = [];
+
+        while (remainingDeathCount > 0 && Array.isArray(state.warbeasts) && state.warbeasts.length > 0) {
+            // number 随机战兽下标：从当前战兽中抽取断粮死亡对象。
+            var warbeastIndex = Math.floor(Math.random() * state.warbeasts.length);
+
+            // WarbeastState 死亡战兽：本次断粮选中的具体战兽对象。
+            var deadWarbeast = state.warbeasts.splice(warbeastIndex, 1)[0];
+
+            deadWarbeastNames.push(deadWarbeast.name || deadWarbeast.id);
+            remainingDeathCount -= 1;
+        }
+
+        if (deadWarbeastNames.length > 0) {
+            // number 战兽回收菌菇：断粮死亡战兽按固定屠宰收益回收。
+            var warbeastFungusGain = deadWarbeastNames.length * game.definitions.POPULATION_CONSTANTS.warbeastButcherFungusGain;
+
+            addCaptiveStarvationFungus(state, warbeastFungusGain);
+            state.statistics.totalWarbeastStarvationDeaths = (state.statistics.totalWarbeastStarvationDeaths || 0) + deadWarbeastNames.length;
+        }
+
         // Goblin[] 存活哥布林列表：俘虏不足以覆盖死亡数量时才作为随机死亡候选池。
         var aliveGoblins = getAliveGoblins(state);
 
@@ -932,8 +985,8 @@
 
         state.statistics.totalStarvationDeaths = (state.statistics.totalStarvationDeaths || 0) + deadGoblins.length;
 
-        if (deadCaptiveNames.length > 0 || deadGoblins.length > 0) {
-            game.simulation.addLog(state, "important", formatStarvationDeathLog(deadCaptiveNames, deadGoblins));
+        if (deadCaptiveNames.length > 0 || deadWarbeastNames.length > 0 || deadGoblins.length > 0) {
+            game.simulation.addLog(state, "important", formatStarvationDeathLog(deadCaptiveNames, deadWarbeastNames, deadGoblins));
         }
 
         if (deadCaptiveNames.length > 0 && game.captivesSystem && game.captivesSystem.syncCaptiveResource) {
@@ -1017,11 +1070,12 @@
      * 格式化断粮死亡日志。
      *
      * @param {string[]} captiveNames - 断粮死亡俘虏姓名数组。
+     * @param {string[]} warbeastNames - 断粮死亡战兽姓名数组。
      * @param {Goblin[]} goblins - 断粮死亡哥布林对象数组。
-     * @returns {string} 中文日志文本，说明死亡名单和俘虏返还菌菇。
+     * @returns {string} 中文日志文本，说明死亡名单和回收菌菇。
      */
-    function formatStarvationDeathLog(captiveNames, goblins) {
-        // string[] 日志片段数组：按俘虏和哥布林分别描述死亡对象。
+    function formatStarvationDeathLog(captiveNames, warbeastNames, goblins) {
+        // string[] 日志片段数组：按俘虏、战兽和哥布林分别描述死亡对象。
         var logParts = [];
 
         if (captiveNames.length > 0) {
@@ -1029,6 +1083,13 @@
             var captiveFungusGain = captiveNames.length * game.definitions.POPULATION_CONSTANTS.captiveStarvationFungusGain;
 
             logParts.push("俘虏 " + captiveNames.join("、") + " 饿死并被回收，菌菇 +" + captiveFungusGain);
+        }
+
+        if (warbeastNames.length > 0) {
+            // number 战兽返还菌菇：断粮死亡战兽按屠宰收益回收。
+            var warbeastFungusGain = warbeastNames.length * game.definitions.POPULATION_CONSTANTS.warbeastButcherFungusGain;
+
+            logParts.push("战兽 " + warbeastNames.join("、") + " 饿死并被回收，菌菇 +" + warbeastFungusGain);
         }
 
         if (goblins.length > 0) {
@@ -1042,6 +1103,7 @@
     game.population = {
         countAliveGoblins: countAliveGoblins,
         countFungusConsumers: countFungusConsumers,
+        countWarbeastFungusConsumers: countWarbeastFungusConsumers,
         countIdleGoblins: countIdleGoblins,
         calculateHousingMax: calculateHousingMax,
         calculateFreeHousing: calculateFreeHousing,

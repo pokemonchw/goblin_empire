@@ -331,6 +331,12 @@
                 return;
             }
 
+            if (targetElement.dataset.warbeastId && targetElement.dataset.warbeastDisposition) {
+                game.warbeastsSystem.applyDisposition(currentState, targetElement.dataset.warbeastId, targetElement.dataset.warbeastDisposition);
+                renderAfterStateChange(currentState);
+                return;
+            }
+
             if (targetElement.dataset.diplomacySubtab) {
                 game.runtime.activeDiplomacySubtab = targetElement.dataset.diplomacySubtab;
                 renderAfterDiplomacyViewChange(currentState);

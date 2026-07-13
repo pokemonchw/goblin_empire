@@ -182,8 +182,38 @@
             relationPenalty: Math.max(0, Math.round(targetDefinition.relationPenalty * relationPenaltyRatio * (1 + (policyEffects.raidRelationPenaltyRatio || 0)))),
             retaliationChance: Math.min(0.75, Math.max(0, targetDefinition.relationPenalty / 100 + Math.max(0, -strengthAdvantage) / 200)),
             captiveTypes: formatCaptiveTypeNames(targetDefinition.captiveTypes),
-            captiveRaces: formatCaptiveRaceNames(targetDefinition.captiveRaceWeights)
+            captiveRaces: formatCaptiveRaceNames(targetDefinition.captiveRaceWeights),
+            warbeastCaptureChance: Number(targetDefinition.warbeastCaptureChance) || 0,
+            warbeastSpecies: formatWarbeastSpeciesNames(targetDefinition.warbeastSpeciesWeights)
         };
+    }
+
+    /**
+     * 格式化掠夺目标可能捕获的战兽物种。
+     *
+     * @param {WeightedId[]} warbeastSpeciesWeights - 战兽物种权重数组；id 为 WarbeastSpeciesDefinition.id。
+     * @returns {string} 战兽物种中文名列表；无可捕获战兽时返回“无”。
+     */
+    function formatWarbeastSpeciesNames(warbeastSpeciesWeights) {
+        if (!Array.isArray(warbeastSpeciesWeights) || warbeastSpeciesWeights.length <= 0 || !game.warbeastsSystem) {
+            return "无";
+        }
+
+        // string[] 战兽物种中文名列表：用于外交页掠夺地点浮窗展示。
+        var speciesNames = [];
+
+        // number 循环索引：遍历战兽物种权重数组的整数下标。
+        for (var speciesIndex = 0; speciesIndex < warbeastSpeciesWeights.length; speciesIndex += 1) {
+            // WeightedId 当前物种权重项：id 为战兽物种稳定 ID。
+            var speciesWeight = warbeastSpeciesWeights[speciesIndex];
+
+            // WarbeastSpeciesDefinition|null 战兽物种定义：用于显示中文名。
+            var speciesDefinition = game.warbeastsSystem.getSpeciesDefinition(speciesWeight.id);
+
+            speciesNames.push(speciesDefinition ? speciesDefinition.name : speciesWeight.id);
+        }
+
+        return speciesNames.join(" / ");
     }
 
     /**
@@ -622,6 +652,7 @@
         game.resources.changeResource(state, "infamy", preview.infamyReward);
         game.resources.changeResource(state, "goodwill", -preview.goodwillPenalty);
         addRaidCaptive(state, targetDefinition);
+        addRaidWarbeast(state, targetDefinition);
         game.simulation.addLog(state, "important", "掠夺成功：" + targetDefinition.name + "，派出 " + preview.raiderCount + " 名战斗哥布林，队伍强度 " + preview.teamStrength.toFixed(1) + "，恶名 +" + preview.infamyReward + "，善名 -" + preview.goodwillPenalty + "。");
     }
 
@@ -695,6 +726,21 @@
 
         state.captives.push(captive);
         game.captivesSystem.syncCaptiveResource(state);
+    }
+
+    /**
+     * 尝试添加掠夺战兽。
+     *
+     * @param {GameState} state - 当前游戏状态对象，成功时会追加战兽。
+     * @param {RaidTargetDefinition} targetDefinition - 掠夺目标定义对象。
+     * @returns {void} 无返回值。
+     */
+    function addRaidWarbeast(state, targetDefinition) {
+        if (!game.warbeastsSystem) {
+            return;
+        }
+
+        game.warbeastsSystem.tryCaptureFromRaidTarget(state, targetDefinition);
     }
 
     // Object 掠夺系统命名空间：提供目标查询、预览和执行函数。

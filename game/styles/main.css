@@ -410,14 +410,18 @@ h3 {
 
 .location-row {
     display: grid;
-    grid-template-columns: minmax(130px, 1fr) minmax(120px, 0.9fr) minmax(120px, 0.9fr) minmax(86px, 0.55fr) minmax(110px, 0.8fr) auto;
+    grid-template-columns: minmax(120px, 1fr) minmax(110px, 0.8fr) auto;
     align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: 42px;
     font-size: 13px;
 }
 
 .raid-location-row {
-    grid-template-columns: minmax(130px, 1fr) minmax(82px, 0.5fr) minmax(86px, 0.6fr) minmax(96px, 0.65fr) minmax(86px, 0.55fr) minmax(110px, 0.8fr) minmax(190px, 1.1fr) auto;
+    grid-template-columns: minmax(120px, 1fr) minmax(110px, 0.8fr) minmax(160px, auto);
 }
 
 .location-main {
@@ -452,6 +456,23 @@ h3 {
 .location-tooltip {
     width: min(420px, 76vw);
     max-width: 420px;
+}
+
+.location-row > button[data-trade-faction-id] {
+    grid-column: -2 / -1;
+    justify-self: end;
+}
+
+.raid-location-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    grid-column: -2 / -1;
+    justify-self: end;
+    width: 100%;
+    min-width: 0;
 }
 
 .raid-member-controls {
