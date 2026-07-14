@@ -1678,6 +1678,7 @@
         }
         appendDefinitionDetail(listElement, "来源", formatCaptiveSource(captive.source));
         appendDefinitionDetail(listElement, "倾向", formatCaptiveTraitHint(captive.traitHint));
+        appendDefinitionDetail(listElement, "额外特质", Array.isArray(captive.traits) && captive.traits.indexOf("tentacle_broodbed") !== -1 ? "触手苗床" : "无");
         appendDefinitionDetail(listElement, "年龄", formatAgeYears(captive.age));
         appendDefinitionDetail(listElement, "寿命", game.captivesSystem.calculateCaptiveTotalLifespanYears(captive) + " 年");
         appendDefinitionDetail(listElement, "寿命拆分", "基础 " + Math.floor(Number(captive.baseLifespanYears) || 0) + "，科研 " + Math.floor(Number(captive.technologyLifespanYears) || 0) + "，事件 " + Math.floor(Number(captive.eventLifespanYears) || 0) + " 年");
@@ -4801,14 +4802,20 @@
         // number 当前派出人数：优先使用玩家按钮选择值，缺省按目标最低人数预览。
         var configuredRaiderCount = raidMemberCountsByTargetId[targetDefinition.id] || targetDefinition.minRaiders;
 
+        // string|null 已选随队战兽 ID：按地点保存在运行时 UI 缓存，不写入存档。
+        var selectedWarbeastId = game.runtime && game.runtime.raidWarbeastByTargetId ? game.runtime.raidWarbeastByTargetId[targetDefinition.id] || null : null;
+
         // Object.<string, number|string|boolean|Price[]|Object> 掠夺预览：包含队伍强度、成功率和风险。
-        var preview = game.raids.previewRaid(state, targetDefinition.id, configuredRaiderCount);
+        var preview = game.raids.previewRaid(state, targetDefinition.id, configuredRaiderCount, selectedWarbeastId);
 
         // number 当前可显示派出人数：限制在最低需求和可用战斗职业人数之间。
         var displayedRaiderCount = Math.min(Math.max(configuredRaiderCount, targetDefinition.minRaiders), Math.max(preview.availableRaiderCount, targetDefinition.minRaiders));
 
         // HTMLElement 派出人数控件：使用与职业分配一致的按钮加减模式。
         var memberControlElement = renderRaidMemberControls(state, targetDefinition, preview, displayedRaiderCount);
+
+        // HTMLSelectElement 随队战兽选择器：每次掠夺最多选择一只可用战兽。
+        var warbeastSelectElement = renderRaidWarbeastSelect(state, targetDefinition.id, preview.selectedWarbeastId);
 
         // string[] 掠夺成本缺口文本：菌菇不足时用于行内摘要和浮窗。
         var missingCostTexts = game.resources.getMissingResourceTexts(state, preview.cost);
@@ -4831,6 +4838,7 @@
         buttonElement.textContent = "派出";
         buttonElement.disabled = state.isPaused || !preview.canStart;
         actionElement.appendChild(memberControlElement);
+        actionElement.appendChild(warbeastSelectElement);
         actionElement.appendChild(buttonElement);
         rowElement.appendChild(createLocationMainElement(targetDefinition.name, ""));
         if (!preview.canStart || activeMissionCount > 0) {
@@ -4839,6 +4847,50 @@
         rowElement.appendChild(actionElement);
         rowElement.appendChild(renderRaidTargetLocationTooltip(state, targetDefinition, factionDefinition, preview, missingCostTexts));
         return rowElement;
+    }
+
+    /**
+     * 渲染掠夺随队战兽选择器。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} targetId - 掠夺目标稳定 ID。
+     * @param {string|null} selectedWarbeastId - 当前选择的战兽 ID；null 表示不派战兽。
+     * @returns {HTMLSelectElement} 随队战兽下拉选择器。
+     */
+    function renderRaidWarbeastSelect(state, targetId, selectedWarbeastId) {
+        // HTMLSelectElement 选择器元素：提供不派战兽和所有可用战兽选项。
+        var selectElement = document.createElement("select");
+
+        // HTMLOptionElement 空选项：允许玩家不派战兽。
+        var emptyOptionElement = document.createElement("option");
+
+        // WarbeastState[] 可用战兽数组：已驯化、未孕育且未随其他队伍出征。
+        var availableWarbeasts = game.warbeastsSystem ? game.warbeastsSystem.getAvailableRaidWarbeasts(state) : [];
+
+        selectElement.dataset.raidWarbeastTargetId = targetId;
+        selectElement.setAttribute("aria-label", "随队战兽");
+        emptyOptionElement.value = "";
+        emptyOptionElement.textContent = "不派战兽";
+        selectElement.appendChild(emptyOptionElement);
+
+        // number 战兽循环索引：遍历可选战兽的整数下标。
+        for (var warbeastIndex = 0; warbeastIndex < availableWarbeasts.length; warbeastIndex += 1) {
+            // WarbeastState 当前战兽：用于创建名称和强度选项。
+            var warbeast = availableWarbeasts[warbeastIndex];
+
+            // WarbeastSpeciesDefinition|null 物种定义：用于显示战斗强度。
+            var speciesDefinition = game.warbeastsSystem.getSpeciesDefinition(warbeast.speciesId);
+
+            // HTMLOptionElement 战兽选项：value 使用个体稳定 ID。
+            var optionElement = document.createElement("option");
+
+            optionElement.value = warbeast.id;
+            optionElement.textContent = warbeast.name + "（强度 " + (speciesDefinition ? speciesDefinition.raidStrength : 0) + "）";
+            optionElement.selected = warbeast.id === selectedWarbeastId;
+            selectElement.appendChild(optionElement);
+        }
+
+        return selectElement;
     }
 
     /**
@@ -5028,6 +5080,7 @@
         appendDefinitionDetail(listElement, "距离", formatSecondsText(preview.distanceSeconds) + " 后返程结算");
         appendDefinitionDetail(listElement, "恶名", "门槛 " + preview.requiredInfamy + "，当前 " + preview.infamyAmount.toFixed(1));
         appendDefinitionDetail(listElement, "强度", "队伍 " + preview.teamStrength.toFixed(1) + "，成功率 " + Math.round(preview.successChance * 100) + "%");
+        appendDefinitionDetail(listElement, "随队战兽", String(preview.selectedWarbeastName) + "，战斗强度 +" + Number(preview.warbeastStrength || 0).toFixed(1));
         appendDefinitionDetail(listElement, "伤亡", "受伤 " + Math.round(preview.casualtyChance * 100) + "%，死亡 " + Math.round(preview.deathChance * 100) + "%");
         appendDefinitionDetail(listElement, "关系", "下降 " + preview.relationPenalty + "，报复可能 " + Math.round(preview.retaliationChance * 100) + "%");
         appendDefinitionDetail(listElement, "声名", "成功恶名 +" + preview.infamyReward + "、善名 -" + preview.goodwillPenalty + "；失败恶名 -" + preview.infamyFailurePenalty);
@@ -5035,6 +5088,7 @@
         appendDefinitionDetail(listElement, "俘虏职业", String(preview.captiveTypes));
         appendDefinitionDetail(listElement, "俘虏种族", String(preview.captiveRaces));
         appendDefinitionDetail(listElement, "战兽", String(preview.warbeastSpecies) + "（捕获 " + Math.round(Number(preview.warbeastCaptureChance || 0) * 100) + "%）");
+        appendDefinitionDetail(listElement, "罕见捕获", "触手怪在任何世界、势力和地点均为固定 0.1%");
 
         if (!preview.canStartByRaiders) {
             appendDefinitionDetail(listElement, "缺少", "战斗职业哥布林 " + Math.max(0, targetDefinition.minRaiders - preview.availableRaiderCount));

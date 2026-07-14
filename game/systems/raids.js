@@ -93,9 +93,10 @@
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {string} targetId - 掠夺目标稳定 ID。
      * @param {number=} requestedRaiderCount - 玩家输入的派出人数，正整数；省略时按目标最低人数预览。
+     * @param {string|null=} warbeastId - 可选随队战兽 ID；省略或 null 表示不派战兽。
      * @returns {Object.<string, number|string|boolean|Price[]|Object>} 掠夺预览对象。
      */
-    function previewRaid(state, targetId, requestedRaiderCount) {
+    function previewRaid(state, targetId, requestedRaiderCount, warbeastId) {
         // RaidTargetDefinition|null 目标定义：用于读取强度、奖励和关系惩罚。
         var targetDefinition = getRaidTargetDefinition(targetId);
 
@@ -115,6 +116,15 @@
         // Goblin[] 掠夺队伍：按战斗强度从可派出列表中选前 N 个。
         var raidParty = availableRaiders.slice(0, raiderCount);
 
+        // WarbeastState|null 随队战兽：必须属于当前可派出列表，否则按未派战兽处理。
+        var raidWarbeast = getAvailableRaidWarbeastById(state, warbeastId);
+
+        // WarbeastSpeciesDefinition|null 随队战兽物种定义：用于读取独立战斗强度。
+        var raidWarbeastDefinition = raidWarbeast ? game.warbeastsSystem.getSpeciesDefinition(raidWarbeast.speciesId) : null;
+
+        // number 战兽战斗强度：已驯化且可用的随队战兽提供，单位为强度点。
+        var warbeastStrength = raidWarbeastDefinition ? Math.max(0, Number(raidWarbeastDefinition.raidStrength) || 0) : 0;
+
         // number 基础队伍强度：由具体哥布林属性、技能和职业计算。
         var baseTeamStrength = calculateRaidPartyBaseStrength(state, raidParty);
 
@@ -122,7 +132,7 @@
         var strengthRatio = calculateRaidStrengthRatio(state, raidParty);
 
         // number 最终队伍强度：用于和目标地点强度比较。
-        var teamStrength = baseTeamStrength * (1 + strengthRatio);
+        var teamStrength = baseTeamStrength * (1 + strengthRatio) + warbeastStrength;
 
         // number 强度优势：正数表示队伍压过目标，负数表示目标更强。
         var strengthAdvantage = teamStrength - targetDefinition.targetStrength;
@@ -168,6 +178,9 @@
             requiredInfamy: requiredInfamy,
             targetStrength: targetDefinition.targetStrength,
             teamStrength: teamStrength,
+            warbeastStrength: warbeastStrength,
+            selectedWarbeastId: raidWarbeast ? raidWarbeast.id : null,
+            selectedWarbeastName: raidWarbeast ? raidWarbeast.name : "无",
             strengthAdvantage: strengthAdvantage,
             strengthRatio: strengthRatio,
             rewards: targetDefinition.rewards,
@@ -222,9 +235,10 @@
      * @param {GameState} state - 当前游戏状态对象，会被直接修改。
      * @param {string} targetId - 掠夺目标稳定 ID。
      * @param {number} requestedRaiderCount - 玩家输入的派出人数，正整数。
+     * @param {string|null=} warbeastId - 可选随队战兽 ID；省略或 null 表示不派战兽。
      * @returns {boolean} 是否发起成功；true 表示已扣成本并加入在途掠夺队。
      */
-    function executeRaid(state, targetId, requestedRaiderCount) {
+    function executeRaid(state, targetId, requestedRaiderCount, warbeastId) {
         if (state.isPaused) {
             return false;
         }
@@ -237,7 +251,7 @@
         }
 
         // Object.<string, number|string|boolean|Price[]|Object> 掠夺预览：用于本次成功率和风险。
-        var preview = previewRaid(state, targetId, requestedRaiderCount);
+        var preview = previewRaid(state, targetId, requestedRaiderCount, warbeastId);
 
         if (!preview.canStartByRaiders) {
             game.simulation.addLog(state, "warning", "掠夺队伍不足：" + targetDefinition.name + " 至少需要 " + targetDefinition.minRaiders + " 名抢掠兵或战争头目。");
@@ -268,6 +282,7 @@
             locationId: targetDefinition.id,
             factionId: targetDefinition.factionId,
             raiderIds: getGoblinIds(raidParty),
+            warbeastId: preview.selectedWarbeastId,
             remainingSeconds: preview.distanceSeconds,
             totalSeconds: preview.distanceSeconds,
             resultSnapshot: {
@@ -290,7 +305,7 @@
         }
 
         state.activeDiplomacyMissions.push(mission);
-        game.simulation.addLog(state, "important", "掠夺队出发：" + targetDefinition.name + "，派出 " + preview.raiderCount + " 名战斗哥布林，预计 " + Math.ceil(preview.distanceSeconds) + " 秒后返回。");
+        game.simulation.addLog(state, "important", "掠夺队出发：" + targetDefinition.name + "，派出 " + preview.raiderCount + " 名战斗哥布林，随队战兽：" + preview.selectedWarbeastName + "，预计 " + Math.ceil(preview.distanceSeconds) + " 秒后返回。");
         return true;
     }
 
@@ -337,7 +352,7 @@
         applyRaidCasualties(state, targetDefinition, raidParty, isSuccess ? preview.casualtyChance * 0.35 : preview.casualtyChance, preview.deathChance);
 
         if (isSuccess) {
-            applyRaidSuccess(state, targetDefinition, preview.lootRatio, preview);
+            applyRaidSuccess(state, targetDefinition, preview.lootRatio, preview, mission.warbeastId || null);
         } else {
             applyRaidFailure(state, targetDefinition, preview);
         }
@@ -660,9 +675,10 @@
      * @param {RaidTargetDefinition} targetDefinition - 掠夺目标定义对象。
      * @param {number} lootRatio - 战利品收益修正比例，可为负数。
      * @param {Object.<string, number|string|boolean|Price[]|Object>} preview - 本次掠夺预览摘要。
+     * @param {string|null} warbeastId - 本次随队战兽 ID；null 表示没有战兽。
      * @returns {void} 无返回值。
      */
-    function applyRaidSuccess(state, targetDefinition, lootRatio, preview) {
+    function applyRaidSuccess(state, targetDefinition, lootRatio, preview, warbeastId) {
         // string[] 奖励资源 ID 数组：用于遍历奖励字典。
         var rewardResourceIds = Object.keys(targetDefinition.rewards);
 
@@ -679,7 +695,7 @@
 
         game.resources.changeResource(state, "infamy", preview.infamyReward);
         game.resources.changeResource(state, "goodwill", -preview.goodwillPenalty);
-        addRaidCaptive(state, targetDefinition);
+        addRaidCaptive(state, targetDefinition, warbeastId);
         addRaidWarbeast(state, targetDefinition);
         game.simulation.addLog(state, "important", "掠夺成功：" + targetDefinition.name + "，派出 " + preview.raiderCount + " 名战斗哥布林，队伍强度 " + preview.teamStrength.toFixed(1) + "，恶名 +" + preview.infamyReward + "，善名 -" + preview.goodwillPenalty + "。");
     }
@@ -746,11 +762,19 @@
      *
      * @param {GameState} state - 当前游戏状态对象，会追加俘虏。
      * @param {RaidTargetDefinition} targetDefinition - 掠夺目标定义对象。
+     * @param {string|null} warbeastId - 本次随队战兽 ID；触手怪会给俘虏追加专属特质。
      * @returns {void} 无返回值。
      */
-    function addRaidCaptive(state, targetDefinition) {
+    function addRaidCaptive(state, targetDefinition, warbeastId) {
         // CaptiveState 新俘虏：按地点种族权重、种族职业权重和种族质量权重生成。
         var captive = game.captivesSystem.createCaptiveFromRaidTarget(targetDefinition);
+
+        // WarbeastState|null 随队战兽：用于判定触手怪侵染。
+        var raidWarbeast = warbeastId && game.warbeastsSystem ? game.warbeastsSystem.findWarbeastById(state, warbeastId) : null;
+
+        if (raidWarbeast && raidWarbeast.speciesId === "tentacle_monster") {
+            captive.traits.push("tentacle_broodbed");
+        }
 
         state.captives.push(captive);
         game.captivesSystem.syncCaptiveResource(state);
@@ -769,6 +793,34 @@
         }
 
         game.warbeastsSystem.tryCaptureFromRaidTarget(state, targetDefinition);
+    }
+
+    /**
+     * 按 ID 取得当前可派出的战兽。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string|null|undefined} warbeastId - 候选战兽 ID；空值表示不派战兽。
+     * @returns {WarbeastState|null} 可用战兽；无效、忙碌或未驯化时返回 null。
+     */
+    function getAvailableRaidWarbeastById(state, warbeastId) {
+        if (!warbeastId || !game.warbeastsSystem) {
+            return null;
+        }
+
+        // WarbeastState[] 可用战兽列表：由战兽系统统一处理任务锁定。
+        var availableWarbeasts = game.warbeastsSystem.getAvailableRaidWarbeasts(state);
+
+        // number 战兽循环索引：遍历可用战兽的整数下标。
+        for (var warbeastIndex = 0; warbeastIndex < availableWarbeasts.length; warbeastIndex += 1) {
+            // WarbeastState 当前战兽：用于匹配玩家选择的稳定 ID。
+            var warbeast = availableWarbeasts[warbeastIndex];
+
+            if (warbeast.id === warbeastId) {
+                return warbeast;
+            }
+        }
+
+        return null;
     }
 
     // Object 掠夺系统命名空间：提供目标查询、预览和执行函数。

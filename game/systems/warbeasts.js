@@ -15,6 +15,9 @@
     // number 驯化单次进度：每次驯化动作增加的进度点，范围累计到 100。
     var TAMING_PROGRESS_GAIN = 25;
 
+    // number 触手怪全局捕获概率：每次成功掠夺固定进行一次千分之一判定，不受世界、势力和地点影响。
+    var TENTACLE_MONSTER_CAPTURE_CHANCE = 0.001;
+
     /**
      * 取得战兽物种定义。
      *
@@ -43,6 +46,13 @@
      * @returns {WarbeastState|null} 成功捕获的战兽；未捕获时返回 null。
      */
     function tryCaptureFromRaidTarget(state, targetDefinition) {
+        // boolean 是否捕获触手怪：独立于地点战兽表，保证所有掠夺地点概率恒定为千分之一。
+        var isTentacleMonsterCaptured = Math.random() < TENTACLE_MONSTER_CAPTURE_CHANCE;
+
+        if (isTentacleMonsterCaptured) {
+            return addCapturedWarbeast(state, "tentacle_monster", targetDefinition.id);
+        }
+
         // number 捕获概率：目标定义控制，缺失时表示不会捕获。
         var captureChance = Math.max(0, Math.min(1, Number(targetDefinition.warbeastCaptureChance) || 0));
 
@@ -57,8 +67,20 @@
             return null;
         }
 
+        return addCapturedWarbeast(state, speciesId, targetDefinition.id);
+    }
+
+    /**
+     * 创建并加入一只掠夺捕获的战兽。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会追加战兽并写入日志。
+     * @param {string} speciesId - 战兽物种稳定 ID。
+     * @param {string} sourceId - 来源地点稳定 ID。
+     * @returns {WarbeastState} 已加入列表的新战兽。
+     */
+    function addCapturedWarbeast(state, speciesId, sourceId) {
         // WarbeastState 新战兽对象：写入运行时列表和存档。
-        var warbeast = createWarbeast(speciesId, targetDefinition.id, state);
+        var warbeast = createWarbeast(speciesId, sourceId, state);
 
         if (!Array.isArray(state.warbeasts)) {
             state.warbeasts = [];
@@ -67,6 +89,50 @@
         state.warbeasts.push(warbeast);
         game.simulation.addLog(state, "important", "掠夺队拖回战兽：" + warbeast.name + "。");
         return warbeast;
+    }
+
+    /**
+     * 取得可随队掠夺的战兽。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {WarbeastState[]} 已驯化、非孕育中且未随其他掠夺队出征的战兽数组。
+     */
+    function getAvailableRaidWarbeasts(state) {
+        // WarbeastState[] 可用战兽数组：用于掠夺选择器。
+        var availableWarbeasts = [];
+
+        // number 战兽循环索引：遍历当前战兽列表的整数下标。
+        for (var warbeastIndex = 0; warbeastIndex < (state.warbeasts || []).length; warbeastIndex += 1) {
+            // WarbeastState 当前战兽：检查驯化、孕育和在途状态。
+            var warbeast = state.warbeasts[warbeastIndex];
+
+            if (warbeast.isTamed && warbeast.breedingState === "idle" && !isWarbeastOnRaid(state, warbeast.id)) {
+                availableWarbeasts.push(warbeast);
+            }
+        }
+
+        return availableWarbeasts;
+    }
+
+    /**
+     * 判断战兽是否已随一支掠夺队出征。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} warbeastId - 战兽稳定 ID。
+     * @returns {boolean} true 表示战兽已被在途行动锁定。
+     */
+    function isWarbeastOnRaid(state, warbeastId) {
+        // number 行动循环索引：遍历在途外交行动的整数下标。
+        for (var missionIndex = 0; missionIndex < (state.activeDiplomacyMissions || []).length; missionIndex += 1) {
+            // DiplomacyMissionState 当前行动：用于匹配随队战兽。
+            var mission = state.activeDiplomacyMissions[missionIndex];
+
+            if (mission.modeId === "raid" && mission.warbeastId === warbeastId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -200,7 +266,7 @@
      * @returns {boolean} 是否可执行该处置。
      */
     function canApplyDisposition(state, warbeast, dispositionId) {
-        if (!warbeast || state.isPaused) {
+        if (!warbeast || state.isPaused || isWarbeastOnRaid(state, warbeast.id)) {
             return false;
         }
 
@@ -508,6 +574,7 @@
         applyDisposition: applyDisposition,
         updateWarbeasts: updateWarbeasts,
         calculateFoodConsumerUnits: calculateFoodConsumerUnits,
-        findWarbeastById: findWarbeastById
+        findWarbeastById: findWarbeastById,
+        getAvailableRaidWarbeasts: getAvailableRaidWarbeasts
     };
 })(window.GoblinEmpire);

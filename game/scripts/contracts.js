@@ -299,6 +299,7 @@
      * @property {"common"|"skilled"|"elite"|"legendary"} quality - 俘虏质量 ID。
      * @property {string} source - 来源 ID 或事件名。
      * @property {"basic"|"strong"|"magic"|"craft"|"trade"|"obedient"|"corrupted"} traitHint - 繁衍或改造倾向 ID。
+     * @property {string[]} traits - 俘虏额外特质 ID 数组；当前允许 tentacle_broodbed。
      * @property {number} age - 年龄，非负浮点数，单位为年。
      * @property {number} baseLifespanYears - 基础寿命，单位为年；新俘虏按质量随机后叠加种族寿命修正。
      * @property {number} technologyLifespanYears - 当前科技提供的寿命，单位为年。
@@ -327,6 +328,7 @@
      * @property {Object.<string, number>} attributeBonus - 后代属性偏置字典；key 为哥布林属性 ID，value 为整数加成。
      * @property {number} foodConsumptionRatio - 基础口粮倍率，非负浮点数；休养时会再翻倍。
      * @property {number} captureDifficulty - 捕获难度倍率，正浮点数；用于日志和后续平衡。
+     * @property {number} raidStrength - 已驯化战兽随队掠夺时提供的独立战斗强度，非负浮点数。
      */
 
     /**
@@ -394,9 +396,10 @@
      * @property {string} locationId - 贸易阵营 ID 或掠夺目标 ID。
      * @property {string} factionId - 关联势力 ID。
      * @property {string[]} raiderIds - 出战哥布林 ID 数组；贸易行动为空数组。
+     * @property {string|null} warbeastId - 随队战兽 ID；未派战兽或贸易行动为 null。
      * @property {number} remainingSeconds - 剩余返程时间，非负秒数。
      * @property {number} totalSeconds - 起始往返时间，非负秒数。
-     * @property {Object.<string, number>} resultSnapshot - 发起时冻结的结算数值；key 为收益、风险或声名字段 ID。
+     * @property {Object.<string, number>} resultSnapshot - 发起时冻结的结算数值；key 为收益、风险、战兽强度或声名字段 ID。
      */
 
     /**

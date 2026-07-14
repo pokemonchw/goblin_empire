@@ -386,7 +386,10 @@
                 // number 派出人数：从当前掠夺地点行按钮控件读取的正整数。
                 var raidMemberCount = getRaidMemberCountFromButton(currentState, targetElement);
 
-                game.raids.executeRaid(currentState, targetElement.dataset.raidTargetId, raidMemberCount);
+                // string|null 随队战兽 ID：从地点行选择器读取；空值表示本次不派战兽。
+                var raidWarbeastId = getRaidWarbeastIdFromButton(targetElement);
+
+                game.raids.executeRaid(currentState, targetElement.dataset.raidTargetId, raidMemberCount, raidWarbeastId);
                 renderAfterStateChange(currentState);
                 return;
             }
@@ -433,6 +436,22 @@
             }
         });
 
+        tabContentElement.addEventListener("change", function (event) {
+            // HTMLSelectElement|null 变化目标：这里只处理掠夺随队战兽选择器。
+            var targetElement = event.target;
+
+            if (!targetElement || !targetElement.dataset || !targetElement.dataset.raidWarbeastTargetId) {
+                return;
+            }
+
+            if (!game.runtime.raidWarbeastByTargetId) {
+                game.runtime.raidWarbeastByTargetId = {};
+            }
+
+            game.runtime.raidWarbeastByTargetId[targetElement.dataset.raidWarbeastTargetId] = targetElement.value || null;
+            renderAfterDiplomacyViewChange(game.runtime.state);
+        });
+
         tabContentElement.addEventListener("input", function (event) {
             // HTMLElement|null 输入目标：可能是人口普查筛选框。
             var targetElement = event.target;
@@ -456,6 +475,22 @@
             game.runtime.censusFilters[targetElement.dataset.censusFilterKey] = targetElement.value;
             game.render.renderApp(game.runtime.state);
         });
+    }
+
+    /**
+     * 从掠夺按钮所在地点行读取随队战兽 ID。
+     *
+     * @param {HTMLElement} buttonElement - 被点击的掠夺按钮元素。
+     * @returns {string|null} 随队战兽稳定 ID；未选择时返回 null。
+     */
+    function getRaidWarbeastIdFromButton(buttonElement) {
+        // HTMLElement|null 地点行元素：限制查询范围到当前掠夺目标。
+        var rowElement = buttonElement.closest("[data-raid-member-count]");
+
+        // HTMLSelectElement|null 战兽选择器：当前地点行内至多一个。
+        var selectElement = rowElement ? rowElement.querySelector("[data-raid-warbeast-target-id]") : null;
+
+        return selectElement && selectElement.value ? selectElement.value : null;
     }
 
     /**

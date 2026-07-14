@@ -159,6 +159,7 @@
             locationId: mission.locationId,
             factionId: mission.factionId,
             raiderIds: Array.isArray(mission.raiderIds) ? mission.raiderIds.slice() : [],
+            warbeastId: mission.warbeastId || null,
             remainingSeconds: mission.remainingSeconds,
             totalSeconds: mission.totalSeconds,
             resultSnapshot: mission.resultSnapshot ? Object.assign({}, mission.resultSnapshot) : {}
@@ -452,6 +453,14 @@
             // v31 新 shape：所有菌菇寄生体固定信仰母菌，血脉固定为 null / 0。
             // 迁移原因：母菌归属来自菌丝网络而非神灵遗传，旧档必须清除冲突的信仰和血脉。
             migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
+        }
+
+        if (sourceVersion < 32) {
+            // v31 旧 shape：俘虏没有额外特质数组，在途掠夺行动也没有随队战兽 ID。
+            // v32 新 shape：俘虏保存 traits，掠夺行动保存可空 warbeastId，并由任务锁定随队战兽。
+            // 迁移原因：触手怪侵染需要持久保存“触手苗床”，任意战兽随队也必须跨读档保持占用关系。
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
+            migratedSaveData.activeDiplomacyMissions = normalizeSavedDiplomacyMissions(Array.isArray(migratedSaveData.activeDiplomacyMissions) ? migratedSaveData.activeDiplomacyMissions : []);
         }
 
         migratedSaveData.version = game.definitions.SAVE_VERSION;
@@ -1132,6 +1141,7 @@
                 locationId: String(savedMission.locationId || ""),
                 factionId: String(savedMission.factionId || ""),
                 raiderIds: Array.isArray(savedMission.raiderIds) ? savedMission.raiderIds.slice() : [],
+                warbeastId: savedMission.warbeastId || null,
                 remainingSeconds: Math.max(0, Number(savedMission.remainingSeconds) || 0),
                 totalSeconds: Math.max(0, Number(savedMission.totalSeconds) || 0),
                 resultSnapshot: savedMission.resultSnapshot && typeof savedMission.resultSnapshot === "object" ? Object.assign({}, savedMission.resultSnapshot) : {}
@@ -1379,6 +1389,9 @@
             captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
             captive.isAutoBrainwashEnabled = Boolean(captive.isAutoBrainwashEnabled);
             captive.isAutoBreedEnabled = Boolean(captive.isAutoBreedEnabled);
+            captive.traits = Array.isArray(captive.traits) ? captive.traits.filter(function (traitId) {
+                return traitId === "tentacle_broodbed";
+            }) : [];
             captive.breedingState = normalizeCaptiveBreedingState(captive.breedingState);
             captive.gestationWeatherId = normalizeCaptiveGestationWeatherId(captive.gestationWeatherId, captive.breedingState);
             captive.gestationSecondsRemaining = Math.max(0, Number(captive.gestationSecondsRemaining) || 0);

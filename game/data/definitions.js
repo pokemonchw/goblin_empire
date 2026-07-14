@@ -292,7 +292,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 31;
+    var SAVE_VERSION = 32;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -5306,6 +5306,7 @@
                 will: -1
             },
             foodConsumptionRatio: 1,
+            raidStrength: 12,
             captureDifficulty: 1
         },
         {
@@ -5321,6 +5322,7 @@
                 endurance: 1
             },
             foodConsumptionRatio: 1,
+            raidStrength: 16,
             captureDifficulty: 1
         },
         {
@@ -5336,6 +5338,7 @@
                 cunning: 1
             },
             foodConsumptionRatio: 0.9,
+            raidStrength: 14,
             captureDifficulty: 1
         },
         {
@@ -5351,6 +5354,7 @@
                 will: 1
             },
             foodConsumptionRatio: 1.1,
+            raidStrength: 18,
             captureDifficulty: 1.1
         },
         {
@@ -5366,6 +5370,7 @@
                 will: 1
             },
             foodConsumptionRatio: 1.25,
+            raidStrength: 24,
             captureDifficulty: 1.25
         },
         {
@@ -5381,6 +5386,7 @@
                 strength: 1
             },
             foodConsumptionRatio: 1.15,
+            raidStrength: 22,
             captureDifficulty: 1.2
         },
         {
@@ -5397,6 +5403,7 @@
                 will: 1
             },
             foodConsumptionRatio: 1.35,
+            raidStrength: 30,
             captureDifficulty: 1.4
         },
         {
@@ -5412,7 +5419,25 @@
                 will: 2
             },
             foodConsumptionRatio: 1.5,
+            raidStrength: 34,
             captureDifficulty: 1.6
+        },
+        {
+            id: "tentacle_monster",
+            name: "触手怪",
+            race: "异界兽",
+            type: "aberration",
+            trait: "触手侵染",
+            description: "可能潜伏在任何世界、势力和地点的罕见异怪；随掠夺队出征会侵染带回的俘虏。",
+            offspringTraitHint: "corrupted",
+            attributeBonus: {
+                cunning: 2,
+                endurance: 1,
+                will: -1
+            },
+            foodConsumptionRatio: 1.4,
+            raidStrength: 28,
+            captureDifficulty: 2
         }
     ];
 

@@ -224,6 +224,7 @@
             quality: qualityId,
             source: source,
             traitHint: captiveTypeDefinition ? captiveTypeDefinition.traitHint : "basic",
+            traits: [],
             age: initialAgeYears,
             baseLifespanYears: baseLifespanYears,
             technologyLifespanYears: 0,
@@ -1343,10 +1344,17 @@
         // CaptiveRaceDefinition|null 种族定义：用于追加同职业同质量下的属性、技能和寿命差异。
         var raceDefinition = getCaptiveRaceDefinition(captive.raceId);
 
+        // CaptiveRaceDefinition|null 原宿主种族定义：仅菌菇寄生体后代需要叠加，其他俘虏为 null。
+        var originalRaceDefinition = captive.originalRaceId ? getCaptiveRaceDefinition(captive.originalRaceId) : null;
+
         // Goblin 新生哥布林：来源标记为 captive_bed。
         var newGoblin = game.population.createGoblin(state, "captive_bed");
 
         inheritBloodlineFromCaptive(newGoblin, captive);
+
+        if (Array.isArray(captive.traits) && captive.traits.indexOf("tentacle_broodbed") !== -1) {
+            newGoblin.traits.push("bloodline_tentacle_monster");
+        }
 
         if (captiveTypeDefinition) {
             applyCaptiveBiasToGoblin(newGoblin, captiveTypeDefinition, raceDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, calculateBrainwashAttributeBonus(captive), getCaptiveNewbornAttributePenalty(state, captive));
