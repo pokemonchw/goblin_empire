@@ -540,7 +540,11 @@
             // Object 当前标签页定义：包含 id、名称、说明和初始可见性。
             var tabDefinition = game.definitions.TAB_DEFINITIONS[tabIndex];
 
-            if (!state.tabsUnlockedById[tabDefinition.id] && state.activeTabId !== tabDefinition.id) {
+            if (
+                !tabDefinition.isVisibleAtStart &&
+                !state.tabsUnlockedById[tabDefinition.id] &&
+                state.activeTabId !== tabDefinition.id
+            ) {
                 continue;
             }
 
@@ -595,6 +599,11 @@
      * @returns {void} 无返回值。
      */
     function renderActiveTabContent(state, tabContentElement) {
+        if (state.activeTabId === "tutorial") {
+            renderTutorialTab(tabContentElement);
+            return;
+        }
+
         if (state.activeTabId === "clan") {
             renderClanTab(state, tabContentElement);
             return;
@@ -654,6 +663,53 @@
         tabContentElement.appendChild(renderCaveProfile(state));
         tabContentElement.appendChild(renderManualActions(state));
         tabContentElement.appendChild(renderBuildingActions(state));
+    }
+
+    /**
+     * 渲染新手教程标签页，按第一局推进顺序展示阶段目标与操作建议。
+     *
+     * @param {HTMLElement} tabContentElement - 标签页内容容器，会被写入教程卡片。
+     * @returns {void} 无返回值。
+     */
+    function renderTutorialTab(tabContentElement) {
+        // HTMLElement 标题元素：显示新手教程标签页名称。
+        var headingElement = createTextElement("h2", game.text.TEXT_REGISTRY.tabs.tutorial.name);
+        // HTMLElement 引导元素：说明教程用途和实际数值来源。
+        var introductionElement = createTextElement("p", "按顺序推进即可完成第一局起步。具体成本、效果与解锁条件以游戏按钮显示为准。");
+        // HTMLElement 教程卡片网格：承载所有阶段说明。
+        var tutorialGridElement = document.createElement("div");
+
+        tutorialGridElement.className = "tutorial-grid";
+        tabContentElement.appendChild(headingElement);
+        tabContentElement.appendChild(introductionElement);
+        tabContentElement.appendChild(tutorialGridElement);
+
+        // number 循环索引：遍历教程阶段的整数下标。
+        for (var sectionIndex = 0; sectionIndex < game.text.TEXT_REGISTRY.tutorialSections.length; sectionIndex += 1) {
+            // TutorialSectionText 当前教程阶段：包含标题、目标和操作步骤。
+            var tutorialSection = game.text.TEXT_REGISTRY.tutorialSections[sectionIndex];
+            // HTMLElement 教程阶段卡片：显示一个推进阶段。
+            var sectionElement = document.createElement("section");
+            // HTMLOListElement 操作步骤列表：按推荐顺序显示本阶段动作。
+            var stepListElement = document.createElement("ol");
+
+            sectionElement.className = "action-card tutorial-card";
+            sectionElement.appendChild(createTextElement("h3", tutorialSection.title));
+            sectionElement.appendChild(createTextElement("p", tutorialSection.goal));
+
+            // number 步骤循环索引：遍历当前阶段操作建议的整数下标。
+            for (var stepIndex = 0; stepIndex < tutorialSection.steps.length; stepIndex += 1) {
+                // string 当前步骤文本：说明玩家下一项具体操作。
+                var stepText = tutorialSection.steps[stepIndex];
+                // HTMLLIElement 步骤列表项：显示单条操作建议。
+                var stepItemElement = createTextElement("li", stepText);
+
+                stepListElement.appendChild(stepItemElement);
+            }
+
+            sectionElement.appendChild(stepListElement);
+            tutorialGridElement.appendChild(sectionElement);
+        }
     }
 
     /**

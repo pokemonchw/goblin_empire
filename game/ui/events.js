@@ -30,6 +30,9 @@
         // HTMLButtonElement 导入按钮元素：点击后打开内嵌文本框等待粘贴。
         var importButtonElement = document.getElementById("import-save");
 
+        // HTMLButtonElement 新手教程按钮元素：点击后切换到始终可见的教程标签页。
+        var tutorialButtonElement = document.getElementById("open-tutorial");
+
         // HTMLElement 存档文本面板元素：承载导出和导入的内嵌文本框。
         var saveTransferPanelElement = document.getElementById("save-transfer-panel");
 
@@ -108,6 +111,18 @@
             showSaveTransferPanel(saveTransferPanelElement, saveTransferTextElement, "", game.text.TEXT_REGISTRY.ui.importInlineHint);
             game.simulation.addLog(currentState, "normal", game.text.TEXT_REGISTRY.logs.importPanelOpened);
             game.render.renderApp(currentState);
+        });
+
+        tutorialButtonElement.addEventListener("click", function () {
+            // GameState 当前运行时状态：顶部导航打开教程时暂停游戏并写入活动标签 ID。
+            var currentState = game.runtime.state;
+
+            if (!currentState.isPaused) {
+                game.simulation.togglePause(currentState);
+            }
+
+            currentState.activeTabId = "tutorial";
+            game.render.renderApp(currentState, true);
         });
 
         applyImportButtonElement.addEventListener("click", function () {

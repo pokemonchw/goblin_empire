@@ -882,7 +882,10 @@
         restoredState.statistics = saveData.statistics || {};
         // Object[] 日志数组：日志不进入存档，读档后清空新建状态的默认日志，避免显示错误日期。
         restoredState.logs = [];
-        restoredState.tabsUnlockedById = saveData.tabsUnlockedById || restoredState.tabsUnlockedById;
+        // Object.<string, boolean> 标签页解锁字典：保留新增默认标签，并叠加存档中的既有解锁进度。
+        var restoredTabsUnlockedById = Object.assign({}, restoredState.tabsUnlockedById, saveData.tabsUnlockedById || {});
+
+        restoredState.tabsUnlockedById = restoredTabsUnlockedById;
         restoredState.upgradesUnlockedById = saveData.upgradesUnlockedById || restoredState.upgradesUnlockedById;
         restoredState.craftsUnlockedById = saveData.craftsUnlockedById || restoredState.craftsUnlockedById;
         restoredState.policiesUnlockedById = saveData.policiesUnlockedById || restoredState.policiesUnlockedById;

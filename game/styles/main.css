@@ -361,6 +361,23 @@ h3 {
     line-height: 1.45;
 }
 
+.tutorial-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px;
+}
+
+.tutorial-card ol {
+    margin: 8px 0 0;
+    padding-left: 22px;
+    color: var(--color-text);
+    line-height: 1.55;
+}
+
+.tutorial-card li + li {
+    margin-top: 6px;
+}
+
 .field-label {
     display: grid;
     gap: 4px;
