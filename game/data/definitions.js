@@ -75,7 +75,7 @@
 
     /**
      * @typedef {Object} FaithDefinition
-     * @property {string} id - 信仰稳定 ID；none 表示无信仰，goblin_ancestor 表示哥布林祖灵。
+     * @property {string} id - 信仰稳定 ID；none 表示无信仰，goblin_ancestor 表示哥布林祖灵，mother_fungus 表示菌菇寄生体的母菌信仰。
      * @property {string} name - 信仰中文显示名。
      * @property {string} description - 信仰中文说明。
      * @property {string} domain - 信仰领域中文标签，用于后续仪式或外交扩展。
@@ -91,6 +91,7 @@
      * @property {Object.<string, number>} skillBias - 初始技能字典；key 为技能 ID，value 为初始经验。
      * @property {number} minInitialAgeYears - 新获得该类型俘虏的最小基础年龄，单位年，非负整数。
      * @property {number} maxInitialAgeYears - 新获得该类型俘虏的最大基础年龄，单位年，非负整数。
+     * @property {string=} requiredQualityId - 限定该类型只在指定品质生成；省略表示不限品质。
      */
 
     /**
@@ -162,6 +163,8 @@
      * @property {Object.<string, number>} rewards - 成功收益字典；key 为资源 ID，value 为资源数量。
      * @property {string[]} captiveTypes - 可能获得的俘虏类型 ID 数组。
      * @property {WeightedId[]} captiveRaceWeights - 可能获得的俘虏种族权重数组；id 为 CaptiveRaceDefinition.id。
+     * @property {WeightedId[]=} captiveQualityWeights - 地点专属品质权重；省略时使用种族品质权重。
+     * @property {WeightedId[]=} originalRaceWeights - 菌菇寄生体宿主的原始所属种族权重；其他地点省略。
      * @property {number} relationPenalty - 掠夺后关系下降值，非负数。
      * @property {number} infamyReward - 掠夺成功后获得的恶名数量，非负资源数量。
      * @property {number} infamyFailurePenalty - 掠夺失败后损失的恶名数量，非负资源数量。
@@ -289,7 +292,7 @@
      */
 
     // number 当前应用版本：写入新存档的整数版本来源。
-    var SAVE_VERSION = 29;
+    var SAVE_VERSION = 31;
 
     // number 每秒 tick 数：基础模拟节奏，版本一要求默认为 5。
     var TICKS_PER_SECOND = 5;
@@ -4046,6 +4049,86 @@
     // CaptiveTypeDefinition[] 俘虏类型定义列表：版本三掠夺入口支持十类女性俘虏。
     var CAPTIVE_TYPE_DEFINITIONS = [
         {
+            id: "spore_scavenger",
+            name: "孢尘拾荒者",
+            traitHint: "basic",
+            attributeBias: { cunning: 1, strength: -1 },
+            skillBias: { foraging: 35, hauling: 20 },
+            minInitialAgeYears: 14,
+            maxInitialAgeYears: 30,
+            requiredQualityId: "common"
+        },
+        {
+            id: "hypha_carrier",
+            name: "菌丝搬运体",
+            traitHint: "obedient",
+            attributeBias: { perception: 1, dexterity: -1 },
+            skillBias: { hauling: 45 },
+            minInitialAgeYears: 14,
+            maxInitialAgeYears: 32,
+            requiredQualityId: "common"
+        },
+        {
+            id: "spore_scribe",
+            name: "孢忆抄录者",
+            traitHint: "trade",
+            attributeBias: { cunning: 2, strength: -1 },
+            skillBias: { scribing: 60, ritual: 15 },
+            minInitialAgeYears: 18,
+            maxInitialAgeYears: 38,
+            requiredQualityId: "skilled"
+        },
+        {
+            id: "mycelium_medic",
+            name: "菌脉医师",
+            traitHint: "craft",
+            attributeBias: { perception: 2, dexterity: -1 },
+            skillBias: { crafting: 45, foraging: 35 },
+            minInitialAgeYears: 18,
+            maxInitialAgeYears: 40,
+            requiredQualityId: "skilled"
+        },
+        {
+            id: "hive_tactician",
+            name: "巢群谋士",
+            traitHint: "trade",
+            attributeBias: { cunning: 3, strength: -2 },
+            skillBias: { overseeing: 70, scribing: 45 },
+            minInitialAgeYears: 22,
+            maxInitialAgeYears: 48,
+            requiredQualityId: "elite"
+        },
+        {
+            id: "spore_guard",
+            name: "孢甲护巢者",
+            traitHint: "strong",
+            attributeBias: { perception: 2, strength: -1 },
+            skillBias: { raiding: 75, ritual: 25 },
+            minInitialAgeYears: 20,
+            maxInitialAgeYears: 45,
+            requiredQualityId: "elite"
+        },
+        {
+            id: "spore_crown_oracle",
+            name: "孢冠先知",
+            traitHint: "magic",
+            attributeBias: { cunning: 3, attunement: 3, strength: -2 },
+            skillBias: { ritual: 110, scribing: 80 },
+            minInitialAgeYears: 30,
+            maxInitialAgeYears: 70,
+            requiredQualityId: "legendary"
+        },
+        {
+            id: "mother_hypha_avatar",
+            name: "母菌化身",
+            traitHint: "corrupted",
+            attributeBias: { perception: 3, attunement: 2, dexterity: -2 },
+            skillBias: { overseeing: 100, foraging: 80 },
+            minInitialAgeYears: 35,
+            maxInitialAgeYears: 80,
+            requiredQualityId: "legendary"
+        },
+        {
             id: "laborer",
             name: "村姑",
             traitHint: "basic",
@@ -4250,6 +4333,13 @@
             sin: "无"
         },
         {
+            id: "mother_fungus",
+            name: "母菌",
+            description: "菌菇寄生体共同敬奉的菌丝意识源头；这种归属来自母菌网络，不产生可遗传血脉。",
+            domain: "菌丝网络",
+            sin: "无"
+        },
+        {
             id: "stone_throne",
             name: "岩座",
             description: "山脉、矿脉和王权高座的神灵，赐予坚岩耐力，也让血裔难以服从低位命令。",
@@ -4402,6 +4492,20 @@
 
     // CaptiveRaceDefinition[] 俘虏种族定义列表：种族只表达大类，地域和社会差异交给地点与势力定义承载。
     var CAPTIVE_RACE_DEFINITIONS = [
+        {
+            id: "fungus_parasite",
+            name: "菌菇寄生体",
+            description: "智慧菌丝侵入人类、矮人、鼠裔等宿主后形成的新种族；保留原种族禀赋和部分记忆，智力与感知增强，但肌肉和精细运动被菌丝侵蚀。",
+            worldId: "underground",
+            factionId: "spore_crown_symbiotes",
+            primaryFaithId: "mother_fungus",
+            locationWeights: [{ id: "spore_drift_tunnel", weight: 5 }, { id: "hypha_nursery", weight: 4 }, { id: "spore_crown_hive", weight: 2 }],
+            captiveTypeWeights: [{ id: "spore_scavenger", weight: 2 }, { id: "hypha_carrier", weight: 2 }, { id: "spore_scribe", weight: 2 }, { id: "mycelium_medic", weight: 2 }, { id: "hive_tactician", weight: 2 }, { id: "spore_guard", weight: 2 }, { id: "spore_crown_oracle", weight: 1 }, { id: "mother_hypha_avatar", weight: 1 }],
+            qualityWeights: [{ id: "common", weight: 48 }, { id: "skilled", weight: 30 }, { id: "elite", weight: 17 }, { id: "legendary", weight: 5 }],
+            attributeBonus: { cunning: 2, perception: 2, strength: -1, dexterity: -1 },
+            skillBonus: { foraging: 20, scribing: 25, ritual: 15 },
+            lifespanYears: 10
+        },
         {
             id: "human",
             name: "人类",
@@ -4664,6 +4768,21 @@
     // FactionTradeDefinition[] 外交对象定义列表：版本三基础贸易入口。
     var FACTION_DEFINITIONS = [
         {
+            id: "spore_crown_symbiotes",
+            name: game.text.TEXT_REGISTRY.factions.spore_crown_symbiotes.name,
+            description: game.text.TEXT_REGISTRY.factions.spore_crown_symbiotes.description,
+            worldId: "underground",
+            cost: [game.pricing.createPrice("fungus", 160), game.pricing.createPrice("crudeKnowledge", 20)],
+            rewardResource: "manaCrystal",
+            baseReward: 3,
+            randomWidth: 0.3,
+            relationChange: 1,
+            goodwillReward: 2,
+            requiredGoodwill: 10,
+            distanceSeconds: 50,
+            unlock: { isDefault: true }
+        },
+        {
             id: "rat_caravan",
             name: game.text.TEXT_REGISTRY.factions.rat_caravan.name,
             description: game.text.TEXT_REGISTRY.factions.rat_caravan.description,
@@ -4823,6 +4942,75 @@
 
     // RaidTargetDefinition[] 掠夺目标定义列表：版本三基础军事目标。
     var RAID_TARGET_DEFINITIONS = [
+        {
+            id: "spore_drift_tunnel",
+            name: game.text.TEXT_REGISTRY.raidTargets.spore_drift_tunnel.name,
+            description: game.text.TEXT_REGISTRY.raidTargets.spore_drift_tunnel.description,
+            factionId: "spore_crown_symbiotes",
+            worldId: "underground",
+            minRaiders: 2,
+            targetStrength: 32,
+            rewards: { fungus: 180, crudeKnowledge: 12, loot: 6 },
+            captiveTypes: ["spore_scavenger", "hypha_carrier"],
+            captiveRaceWeights: [{ id: "fungus_parasite", weight: 1 }],
+            captiveQualityWeights: [{ id: "common", weight: 1 }],
+            originalRaceWeights: [{ id: "human", weight: 4 }, { id: "ratkin", weight: 3 }, { id: "kobold", weight: 2 }],
+            warbeastCaptureChance: 0.12,
+            warbeastSpeciesWeights: [{ id: "spore_hound", weight: 1 }],
+            relationPenalty: 10,
+            infamyReward: 4,
+            infamyFailurePenalty: 1,
+            goodwillPenalty: 1,
+            requiredInfamy: 0,
+            distanceSeconds: 30,
+            unlock: { isDefault: true }
+        },
+        {
+            id: "hypha_nursery",
+            name: game.text.TEXT_REGISTRY.raidTargets.hypha_nursery.name,
+            description: game.text.TEXT_REGISTRY.raidTargets.hypha_nursery.description,
+            factionId: "spore_crown_symbiotes",
+            worldId: "underground",
+            minRaiders: 5,
+            targetStrength: 78,
+            rewards: { fungus: 320, crudeKnowledge: 35, manaCrystal: 3, loot: 18 },
+            captiveTypes: ["spore_scribe", "mycelium_medic", "hive_tactician", "spore_guard"],
+            captiveRaceWeights: [{ id: "fungus_parasite", weight: 1 }],
+            captiveQualityWeights: [{ id: "skilled", weight: 3 }, { id: "elite", weight: 1 }],
+            originalRaceWeights: [{ id: "human", weight: 3 }, { id: "dwarf", weight: 3 }, { id: "gnome", weight: 2 }, { id: "elf", weight: 1 }],
+            warbeastCaptureChance: 0.2,
+            warbeastSpeciesWeights: [{ id: "spore_hound", weight: 3 }, { id: "stone_maw", weight: 1 }],
+            relationPenalty: 24,
+            infamyReward: 10,
+            infamyFailurePenalty: 4,
+            goodwillPenalty: 4,
+            requiredInfamy: 20,
+            distanceSeconds: 60,
+            unlock: { isDefault: true }
+        },
+        {
+            id: "spore_crown_hive",
+            name: game.text.TEXT_REGISTRY.raidTargets.spore_crown_hive.name,
+            description: game.text.TEXT_REGISTRY.raidTargets.spore_crown_hive.description,
+            factionId: "spore_crown_symbiotes",
+            worldId: "underground",
+            minRaiders: 9,
+            targetStrength: 150,
+            rewards: { fungus: 600, manaCrystal: 10, blackIron: 12, loot: 45 },
+            captiveTypes: ["hive_tactician", "spore_guard", "spore_crown_oracle", "mother_hypha_avatar"],
+            captiveRaceWeights: [{ id: "fungus_parasite", weight: 1 }],
+            captiveQualityWeights: [{ id: "elite", weight: 3 }, { id: "legendary", weight: 1 }],
+            originalRaceWeights: [{ id: "dwarf", weight: 3 }, { id: "elf", weight: 3 }, { id: "orc", weight: 2 }, { id: "shadeborn", weight: 1 }],
+            warbeastCaptureChance: 0.24,
+            warbeastSpeciesWeights: [{ id: "spore_hound", weight: 2 }, { id: "abyss_mantis", weight: 1 }],
+            relationPenalty: 42,
+            infamyReward: 18,
+            infamyFailurePenalty: 8,
+            goodwillPenalty: 8,
+            requiredInfamy: 50,
+            distanceSeconds: 90,
+            unlock: { isDefault: true }
+        },
         {
             id: "fungus_farm_cave",
             name: game.text.TEXT_REGISTRY.raidTargets.fungus_farm_cave.name,

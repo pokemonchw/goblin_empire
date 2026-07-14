@@ -1013,6 +1013,10 @@
         surface_border_city: {
             name: "地表边境城邦",
             description: "地表边境的商税城邦，富有且会组织报复。"
+        },
+        spore_crown_symbiotes: {
+            name: "孢冠共生庭",
+            description: "由母菌网络支配的地底寄生国度，以孢子记忆统合不同宿主的知识。"
         }
     };
 
@@ -1045,6 +1049,18 @@
         ancient_ruin: {
             name: "古代遗迹",
             description: "残留魔晶和符文的危险遗迹，可能带回魔法学徒或亡灵修女。"
+        },
+        spore_drift_tunnel: {
+            name: "飘孢菌道",
+            description: "低阶孢仆搬运腐殖与新宿主的菌道，守卫松散但空气充满致幻孢子。"
+        },
+        hypha_nursery: {
+            name: "菌丝育成所",
+            description: "共生庭培育熟练寄生体的中层设施，菌医和记忆抄录者在此值守。"
+        },
+        spore_crown_hive: {
+            name: "孢冠母巢",
+            description: "母菌网络的高阶节点，收藏历代宿主记忆，由孢冠先知和护巢统领守卫。"
         }
     };
 

@@ -290,10 +290,11 @@
      * @typedef {Object} CaptiveState
      * @property {string} id - 俘虏稳定 ID。
      * @property {string} name - 俘虏中文姓名；生成后写入存档，确保每个俘虏可被单独识别。
-     * @property {"laborer"|"warrior"|"magic_talent"|"artisan"|"accountant"|"noble"|"undead_captive"|"ascetic"|"herbalist"|"shrine_acolyte"} type - 俘虏类型 ID。
+     * @property {string} type - 俘虏类型 ID，必须对应 CaptiveTypeDefinition.id。
      * @property {string} raceId - 俘虏种族 ID，必须对应 CaptiveRaceDefinition.id，且不是哥布林。
-     * @property {string|null} faithId - 俘虏信仰 ID；null 表示无信仰，有值时必须对应 FaithDefinition.id。
-     * @property {string|null} bloodlineId - 血脉 ID；null 表示没有神灵血脉，有值时必须对应 BloodlineDefinition.id。
+     * @property {string|null} originalRaceId - 原始所属种族 ID；菌菇寄生体必须保留宿主受寄生前的种族，非寄生体为 null。
+     * @property {string|null} faithId - 俘虏信仰 ID；菌菇寄生体固定为 mother_fungus，其他种族可为 null 或 FaithDefinition.id。
+     * @property {string|null} bloodlineId - 血脉 ID；菌菇寄生体固定为 null，其他有值时必须对应 BloodlineDefinition.id。
      * @property {number} bloodlinePurity - 血脉纯度，范围 0-100 百分比；bloodlineId 为 null 时必须为 0。
      * @property {"common"|"skilled"|"elite"|"legendary"} quality - 俘虏质量 ID。
      * @property {string} source - 来源 ID 或事件名。

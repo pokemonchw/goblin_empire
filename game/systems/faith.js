@@ -9,6 +9,12 @@
     // string 哥布林祖灵信仰 ID：祖灵祭坛建立后写入哥布林个体。
     var GOBLIN_ANCESTOR_FAITH_ID = "goblin_ancestor";
 
+    // string 母菌信仰 ID：所有菌菇寄生体固定使用，且不参与七神血脉生成。
+    var MOTHER_FUNGUS_FAITH_ID = "mother_fungus";
+
+    // string 菌菇寄生体种族 ID：用于执行固定母菌信仰规则。
+    var FUNGUS_PARASITE_RACE_ID = "fungus_parasite";
+
     // number 俘虏有信仰概率：0-1 浮点比例；未命中时 faithId 为 null。
     var CAPTIVE_HAS_FAITH_RATIO = 0.7;
 
@@ -88,6 +94,10 @@
      * @returns {string|null} 信仰 ID；null 表示无信仰。
      */
     function createRandomCaptiveFaithId(raceId) {
+        if (raceId === FUNGUS_PARASITE_RACE_ID) {
+            return MOTHER_FUNGUS_FAITH_ID;
+        }
+
         if (Math.random() >= CAPTIVE_HAS_FAITH_RATIO) {
             return null;
         }
@@ -108,6 +118,11 @@
      * @returns {void} 无返回值。
      */
     function normalizeCaptiveFaith(captive) {
+        if (captive.raceId === FUNGUS_PARASITE_RACE_ID) {
+            captive.faithId = MOTHER_FUNGUS_FAITH_ID;
+            return;
+        }
+
         if (Object.prototype.hasOwnProperty.call(captive, "faithId")) {
             captive.faithId = getFaithDefinition(captive.faithId) ? normalizeFaithId(captive.faithId) : null;
             return;
@@ -202,7 +217,7 @@
             // FaithDefinition 当前信仰定义：用于构造随机候选。
             var faithDefinition = game.definitions.FAITH_DEFINITIONS[faithIndex];
 
-            if (faithDefinition.id === "none" || faithDefinition.id === GOBLIN_ANCESTOR_FAITH_ID) {
+            if (faithDefinition.id === "none" || faithDefinition.id === GOBLIN_ANCESTOR_FAITH_ID || faithDefinition.id === MOTHER_FUNGUS_FAITH_ID) {
                 continue;
             }
 

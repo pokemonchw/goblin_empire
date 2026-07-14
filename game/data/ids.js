@@ -196,6 +196,7 @@
     var FAITH_IDS = [
         "none",
         "goblin_ancestor",
+        "mother_fungus",
         "stone_throne",
         "golden_river",
         "forge_sun",
@@ -263,7 +264,8 @@
         "undead_lord",
         "abyss_emissary",
         "deep_gray_dwarf_court",
-        "surface_border_city"
+        "surface_border_city",
+        "spore_crown_symbiotes"
     ];
 
     // string[] 掠夺目标稳定 ID 列表：掠夺系统引用。
@@ -274,7 +276,10 @@
         "surface_village",
         "noble_carriage",
         "surface_barracks",
-        "ancient_ruin"
+        "ancient_ruin",
+        "spore_drift_tunnel",
+        "hypha_nursery",
+        "spore_crown_hive"
     ];
 
     // string[] 威望天赋稳定 ID 列表：重置后永久成长引用。

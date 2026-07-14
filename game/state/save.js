@@ -264,6 +264,7 @@
                         name: "阿苔",
                         type: "laborer",
                         raceId: "human",
+                        originalRaceId: null,
                         quality: "common",
                         bloodlineId: null,
                         bloodlinePurity: 0,
@@ -443,6 +444,13 @@
             // v29 新 shape：非祖灵神灵改为七宗罪七神，旧 faithId 和 bloodlineId 读档时映射到新神系。
             // 迁移原因：神灵重设计改变了持久 ID 集合，旧档应保留信仰、血脉和纯度语义。
             migratedSaveData.goblins = normalizeSavedGoblins(Array.isArray(migratedSaveData.goblins) ? migratedSaveData.goblins : []);
+            migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
+        }
+
+        if (sourceVersion < 31) {
+            // v30 旧 shape：菌菇寄生体会按通用种族规则随机七神信仰，并可能拥有同源血脉。
+            // v31 新 shape：所有菌菇寄生体固定信仰母菌，血脉固定为 null / 0。
+            // 迁移原因：母菌归属来自菌丝网络而非神灵遗传，旧档必须清除冲突的信仰和血脉。
             migratedSaveData.captives = normalizeSavedCaptives(Array.isArray(migratedSaveData.captives) ? migratedSaveData.captives : []);
         }
 
@@ -1358,10 +1366,15 @@
             captive.turnsHeld = Math.max(0, Number(captive.turnsHeld) || 0);
             captive.name = normalizeCaptiveName(captive, captiveIndex);
             captive.raceId = normalizeCaptiveRaceId(captive.raceId, captive.type);
+            captive.originalRaceId = captive.raceId === "fungus_parasite" ? normalizeCaptiveRaceId(captive.originalRaceId, "laborer") : null;
             if (game.faithSystem) {
                 game.faithSystem.normalizeCaptiveFaith(captive);
             }
             normalizeBloodlineFields(captive);
+            if (captive.raceId === "fungus_parasite") {
+                captive.bloodlineId = null;
+                captive.bloodlinePurity = 0;
+            }
             normalizeCaptiveLifespanFields(captive);
             captive.brainwashLevel = Math.min(100, Math.max(0, Number(captive.brainwashLevel) || 0));
             captive.isAutoBrainwashEnabled = Boolean(captive.isAutoBrainwashEnabled);

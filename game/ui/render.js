@@ -1655,6 +1655,16 @@
         tooltipElement.appendChild(createTextElement("h4", captive.name || captive.id));
         appendDefinitionDetail(listElement, "品质", qualityDefinition ? qualityDefinition.name : captive.quality);
         appendDefinitionDetail(listElement, "种族", raceDefinition ? raceDefinition.name : (captive.raceId || "未知种族"));
+        if (captive.originalRaceId) {
+            // CaptiveRaceDefinition|null 原始种族定义：展示菌菇寄生前的宿主种族特质。
+            var originalRaceDefinition = game.captivesSystem.getCaptiveRaceDefinition(captive.originalRaceId);
+
+            appendDefinitionDetail(listElement, "原始所属种族", originalRaceDefinition ? originalRaceDefinition.name : captive.originalRaceId);
+            if (originalRaceDefinition) {
+                appendDefinitionDetail(listElement, "保留原种族属性", formatNumericBonusMap(originalRaceDefinition.attributeBonus, ATTRIBUTE_LABELS));
+                appendDefinitionDetail(listElement, "保留原种族技能", formatNumericBonusMap(originalRaceDefinition.skillBonus, SKILL_LABELS));
+            }
+        }
         appendDefinitionDetail(listElement, "信仰", game.faithSystem.formatFaithName(captive.faithId));
         appendDefinitionDetail(listElement, "血脉", formatBloodline(captive));
         appendDefinitionDetail(listElement, "职业", captiveTypeDefinition ? captiveTypeDefinition.name : captive.type);

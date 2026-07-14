@@ -190,9 +190,10 @@
      * @param {"common"|"skilled"|"elite"|"legendary"} qualityId - 俘虏质量 ID。
      * @param {string} source - 来源 ID 或事件名。
      * @param {string=} raceId - 可选俘虏种族 ID；省略时按类型使用兼容默认种族。
+     * @param {string|null=} originalRaceId - 原始所属种族 ID；仅菌菇寄生体使用，省略时为 null。
      * @returns {CaptiveState} 新俘虏对象。
      */
-    function createCaptive(captiveTypeId, qualityId, source, raceId) {
+    function createCaptive(captiveTypeId, qualityId, source, raceId, originalRaceId) {
         // CaptiveTypeDefinition|null 俘虏类型定义：用于写入倾向提示。
         var captiveTypeDefinition = getCaptiveTypeDefinition(captiveTypeId);
 
@@ -209,13 +210,14 @@
         var faithId = game.faithSystem.createRandomCaptiveFaithId(normalizedRaceId);
 
         // {bloodlineId: string|null, bloodlinePurity: number} 俘虏血脉快照：血脉 ID 和 0-100 百分比纯度会写入个体存档。
-        var bloodlineSnapshot = createCaptiveBloodlineSnapshot(captiveTypeId, qualityId, faithId);
+        var bloodlineSnapshot = createCaptiveBloodlineSnapshot(captiveTypeId, qualityId, faithId, normalizedRaceId);
 
         return {
             id: "captive_" + Date.now() + "_" + Math.floor(Math.random() * 100000),
             name: createCaptiveName(captiveTypeId),
             type: captiveTypeId,
             raceId: normalizedRaceId,
+            originalRaceId: normalizedRaceId === "fungus_parasite" ? normalizeCaptiveRaceId(originalRaceId, "laborer") : null,
             faithId: faithId,
             bloodlineId: bloodlineSnapshot.bloodlineId,
             bloodlinePurity: bloodlineSnapshot.bloodlinePurity,
@@ -255,13 +257,35 @@
         // string[] 地点允许职业类型 ID 数组：避免地点生成完全不符合职业生态的俘虏。
         var allowedTypeIds = Array.isArray(targetDefinition.captiveTypes) ? targetDefinition.captiveTypes : ["laborer"];
 
-        // string 俘虏类型 ID：在种族职业权重和地点允许列表交集中抽取。
-        var captiveTypeId = selectCaptiveTypeForRaceAndTarget(raceDefinition, allowedTypeIds);
-
         // string 质量 ID：按种族定义抽取，体现不同种族高品质俘虏概率差异。
-        var qualityId = selectWeightedId(raceDefinition ? raceDefinition.qualityWeights : null, "common");
+        var qualityId = selectWeightedId(targetDefinition.captiveQualityWeights || (raceDefinition ? raceDefinition.qualityWeights : null), "common");
 
-        return createCaptive(captiveTypeId, qualityId, targetDefinition.id, raceId);
+        // string[] 品质匹配职业 ID 数组：菌菇寄生体的八类俘虏按品质严格各两类。
+        var qualityMatchedTypeIds = getQualityMatchedCaptiveTypeIds(allowedTypeIds, qualityId);
+
+        // string 俘虏类型 ID：优先在品质匹配池中抽取，空池时回退地点允许池。
+        var captiveTypeId = selectCaptiveTypeForRaceAndTarget(raceDefinition, qualityMatchedTypeIds.length > 0 ? qualityMatchedTypeIds : allowedTypeIds);
+
+        // string|null 原始所属种族 ID：寄生地点按宿主生态抽取，其他地点不生成该特质。
+        var originalRaceId = raceId === "fungus_parasite" ? selectWeightedId(targetDefinition.originalRaceWeights, "human") : null;
+
+        return createCaptive(captiveTypeId, qualityId, targetDefinition.id, raceId, originalRaceId);
+    }
+
+    /**
+     * 筛选与指定品质相符的俘虏职业类型。
+     *
+     * @param {string[]} allowedTypeIds - 地点允许的俘虏职业类型 ID 数组。
+     * @param {string} qualityId - 本次已抽取的俘虏品质 ID。
+     * @returns {string[]} 未限定品质或 requiredQualityId 与本次品质一致的职业类型 ID 数组。
+     */
+    function getQualityMatchedCaptiveTypeIds(allowedTypeIds, qualityId) {
+        return allowedTypeIds.filter(function (allowedTypeId) {
+            // CaptiveTypeDefinition|null 候选职业定义：用于读取可选的品质限定。
+            var allowedTypeDefinition = getCaptiveTypeDefinition(allowedTypeId);
+
+            return !allowedTypeDefinition || !allowedTypeDefinition.requiredQualityId || allowedTypeDefinition.requiredQualityId === qualityId;
+        });
     }
 
     /**
@@ -329,10 +353,11 @@
      * @param {string} captiveTypeId - 俘虏类型 ID；普通村姑固定无血脉。
      * @param {"common"|"skilled"|"elite"|"legendary"} qualityId - 俘虏质量 ID，用于决定血脉纯度随机区间。
      * @param {string|null} faithId - 俘虏信仰 ID；有血脉时必须与来源神灵一致。
+     * @param {string} raceId - 俘虏种族 ID；菌菇寄生体固定没有血脉。
      * @returns {{bloodlineId: string|null, bloodlinePurity: number}} 血脉快照；bloodlinePurity 为 0-100 百分比整数。
      */
-    function createCaptiveBloodlineSnapshot(captiveTypeId, qualityId, faithId) {
-        if (captiveTypeId === "laborer" || !faithId) {
+    function createCaptiveBloodlineSnapshot(captiveTypeId, qualityId, faithId, raceId) {
+        if (raceId === "fungus_parasite" || captiveTypeId === "laborer" || !faithId) {
             return {
                 bloodlineId: null,
                 bloodlinePurity: 0
@@ -595,6 +620,9 @@
 
         // CaptiveRaceDefinition|null 种族定义：用于显示同类型同质量下的种族差异。
         var raceDefinition = getCaptiveRaceDefinition(captive.raceId);
+
+        // CaptiveRaceDefinition|null 原始种族定义：菌菇寄生体保留宿主属性，并与寄生修正叠加。
+        var originalRaceDefinition = getCaptiveRaceDefinition(captive.originalRaceId);
 
         // number 质量倍率：缺失定义时按 1。
         var qualityMultiplier = qualityDefinition ? qualityDefinition.multiplier : 1;
@@ -1322,6 +1350,9 @@
 
         if (captiveTypeDefinition) {
             applyCaptiveBiasToGoblin(newGoblin, captiveTypeDefinition, raceDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, calculateBrainwashAttributeBonus(captive), getCaptiveNewbornAttributePenalty(state, captive));
+            if (originalRaceDefinition) {
+                applyCaptiveBiasToGoblin(newGoblin, { attributeBias: {}, skillBias: {}, traitHint: "original_race_" + originalRaceDefinition.id }, originalRaceDefinition, qualityDefinition ? qualityDefinition.multiplier : 1, 0, 0);
+            }
         }
 
         newGoblin.growthLifespanYears = game.population.calculateGoblinGrowthLifespanYears(newGoblin);

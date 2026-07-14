@@ -167,6 +167,7 @@
                 name: "阿苔",
                 type: "laborer",
                 raceId: "human",
+                originalRaceId: null,
                 faithId: game.faithSystem.createRandomCaptiveFaithId("human"),
                 bloodlineId: null,
                 bloodlinePurity: 0,
