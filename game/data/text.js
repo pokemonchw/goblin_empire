@@ -686,6 +686,54 @@
             name: "记号",
             description: "学会用刻痕记录潮湿、饥饿和下一次采菌。"
         },
+        spore_identification: {
+            name: "辨孢术",
+            description: "分清可食孢子和腐败菌尘，使每次采菌稳定多获得 1 菌菇。"
+        },
+        mycelium_tracing: {
+            name: "循丝寻簇",
+            description: "沿菌丝寻找隐藏菌簇，使采菌再多获得 1 菌菇，并提高好事件的抽取权重。"
+        },
+        safe_fungus_harvest: {
+            name: "安全采菌",
+            description: "用气味和菌盖纹路避开毒孢囊，屏蔽采菌的两种坏事件。"
+        },
+        fungus_gathering_mastery: {
+            name: "菌簇熟采",
+            description: "形成完整的采菌手法，使每次采菌再多获得 2 菌菇，并大幅偏向好事件。"
+        },
+        decay_grading: {
+            name: "腐木分级",
+            description: "按硬度筛选还能利用的朽木，使每次捡朽木稳定多获得 1 朽木。"
+        },
+        dry_core_search: {
+            name: "寻干芯",
+            description: "从腐烂外皮中找出干燥木芯，使捡朽木再多获得 1 朽木，并提高好事件的抽取权重。"
+        },
+        vermin_probing: {
+            name: "探虫棍",
+            description: "先探后搬，避开虫巢和突然断裂的木堆，屏蔽捡朽木的两种坏事件。"
+        },
+        wood_scavenging_mastery: {
+            name: "废材巧取",
+            description: "熟悉腐木堆的受力与藏料位置，使每次捡朽木再多获得 2 朽木，并大幅偏向好事件。"
+        },
+        rock_sorting: {
+            name: "碎石分拣",
+            description: "只搬形状规整的可用石料，使每次搬碎石稳定多获得 1 碎石。"
+        },
+        seam_listening: {
+            name: "听缝辨层",
+            description: "从敲击回声判断松动岩层，使搬碎石再多获得 1 碎石，并提高好事件的抽取权重。"
+        },
+        braced_hauling: {
+            name: "支撑搬运",
+            description: "搬运前先撑住石缝，屏蔽落石和塌陷两种坏事件。"
+        },
+        rubble_hauling_mastery: {
+            name: "巧力移岩",
+            description: "用杠杆和落点经验搬运，使每次搬碎石再多获得 2 碎石，并大幅偏向好事件。"
+        },
         deadwood_cultivation: {
             name: "朽木栽培",
             description: "把朽木当成可培育材料，而不是只靠地穴边缘碰运气。"

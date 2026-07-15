@@ -5535,6 +5535,9 @@
             // ResourceDefinition|null 产出资源定义：用于显示中文资源名。
             var resourceDefinition = game.resources.getResourceDefinition(actionDefinition.resource);
 
+            // number 当前单次采集数量：包含该行动独立科技树的固定增产。
+            var currentActionAmount = game.resources.getManualActionAmount(state, actionDefinition);
+
             cardElement.className = "action-card";
             buttonElement.type = "button";
             buttonElement.dataset.actionId = actionDefinition.id;
@@ -5542,7 +5545,8 @@
             buttonElement.disabled = state.isPaused;
             cardElement.appendChild(buttonElement);
             cardElement.appendChild(createTextElement("p", actionDefinition.description));
-            cardElement.appendChild(createTextElement("p", "+" + actionDefinition.amount + " " + (resourceDefinition ? resourceDefinition.name : actionDefinition.resource)));
+            cardElement.appendChild(createTextElement("p", "+" + currentActionAmount + " " + (resourceDefinition ? resourceDefinition.name : actionDefinition.resource)));
+            cardElement.appendChild(createTextElement("p", "每次点击有 " + Math.round(actionDefinition.eventChance * 100) + "% 概率触发采集事件"));
             gridElement.appendChild(cardElement);
         }
 

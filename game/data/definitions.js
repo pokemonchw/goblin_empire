@@ -21,6 +21,33 @@
      * @property {string} description - 中文说明。
      * @property {ResourceId} resource - 获得的资源 ID。
      * @property {number} amount - 每次点击获得的资源数量，非负资源数量。
+     * @property {ManualActionTechnologyBonus[]} technologyBonuses - 已研究科技提供的固定采集数量加成。
+     * @property {number} eventChance - 每次成功点击后抽取专属事件的概率，范围 0-1。
+     * @property {ManualGatherEventDefinition[]} events - 该行动专属随机事件池，从新局开始生效。
+     */
+
+    /**
+     * @typedef {Object} ManualActionTechnologyBonus
+     * @property {TechnologyId} technologyId - 提供固定增产的科技稳定 ID。
+     * @property {number} amount - 科技完成后增加的单次采集资源数量，非负资源数量。
+     */
+
+    /**
+     * @typedef {Object} ManualGatherEventDefinition
+     * @property {string} id - 手动采集事件稳定 ID，仅用于调试和统计扩展。
+     * @property {string} name - 事件中文显示名。
+     * @property {"positive"|"negative"|"mixed"} outcomeType - 事件倾向；positive 可被增益科技提高权重，negative 可被安全科技屏蔽。
+     * @property {number} weight - 未受科技影响时的抽取权重，正浮点数。
+     * @property {TechnologyId=} blockedByTechnologyId - 完成指定科技后从事件池移除；仅用于可规避坏事件。
+     * @property {ManualGatherWeightBonus[]=} weightBonuses - 已研究科技提供的事件权重倍率列表。
+     * @property {WeatherEventResourceChange[]} resourceChanges - 事件触发时立即结算的资源变化数组，正数为获得、负数为损失。
+     * @property {string} logText - 事件日志正文。
+     */
+
+    /**
+     * @typedef {Object} ManualGatherWeightBonus
+     * @property {TechnologyId} technologyId - 完成后改变该事件权重的科技稳定 ID。
+     * @property {number} multiplier - 事件权重乘数，正浮点数。
      */
 
     /**
@@ -1773,6 +1800,9 @@
             ],
             unlocks: {
                 technologies: [
+                    "spore_identification",
+                    "decay_grading",
+                    "rock_sorting",
                     "deadwood_cultivation",
                     "foraging",
                     "digging",
@@ -1783,6 +1813,102 @@
             unlock: {
                 isDefault: true
             }
+        },
+        {
+            id: "spore_identification",
+            name: game.text.TEXT_REGISTRY.technologies.spore_identification.name,
+            description: game.text.TEXT_REGISTRY.technologies.spore_identification.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 12)],
+            unlocks: { technologies: ["mycelium_tracing"] },
+            unlock: { isDefault: false }
+        },
+        {
+            id: "mycelium_tracing",
+            name: game.text.TEXT_REGISTRY.technologies.mycelium_tracing.name,
+            description: game.text.TEXT_REGISTRY.technologies.mycelium_tracing.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 28), game.pricing.createPrice("fungus", 40)],
+            unlocks: { technologies: ["safe_fungus_harvest"] },
+            unlock: { isDefault: false }
+        },
+        {
+            id: "safe_fungus_harvest",
+            name: game.text.TEXT_REGISTRY.technologies.safe_fungus_harvest.name,
+            description: game.text.TEXT_REGISTRY.technologies.safe_fungus_harvest.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 55), game.pricing.createPrice("fungus", 100)],
+            unlocks: { technologies: ["fungus_gathering_mastery"] },
+            unlock: { isDefault: false }
+        },
+        {
+            id: "fungus_gathering_mastery",
+            name: game.text.TEXT_REGISTRY.technologies.fungus_gathering_mastery.name,
+            description: game.text.TEXT_REGISTRY.technologies.fungus_gathering_mastery.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 110), game.pricing.createPrice("fungus", 220)],
+            unlocks: {},
+            unlock: { isDefault: false }
+        },
+        {
+            id: "decay_grading",
+            name: game.text.TEXT_REGISTRY.technologies.decay_grading.name,
+            description: game.text.TEXT_REGISTRY.technologies.decay_grading.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 12)],
+            unlocks: { technologies: ["dry_core_search"] },
+            unlock: { isDefault: false }
+        },
+        {
+            id: "dry_core_search",
+            name: game.text.TEXT_REGISTRY.technologies.dry_core_search.name,
+            description: game.text.TEXT_REGISTRY.technologies.dry_core_search.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 28), game.pricing.createPrice("rottenWood", 40)],
+            unlocks: { technologies: ["vermin_probing"] },
+            unlock: { isDefault: false }
+        },
+        {
+            id: "vermin_probing",
+            name: game.text.TEXT_REGISTRY.technologies.vermin_probing.name,
+            description: game.text.TEXT_REGISTRY.technologies.vermin_probing.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 55), game.pricing.createPrice("rottenWood", 100)],
+            unlocks: { technologies: ["wood_scavenging_mastery"] },
+            unlock: { isDefault: false }
+        },
+        {
+            id: "wood_scavenging_mastery",
+            name: game.text.TEXT_REGISTRY.technologies.wood_scavenging_mastery.name,
+            description: game.text.TEXT_REGISTRY.technologies.wood_scavenging_mastery.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 110), game.pricing.createPrice("rottenWood", 220)],
+            unlocks: {},
+            unlock: { isDefault: false }
+        },
+        {
+            id: "rock_sorting",
+            name: game.text.TEXT_REGISTRY.technologies.rock_sorting.name,
+            description: game.text.TEXT_REGISTRY.technologies.rock_sorting.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 12)],
+            unlocks: { technologies: ["seam_listening"] },
+            unlock: { isDefault: false }
+        },
+        {
+            id: "seam_listening",
+            name: game.text.TEXT_REGISTRY.technologies.seam_listening.name,
+            description: game.text.TEXT_REGISTRY.technologies.seam_listening.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 28), game.pricing.createPrice("rubble", 40)],
+            unlocks: { technologies: ["braced_hauling"] },
+            unlock: { isDefault: false }
+        },
+        {
+            id: "braced_hauling",
+            name: game.text.TEXT_REGISTRY.technologies.braced_hauling.name,
+            description: game.text.TEXT_REGISTRY.technologies.braced_hauling.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 55), game.pricing.createPrice("rubble", 100)],
+            unlocks: { technologies: ["rubble_hauling_mastery"] },
+            unlock: { isDefault: false }
+        },
+        {
+            id: "rubble_hauling_mastery",
+            name: game.text.TEXT_REGISTRY.technologies.rubble_hauling_mastery.name,
+            description: game.text.TEXT_REGISTRY.technologies.rubble_hauling_mastery.description,
+            price: [game.pricing.createPrice("crudeKnowledge", 110), game.pricing.createPrice("rubble", 220)],
+            unlocks: {},
+            unlock: { isDefault: false }
         },
         {
             id: "deadwood_cultivation",
@@ -3528,21 +3654,204 @@
             name: "采菌",
             description: "从潮湿石缝里抠出一点能吃的菌菇。",
             resource: "fungus",
-            amount: 1
+            amount: 1,
+            technologyBonuses: [
+                { technologyId: "spore_identification", amount: 1 },
+                { technologyId: "mycelium_tracing", amount: 1 },
+                { technologyId: "fungus_gathering_mastery", amount: 2 }
+            ],
+            eventChance: 0.15,
+            events: [
+                {
+                    id: "dense_fungus_cluster",
+                    name: "密生菌簇",
+                    outcomeType: "positive",
+                    weight: 25,
+                    weightBonuses: [
+                        { technologyId: "mycelium_tracing", multiplier: 1.5 },
+                        { technologyId: "fungus_gathering_mastery", multiplier: 2 }
+                    ],
+                    resourceChanges: [{ resource: "fungus", amount: 6 }],
+                    logText: "石缝后藏着一整簇肥厚菌盖，额外收下 6 菌菇。"
+                },
+                {
+                    id: "glowing_spore_pouch",
+                    name: "荧孢囊",
+                    outcomeType: "positive",
+                    weight: 15,
+                    weightBonuses: [
+                        { technologyId: "mycelium_tracing", multiplier: 1.5 },
+                        { technologyId: "fungus_gathering_mastery", multiplier: 2 }
+                    ],
+                    resourceChanges: [{ resource: "crudeKnowledge", amount: 2 }],
+                    logText: "发现会随气流明灭的孢囊，记下规律并获得 2 粗识。"
+                },
+                {
+                    id: "bitter_medicinal_cap",
+                    name: "苦药菌盖",
+                    outcomeType: "mixed",
+                    weight: 20,
+                    weightBonuses: [],
+                    resourceChanges: [{ resource: "fungus", amount: 3 }],
+                    logText: "苦味菌盖不好吃，但仍能充作口粮，额外获得 3 菌菇。"
+                },
+                {
+                    id: "toxic_spore_burst",
+                    name: "毒孢喷发",
+                    outcomeType: "negative",
+                    weight: 20,
+                    blockedByTechnologyId: "safe_fungus_harvest",
+                    weightBonuses: [],
+                    resourceChanges: [{ resource: "fungus", amount: -2 }],
+                    logText: "毒孢沾坏了采集袋，损失 2 菌菇。"
+                },
+                {
+                    id: "false_cap_rot",
+                    name: "伪盖腐烂",
+                    outcomeType: "negative",
+                    weight: 20,
+                    blockedByTechnologyId: "safe_fungus_harvest",
+                    weightBonuses: [],
+                    resourceChanges: [{ resource: "fungus", amount: -1 }],
+                    logText: "看似肥厚的菌盖在手里化成腐泥，损失 1 菌菇。"
+                }
+            ]
         },
         {
             id: "pick_rotten_wood",
             name: "捡朽木",
             description: "捡起还能勉强支撑窝棚的腐木。",
             resource: "rottenWood",
-            amount: 1
+            amount: 1,
+            technologyBonuses: [
+                { technologyId: "decay_grading", amount: 1 },
+                { technologyId: "dry_core_search", amount: 1 },
+                { technologyId: "wood_scavenging_mastery", amount: 2 }
+            ],
+            eventChance: 0.15,
+            events: [
+                {
+                    id: "dry_wood_heart",
+                    name: "干燥木芯",
+                    outcomeType: "positive",
+                    weight: 25,
+                    weightBonuses: [
+                        { technologyId: "dry_core_search", multiplier: 1.5 },
+                        { technologyId: "wood_scavenging_mastery", multiplier: 2 }
+                    ],
+                    resourceChanges: [{ resource: "rottenWood", amount: 6 }],
+                    logText: "剥开腐皮后露出结实木芯，额外获得 6 朽木。"
+                },
+                {
+                    id: "old_carving_marks",
+                    name: "旧刻痕",
+                    outcomeType: "positive",
+                    weight: 15,
+                    weightBonuses: [
+                        { technologyId: "dry_core_search", multiplier: 1.5 },
+                        { technologyId: "wood_scavenging_mastery", multiplier: 2 }
+                    ],
+                    resourceChanges: [{ resource: "crudeKnowledge", amount: 2 }],
+                    logText: "木背刻着旧搬运记号，辨读后获得 2 粗识。"
+                },
+                {
+                    id: "resinous_scraps",
+                    name: "含脂木屑",
+                    outcomeType: "mixed",
+                    weight: 20,
+                    weightBonuses: [],
+                    resourceChanges: [{ resource: "rottenWood", amount: 3 }],
+                    logText: "搜出一把仍可燃烧的含脂木屑，额外获得 3 朽木。"
+                },
+                {
+                    id: "cave_vermin_nest",
+                    name: "穴虫巢",
+                    outcomeType: "negative",
+                    weight: 20,
+                    blockedByTechnologyId: "vermin_probing",
+                    weightBonuses: [],
+                    resourceChanges: [{ resource: "rottenWood", amount: -2 }],
+                    logText: "木堆里窜出的穴虫咬散了捆材，损失 2 朽木。"
+                },
+                {
+                    id: "snapped_wood_pile",
+                    name: "朽堆断裂",
+                    outcomeType: "negative",
+                    weight: 20,
+                    blockedByTechnologyId: "vermin_probing",
+                    weightBonuses: [],
+                    resourceChanges: [{ resource: "rottenWood", amount: -1 }],
+                    logText: "受力错误让整段腐木碎成粉末，损失 1 朽木。"
+                }
+            ]
         },
         {
             id: "haul_rubble",
             name: "搬碎石",
             description: "把松动碎石搬回地穴深处备用。",
             resource: "rubble",
-            amount: 1
+            amount: 1,
+            technologyBonuses: [
+                { technologyId: "rock_sorting", amount: 1 },
+                { technologyId: "seam_listening", amount: 1 },
+                { technologyId: "rubble_hauling_mastery", amount: 2 }
+            ],
+            eventChance: 0.15,
+            events: [
+                {
+                    id: "loose_stone_cache",
+                    name: "松石窝",
+                    outcomeType: "positive",
+                    weight: 25,
+                    weightBonuses: [
+                        { technologyId: "seam_listening", multiplier: 1.5 },
+                        { technologyId: "rubble_hauling_mastery", multiplier: 2 }
+                    ],
+                    resourceChanges: [{ resource: "rubble", amount: 6 }],
+                    logText: "敲开薄壳后找到一窝松石，额外获得 6 碎石。"
+                },
+                {
+                    id: "layered_stone_pattern",
+                    name: "层纹石片",
+                    outcomeType: "positive",
+                    weight: 15,
+                    weightBonuses: [
+                        { technologyId: "seam_listening", multiplier: 1.5 },
+                        { technologyId: "rubble_hauling_mastery", multiplier: 2 }
+                    ],
+                    resourceChanges: [{ resource: "crudeKnowledge", amount: 2 }],
+                    logText: "石片层纹揭示了岩层走向，记录后获得 2 粗识。"
+                },
+                {
+                    id: "useful_flat_stones",
+                    name: "平整石片",
+                    outcomeType: "mixed",
+                    weight: 20,
+                    weightBonuses: [],
+                    resourceChanges: [{ resource: "rubble", amount: 3 }],
+                    logText: "挑出几块便于垒砌的平整石片，额外获得 3 碎石。"
+                },
+                {
+                    id: "falling_stones",
+                    name: "头顶落石",
+                    outcomeType: "negative",
+                    weight: 20,
+                    blockedByTechnologyId: "braced_hauling",
+                    weightBonuses: [],
+                    resourceChanges: [{ resource: "rubble", amount: -2 }],
+                    logText: "头顶落石砸翻了石筐，损失 2 碎石。"
+                },
+                {
+                    id: "small_cave_in",
+                    name: "局部塌陷",
+                    outcomeType: "negative",
+                    weight: 20,
+                    blockedByTechnologyId: "braced_hauling",
+                    weightBonuses: [],
+                    resourceChanges: [{ resource: "rubble", amount: -1 }],
+                    logText: "石缝局部塌陷掩埋了搬运成果，损失 1 碎石。"
+                }
+            ]
         }
     ];
 

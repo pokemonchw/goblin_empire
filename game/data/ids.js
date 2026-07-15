@@ -122,6 +122,18 @@
     // string[] 科技稳定 ID 列表：覆盖设计文档中的阶段性科技。
     var TECHNOLOGY_IDS = [
         "marks",
+        "spore_identification",
+        "mycelium_tracing",
+        "safe_fungus_harvest",
+        "fungus_gathering_mastery",
+        "decay_grading",
+        "dry_core_search",
+        "vermin_probing",
+        "wood_scavenging_mastery",
+        "rock_sorting",
+        "seam_listening",
+        "braced_hauling",
+        "rubble_hauling_mastery",
         "deadwood_cultivation",
         "foraging",
         "digging",

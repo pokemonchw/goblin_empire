@@ -956,6 +956,22 @@
             }
         }
 
+        // 旧存档不会保存后来加入的科技解锁标记，因此重放已研究科技的解锁包来补齐新分支入口。
+        if (game.unlocks && game.unlocks.applyUnlockBundle) {
+            // number 定义循环索引：遍历当前版本的完整科技定义表。
+            for (var definitionIndex = 0; definitionIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; definitionIndex += 1) {
+                // TechnologyDefinition 科技定义：用于取得当前版本的解锁包。
+                var technologyDefinition = game.definitions.TECHNOLOGY_DEFINITIONS[definitionIndex];
+
+                // TechnologyState|null 科技状态：用于判断旧存档是否已经完成该项研究。
+                var restoredTechnologyState = restoredState.technologiesById[technologyDefinition.id] || null;
+
+                if (restoredTechnologyState && restoredTechnologyState.isResearched) {
+                    game.unlocks.applyUnlockBundle(restoredState, technologyDefinition.unlocks);
+                }
+            }
+        }
+
         // Object[] 职业存档列表：用于恢复职业解锁状态。
         var savedJobs = Array.isArray(saveData.jobs) ? saveData.jobs : [];
 
