@@ -293,7 +293,12 @@
             }
 
             if (targetElement.dataset.technologyId) {
-                game.technology.researchTechnology(currentState, targetElement.dataset.technologyId);
+                // TechnologyId 研究科技 ID：用于在成功后标记一次性完成动画节点。
+                var researchedTechnologyId = targetElement.dataset.technologyId;
+
+                if (game.technology.researchTechnology(currentState, researchedTechnologyId)) {
+                    game.runtime.recentlyResearchedTechnologyId = researchedTechnologyId;
+                }
                 renderAfterStateChange(currentState);
                 return;
             }
@@ -301,6 +306,77 @@
             if (targetElement.dataset.researchFilter) {
                 game.runtime.researchFilter = targetElement.dataset.researchFilter;
                 renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.researchLineId) {
+                // ResearchLineId 点击路线 ID：再次点击当前路线时清空聚焦，恢复六路线视图。
+                var clickedResearchLineId = targetElement.dataset.researchLineId;
+
+                game.runtime.researchLineId = game.runtime.researchLineId === clickedResearchLineId ? "" : clickedResearchLineId;
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.researchView) {
+                game.runtime.researchView = targetElement.dataset.researchView;
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.researchSpecializationId) {
+                // string 专精链 ID：用于切换三条采集专精的运行时展开状态。
+                var specializationId = targetElement.dataset.researchSpecializationId;
+
+                if (!game.runtime.researchSpecializationsExpandedById) {
+                    game.runtime.researchSpecializationsExpandedById = {};
+                }
+
+                game.runtime.researchSpecializationsExpandedById[specializationId] = !game.runtime.researchSpecializationsExpandedById[specializationId];
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.researchFocusTechnologyId) {
+                // TechnologyId 前置科技 ID：用于清空路线筛选后定位对应卡片。
+                var prerequisiteTechnologyId = targetElement.dataset.researchFocusTechnologyId;
+
+                game.runtime.researchFilter = "all";
+                game.runtime.researchLineId = "";
+                renderAfterStateChange(currentState);
+
+                // HTMLElement|null 前置科技节点：存在时滚动并聚焦，键盘模式不强制额外动画。
+                var prerequisiteNodeElement = document.getElementById("research-node-" + prerequisiteTechnologyId);
+
+                if (prerequisiteNodeElement) {
+                    prerequisiteNodeElement.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+                    prerequisiteNodeElement.focus({ preventScroll: true });
+                }
+                return;
+            }
+
+            if (targetElement.dataset.researchRelationsToggle) {
+                toggleResearchRelations(targetElement);
+                return;
+            }
+
+            if (targetElement.dataset.researchRelationTargetId) {
+                focusRelatedResearchTechnology(currentState, targetElement.dataset.researchRelationTargetId);
+                return;
+            }
+
+            if (targetElement.dataset.researchLocateAvailable) {
+                game.runtime.researchFilter = "all";
+                game.runtime.researchLineId = "";
+                renderAfterStateChange(currentState);
+
+                // HTMLElement|null 首个可研究节点：DOM 顺序已经按时代、路线层级与布局顺序生成。
+                var availableResearchNodeElement = document.querySelector(".research-card.is-available");
+
+                if (availableResearchNodeElement) {
+                    availableResearchNodeElement.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+                    availableResearchNodeElement.focus({ preventScroll: true });
+                }
                 return;
             }
 
@@ -475,6 +551,263 @@
             game.runtime.censusFilters[targetElement.dataset.censusFilterKey] = targetElement.value;
             game.render.renderApp(game.runtime.state);
         });
+
+        tabContentElement.addEventListener("input", function (event) {
+            // HTMLInputElement|null 输入目标：仅处理带 researchSearch 标记的科技搜索框。
+            var targetInputElement = event.target;
+
+            if (!targetInputElement || !targetInputElement.dataset || !targetInputElement.dataset.researchSearch) {
+                return;
+            }
+
+            // GameState 当前运行时状态：搜索只刷新界面，不修改该状态对象。
+            var currentState = game.runtime.state;
+
+            game.runtime.researchSearchText = targetInputElement.value;
+            if (event.isComposing) {
+                return;
+            }
+            scheduleResearchSearchRender(currentState);
+        });
+    }
+
+    /**
+     * 合并短时间内连续发生的搜索输入，避免每个字符都重建研究页并打断输入法。
+     *
+     * @param {GameState} state - 当前游戏状态对象，仅用于确认搜索刷新仍属于当前存档。
+     * @returns {void} 无返回值；会重置运行时搜索刷新计时器。
+     */
+    function scheduleResearchSearchRender(state) {
+        if (game.runtime.researchSearchRenderTimerId) {
+            window.clearTimeout(game.runtime.researchSearchRenderTimerId);
+        }
+
+        // number 搜索刷新计时器 ID：输入停止 180 毫秒后统一重建研究结果。
+        game.runtime.researchSearchRenderTimerId = window.setTimeout(function () {
+            applyScheduledResearchSearchRender(state);
+        }, 180);
+    }
+
+    /**
+     * 应用已合并的研究搜索刷新，并在仍使用同一存档时恢复搜索框焦点。
+     *
+     * @param {GameState} scheduledState - 安排刷新时的游戏状态对象，用于避免加载存档后刷新旧界面。
+     * @returns {void} 无返回值；会重建标签页 DOM 并清除计时器 ID。
+     */
+    function applyScheduledResearchSearchRender(scheduledState) {
+        game.runtime.researchSearchRenderTimerId = 0;
+        if (scheduledState !== game.runtime.state) {
+            return;
+        }
+
+        // Element|null 刷新前聚焦元素：用于判断玩家是否仍在研究搜索框输入。
+        var activeElement = document.activeElement;
+
+        // boolean 是否恢复搜索焦点：true 表示刷新前焦点仍位于研究搜索框。
+        var shouldRestoreSearchFocus = Boolean(activeElement && activeElement.dataset && activeElement.dataset.researchSearch);
+
+        renderAfterStateChange(scheduledState);
+        if (!shouldRestoreSearchFocus) {
+            return;
+        }
+
+        // HTMLInputElement|null 新搜索框元素：重建后恢复焦点并把光标放到文本末尾。
+        var restoredSearchInputElement = document.querySelector("[data-research-search]");
+
+        if (restoredSearchInputElement) {
+            restoredSearchInputElement.focus();
+            restoredSearchInputElement.setSelectionRange(restoredSearchInputElement.value.length, restoredSearchInputElement.value.length);
+        }
+    }
+
+    /**
+     * 切换指定研究卡片的关联浮框，并关闭其他卡片已打开的浮框。
+     *
+     * @param {HTMLElement} toggleButtonElement - 被点击的查看关联按钮，会更新 aria-expanded。
+     * @returns {void} 无返回值。
+     */
+    function toggleResearchRelations(toggleButtonElement) {
+        // HTMLElement|null 关联控制区元素：包含当前按钮及左右关联浮框。
+        var controlElement = toggleButtonElement.closest(".research-relations");
+
+        if (!controlElement) {
+            return;
+        }
+
+        // boolean 是否准备打开：当前未展开时为 true，已展开时为 false。
+        var shouldOpen = toggleButtonElement.getAttribute("aria-expanded") !== "true";
+
+        closeResearchRelations();
+        if (!shouldOpen) {
+            return;
+        }
+
+        // NodeListOf<HTMLElement> 关联浮框列表：同时显示当前控制区存在的左右浮框。
+        var popoverElements = controlElement.querySelectorAll(".research-relations-popover");
+
+        // number 浮框循环索引：遍历当前控制区的前置与后置浮框。
+        for (var popoverIndex = 0; popoverIndex < popoverElements.length; popoverIndex += 1) {
+            popoverElements[popoverIndex].hidden = false;
+        }
+
+        controlElement.classList.add("is-open");
+        // HTMLElement|null 当前研究卡片：打开关联时解除状态滤镜，保证 fixed 浮框使用视口坐标。
+        var cardElement = controlElement.closest(".research-card");
+
+        if (cardElement) {
+            cardElement.classList.add("is-relations-open");
+        }
+        toggleButtonElement.setAttribute("aria-expanded", "true");
+        placeResearchRelationPopovers(toggleButtonElement, popoverElements);
+    }
+
+    /**
+     * 按查看关联按钮的视口位置放置左右浮框，避免被研究图谱滚动容器裁切。
+     *
+     * @param {HTMLElement} toggleButtonElement - 查看关联按钮，作为双侧浮框定位锚点。
+     * @param {NodeListOf<HTMLElement>} popoverElements - 当前控制区的前置与后置浮框列表。
+     * @returns {void} 无返回值。
+     */
+    function placeResearchRelationPopovers(toggleButtonElement, popoverElements) {
+        // DOMRect 按钮边界：提供浮框左右侧和垂直中心的视口坐标。
+        var buttonBounds = toggleButtonElement.getBoundingClientRect();
+
+        // number 视口安全边距：浮框与浏览器边缘保留的 CSS 像素距离。
+        var viewportGap = 8;
+
+        // number 浮框间距：浮框与查看关联按钮保留的 CSS 像素距离。
+        var popoverGap = 10;
+
+        // number 浮框循环索引：分别计算前置左浮框与后置右浮框坐标。
+        for (var popoverIndex = 0; popoverIndex < popoverElements.length; popoverIndex += 1) {
+            // HTMLElement 当前关联浮框：会写入 fixed 定位的 left 与 top。
+            var popoverElement = popoverElements[popoverIndex];
+
+            // DOMRect 浮框边界：显示后测量实际宽高，用于视口夹取。
+            var popoverBounds = popoverElement.getBoundingClientRect();
+
+            // boolean 是否前置浮框：true 放在按钮左侧，false 放在按钮右侧。
+            var isPrerequisitePopover = popoverElement.classList.contains("is-prerequisites");
+
+            // number 理想横坐标：按前置左、后置右计算的 CSS 像素坐标。
+            var idealLeft = isPrerequisitePopover ? buttonBounds.left - popoverBounds.width - popoverGap : buttonBounds.right + popoverGap;
+
+            // number 夹取后横坐标：保证浮框完整位于当前视口内。
+            var safeLeft = Math.max(viewportGap, Math.min(idealLeft, window.innerWidth - popoverBounds.width - viewportGap));
+
+            // number 理想纵坐标：让浮框中心与按钮中心对齐的 CSS 像素坐标。
+            var idealTop = buttonBounds.top + (buttonBounds.height - popoverBounds.height) / 2;
+
+            // number 夹取后纵坐标：保证浮框完整位于当前视口内。
+            var safeTop = Math.max(viewportGap, Math.min(idealTop, window.innerHeight - popoverBounds.height - viewportGap));
+
+            popoverElement.style.left = safeLeft + "px";
+            popoverElement.style.top = safeTop + "px";
+        }
+    }
+
+    /**
+     * 关闭所有研究关联浮框并同步按钮无障碍状态。
+     *
+     * @returns {void} 无返回值。
+     */
+    function closeResearchRelations() {
+        // NodeListOf<HTMLElement> 已渲染关联控制区列表：通常仅有一个处于打开状态。
+        var controlElements = document.querySelectorAll(".research-relations");
+
+        // number 控制区循环索引：遍历并关闭每个研究卡片关联区。
+        for (var controlIndex = 0; controlIndex < controlElements.length; controlIndex += 1) {
+            // HTMLElement 当前关联控制区：将移除打开状态并隐藏内部浮框。
+            var controlElement = controlElements[controlIndex];
+
+            // HTMLElement|null 查看关联按钮：存在时同步 aria-expanded 为 false。
+            var toggleButtonElement = controlElement.querySelector(".research-relations-toggle");
+
+            // NodeListOf<HTMLElement> 当前浮框列表：包含存在的前置或后置浮框。
+            var popoverElements = controlElement.querySelectorAll(".research-relations-popover");
+
+            controlElement.classList.remove("is-open");
+            // HTMLElement|null 当前研究卡片：关闭关联后恢复卡片原有状态滤镜与透明度。
+            var cardElement = controlElement.closest(".research-card");
+
+            if (cardElement) {
+                cardElement.classList.remove("is-relations-open");
+            }
+            if (toggleButtonElement) {
+                toggleButtonElement.setAttribute("aria-expanded", "false");
+            }
+
+            // number 浮框循环索引：隐藏当前卡片的全部关联浮框。
+            for (var popoverIndex = 0; popoverIndex < popoverElements.length; popoverIndex += 1) {
+                popoverElements[popoverIndex].hidden = true;
+            }
+        }
+    }
+
+    /**
+     * 恢复完整研究图谱并平滑定位关联研究卡片，定位后关闭浮框。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyId} technologyId - 要定位的关联科技稳定 ID。
+     * @returns {void} 无返回值。
+     */
+    function focusRelatedResearchTechnology(state, technologyId) {
+        closeResearchRelations();
+        game.runtime.researchFilter = "all";
+        game.runtime.researchLineId = "";
+        game.runtime.researchSearchText = "";
+        game.runtime.researchView = "graph";
+        revealResearchSpecializationForTechnology(technologyId);
+        renderAfterStateChange(state);
+
+        // HTMLElement|null 目标研究卡片：完整图谱重建后按稳定节点 ID 查找。
+        var targetCardElement = document.getElementById("research-node-" + technologyId);
+
+        if (targetCardElement) {
+            targetCardElement.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+            targetCardElement.focus({ preventScroll: true });
+        }
+    }
+
+    /**
+     * 展开目标科技所属的研究专精链，保证关联跳转后目标卡片真实存在于图谱中。
+     *
+     * @param {TechnologyId} technologyId - 准备定位的关联科技稳定 ID。
+     * @returns {void} 无返回值；匹配专精链时会修改运行时展开状态。
+     */
+    function revealResearchSpecializationForTechnology(technologyId) {
+        if (!game.runtime.researchSpecializationsExpandedById) {
+            // Object.<string, boolean> 专精链展开状态字典：key 为专精链稳定 ID，value 为是否展开。
+            game.runtime.researchSpecializationsExpandedById = {};
+        }
+
+        // number 专精链循环索引：遍历静态专精链定义以匹配目标科技。
+        for (var specializationIndex = 0; specializationIndex < game.definitions.RESEARCH_SPECIALIZATION_DEFINITIONS.length; specializationIndex += 1) {
+            // ResearchSpecializationDefinition 专精链定义：包含链 ID 与成员科技 ID 数组。
+            var specializationDefinition = game.definitions.RESEARCH_SPECIALIZATION_DEFINITIONS[specializationIndex];
+
+            if (specializationDefinition.technologyIds.indexOf(technologyId) !== -1) {
+                game.runtime.researchSpecializationsExpandedById[specializationDefinition.id] = true;
+                return;
+            }
+        }
+    }
+
+    /**
+     * 处理文档级点击；点击关联控制区外部时关闭全部研究关联浮框。
+     *
+     * @param {MouseEvent} event - 文档点击事件，target 用于判断是否位于关联控制区内。
+     * @returns {void} 无返回值。
+     */
+    function closeResearchRelationsFromOutsideClick(event) {
+        // EventTarget|null 点击目标：可能不是 HTMLElement，因此先检查 closest 能力。
+        var targetElement = event.target;
+
+        if (targetElement && targetElement.closest && targetElement.closest(".research-relations")) {
+            return;
+        }
+
+        closeResearchRelations();
     }
 
     /**
@@ -531,6 +864,11 @@
         var tabListElement = document.getElementById("tab-list");
 
         tabContentElement.addEventListener("pointerdown", rememberPointerDownElement);
+        tabContentElement.addEventListener("pointerdown", startResearchLaneDrag);
+        tabContentElement.addEventListener("pointermove", moveResearchLaneDrag);
+        tabContentElement.addEventListener("pointerup", endResearchLaneDrag);
+        tabContentElement.addEventListener("pointercancel", endResearchLaneDrag);
+        tabContentElement.addEventListener("lostpointercapture", endResearchLaneDrag);
         tabListElement.addEventListener("pointerdown", rememberPointerDownElement);
         document.addEventListener("pointerup", clearPointerDownElement);
         document.addEventListener("pointercancel", clearPointerDownElement);
@@ -755,17 +1093,17 @@
     }
 
     /**
-     * 从事件目标查找建筑行元素。
+     * 从事件目标查找使用通用详情浮窗的建筑行或科技卡片元素。
      *
      * @param {EventTarget|null} targetElement - 事件目标，可能不是 HTMLElement。
-     * @returns {HTMLElement|null} 建筑行元素；不存在时返回 null。
+     * @returns {HTMLElement|null} 浮窗触发元素；不存在时返回 null。
      */
     function getBuildingTooltipRow(targetElement) {
         if (!targetElement || !targetElement.closest) {
             return null;
         }
 
-        return targetElement.closest(".building-row");
+        return targetElement.closest(".building-row, .research-card[data-technology-node-id]");
     }
 
     /**
@@ -941,6 +1279,84 @@
 
         game.runtime.isPointerPressingInteractiveDom = true;
         game.runtime.pointerDownElement = pointerDownElement;
+    }
+
+    /**
+     * 从科研分类卡片空白区域开始鼠标横向拖动。
+     *
+     * @param {PointerEvent} event - 指针按下事件；仅响应鼠标左键且排除卡片与表单控件。
+     * @returns {void} 无返回值；满足条件时会记录拖动起点并捕获指针。
+     */
+    function startResearchLaneDrag(event) {
+        if (!game.runtime || event.pointerType !== "mouse" || event.button !== 0) {
+            return;
+        }
+
+        // HTMLElement|null 按压目标元素：用于判断是否位于科研分类的可拖动空白区域。
+        var targetElement = event.target && event.target.closest ? event.target : null;
+
+        if (!targetElement || targetElement.closest(".research-card, button, a, input, textarea, select, [role=button]")) {
+            return;
+        }
+
+        // HTMLElement|null 科研路线元素：每条路线独立管理自己的横向滚动位置。
+        var laneElement = targetElement.closest(".research-lane[data-research-line-scroll-id]");
+
+        if (!laneElement || laneElement.scrollWidth <= laneElement.clientWidth) {
+            return;
+        }
+
+        game.runtime.draggedResearchLaneElement = laneElement;
+        game.runtime.researchLaneDragStartClientX = event.clientX;
+        game.runtime.researchLaneDragStartScrollLeft = laneElement.scrollLeft;
+        game.runtime.researchLaneDragPointerId = event.pointerId;
+        laneElement.classList.add("is-dragging");
+        laneElement.setPointerCapture(event.pointerId);
+        event.preventDefault();
+    }
+
+    /**
+     * 根据鼠标位移同步当前科研分类的横向滚动条。
+     *
+     * @param {PointerEvent} event - 指针移动事件；只处理已捕获的科研路线拖动指针。
+     * @returns {void} 无返回值；会修改路线 scrollLeft 和对应运行时滚动记录。
+     */
+    function moveResearchLaneDrag(event) {
+        // HTMLElement|null 科研路线元素：当前正在由空白区域拖动的分类卡片。
+        var laneElement = game.runtime ? game.runtime.draggedResearchLaneElement : null;
+
+        if (!laneElement || event.pointerId !== game.runtime.researchLaneDragPointerId) {
+            return;
+        }
+
+        // number 鼠标横向位移：向右为正，单位为视口 CSS 像素。
+        var dragDistanceX = event.clientX - game.runtime.researchLaneDragStartClientX;
+
+        laneElement.scrollLeft = game.runtime.researchLaneDragStartScrollLeft - dragDistanceX;
+        game.runtime.researchScrollLeftByLineId[laneElement.dataset.researchLineScrollId] = laneElement.scrollLeft;
+        event.preventDefault();
+    }
+
+    /**
+     * 结束科研分类空白区域拖动并释放指针捕获。
+     *
+     * @param {PointerEvent} event - 指针抬起或取消事件；非当前拖动指针会被忽略。
+     * @returns {void} 无返回值；会清理拖动态样式和运行时引用。
+     */
+    function endResearchLaneDrag(event) {
+        // HTMLElement|null 科研路线元素：当前拖动目标，结束后清空。
+        var laneElement = game.runtime ? game.runtime.draggedResearchLaneElement : null;
+
+        if (!laneElement || event.pointerId !== game.runtime.researchLaneDragPointerId) {
+            return;
+        }
+
+        laneElement.classList.remove("is-dragging");
+        if (laneElement.hasPointerCapture(event.pointerId)) {
+            laneElement.releasePointerCapture(event.pointerId);
+        }
+        game.runtime.draggedResearchLaneElement = null;
+        game.runtime.researchLaneDragPointerId = -1;
     }
 
     /**
@@ -1218,6 +1634,7 @@
         bindBuildingTooltipEvents();
         bindResourceTooltipEvents();
         bindLogFilterEvents();
+        document.addEventListener("click", closeResearchRelationsFromOutsideClick);
     }
 
     // Object 事件模块命名空间：提供全局事件绑定入口。

@@ -540,6 +540,45 @@ a {
     font-size: 12px;
 }
 
+/* 研究蓝图：路线为行、时代为列，窄屏切换为纵向卡片链。 */
+.research-route-tabs .btn { border-left-width: 5px; }
+.route-survival { border-left-color: #73864b !important; }
+.route-industry { border-left-color: #a4653f !important; }
+.route-order { border-left-color: #b08a45 !important; }
+.route-warfare { border-left-color: #934b43 !important; }
+.route-mysticism { border-left-color: #785a8e !important; }
+.route-abyss { border-left-color: #437b7a !important; }
+
+.research-blueprint-grid {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.7fr) repeat(4, minmax(210px, 1fr));
+    gap: 1px;
+    overflow-x: auto;
+    background: var(--line);
+}
+
+.research-era-head,
+.research-route-head,
+.research-node,
+.research-empty {
+    padding: 10px;
+    background: var(--panel);
+}
+
+.research-era-head { color: var(--muted); font-weight: 700; }
+.research-route-head { display: flex; flex-direction: column; gap: 5px; border-left: 5px solid var(--line); }
+.research-route-head span,
+.research-node span,
+.research-node p,
+.research-empty { color: var(--muted); font-size: 12px; }
+.research-node { display: flex; flex-direction: column; gap: 6px; border-left: 4px solid #766b55; }
+.research-node p { margin: 0; }
+.research-node.done { opacity: 0.78; }
+.research-node.available { border-left-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.research-node.preview { border: 1px dashed #766b55; filter: saturate(0.55); }
+.research-node.milestone { border: 2px solid #a4653f; border-left-width: 6px; }
+.research-node.unknown { filter: saturate(0); opacity: 0.6; }
+
 .table {
     width: 100%;
     border-collapse: collapse;
@@ -772,5 +811,14 @@ a {
 
     .building-tooltip {
         width: min(320px, 75vw);
+    }
+
+    .research-blueprint-grid {
+        grid-template-columns: 1fr;
+        overflow-x: visible;
+    }
+
+    .research-era-head {
+        display: none;
     }
 }

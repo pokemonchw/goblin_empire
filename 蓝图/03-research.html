@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="blueprint.css">
 </head>
 <body>
-    <!-- 研究页：表现六条科技线、成本、解锁包和已研究状态。 -->
+    <!-- 研究页：以六条路线泳道和四个时代列呈现可规划、可追踪的科技图谱。 -->
     <header class="global-topbar" aria-label="全局工具栏">
         <div class="brand-mark">
             <strong>哥布林帝国</strong>
@@ -32,13 +32,10 @@
                 <div class="resource-row"><strong>魔晶</strong><span>隐藏</span><span>深矿</span></div>
             </div>
             <div class="section">
-                <h2>科技线路</h2>
-                <div class="compact-row"><strong>生存</strong><span>2/4</span></div>
-                <div class="compact-row"><strong>矿业</strong><span>0/5</span></div>
-                <div class="compact-row"><strong>制度</strong><span>0/6</span></div>
-                <div class="compact-row"><strong>军工</strong><span>0/4</span></div>
-                <div class="compact-row"><strong>符文</strong><span>0/3</span></div>
-                <div class="compact-row"><strong>深渊</strong><span>0/3</span></div>
+                <h2>当前进度</h2>
+                <div class="compact-row"><strong>时代</strong><span>矿坑氏族</span></div>
+                <div class="compact-row"><strong>已完成</strong><span>5 / 52</span></div>
+                <div class="compact-row"><strong>里程碑</strong><span>采矿</span></div>
             </div>
         </aside>
         <main class="workspace">
@@ -60,94 +57,44 @@
                 <a class="tab" href="08-abyss.html">深渊</a>
             </nav>
             <section class="section">
-                <h2>筛选与政策入口</h2>
+                <h2>视图与筛选</h2>
                 <div class="control-row">
-                    <button class="btn">全部</button>
+                    <button class="btn">全部状态</button>
                     <button class="btn">可研究</button>
-                    <button class="btn">接近解锁</button>
-                    <button class="btn disabled">隐藏已完成</button>
-                    <select class="select-box"><option>按线路排序</option><option>按成本排序</option></select>
+                    <button class="btn">资源不足</button>
+                    <button class="btn">前置未满</button>
+                    <button class="btn">已完成</button>
+                    <button class="btn">里程碑</button>
+                    <button class="btn">定位可研究</button>
                 </div>
             </section>
             <section class="section">
-                <h2>研究列表</h2>
-                <div class="building-list">
-                    <div class="building-row research-row">
-                        <div class="building-main"><strong>记号</strong><span>已完成</span></div>
-                        <div class="research-line">线路：生存</div>
-                        <div class="building-cost">研究消耗：粗识 10</div>
-                        <div class="building-availability">可用倒计时：已完成</div>
-                        <button class="btn" disabled>完成</button>
-                        <div class="building-tooltip">
-                            <strong>记号</strong>
-                            <span>研究介绍：用刻痕记录采集、挖掘和窝棚规矩。</span>
-                            <span>线路：生存</span>
-                            <span>研究消耗：粗识 10</span>
-                            <span>解锁内容：采菌、挖掘、窝棚搭建、采矿。</span>
-                            <span>研究状态：已完成。</span>
-                        </div>
-                    </div>
-                    <div class="building-row research-row affordable">
-                        <div class="building-main"><strong>采菌</strong><span>待研究</span></div>
-                        <div class="research-line">线路：生存</div>
-                        <div class="building-cost">研究消耗：粗识 25</div>
-                        <div class="building-availability">可用倒计时：可用</div>
-                        <button class="btn">研究</button>
-                        <div class="building-tooltip">
-                            <strong>采菌</strong>
-                            <span>研究介绍：整理菌床和孢子沟经验，让采集从临时拾取进入稳定生产。</span>
-                            <span>线路：生存</span>
-                            <span>研究消耗：粗识 25</span>
-                            <span>解锁内容：储物坑、采菌工、孢子沟。</span>
-                            <span>研究状态：未完成。</span>
-                        </div>
-                    </div>
-                    <div class="building-row research-row">
-                        <div class="building-main"><strong>弓弩</strong><span>待研究</span></div>
-                        <div class="research-line">线路：军工</div>
-                        <div class="building-cost">研究消耗：粗识 90，铁片 5 <span class="building-missing">缺失：铁片 -5</span></div>
-                        <div class="building-availability">可用倒计时：不可用</div>
-                        <button class="btn" disabled>缺资源</button>
-                        <div class="building-tooltip">
-                            <strong>弓弩</strong>
-                            <span>研究介绍：把地表残械改造成粗糙远程武器，强化外交页掠夺队伍。</span>
-                            <span>线路：军工</span>
-                            <span>研究消耗：粗识 90，铁片 5</span>
-                            <span>解锁内容：抢掠兵、训练坑、兵器坊、俘虏入口。</span>
-                            <span>研究状态：未完成。</span>
-                        </div>
-                    </div>
-                    <div class="building-row research-row">
-                        <div class="building-main"><strong>采矿</strong><span>待研究</span></div>
-                        <div class="research-line">线路：矿业</div>
-                        <div class="building-cost">研究消耗：粗识 50 <span class="building-missing">缺失：粗识 -30</span></div>
-                        <div class="building-availability">可用倒计时：00:01:26</div>
-                        <button class="btn" disabled>缺资源</button>
-                        <div class="building-tooltip">
-                            <strong>采矿</strong>
-                            <span>研究介绍：让哥布林能辨认煤渣和铁矿，并把浅层矿道纳入地穴循环。</span>
-                            <span>线路：矿业</span>
-                            <span>研究消耗：粗识 50</span>
-                            <span>解锁内容：煤渣、铁矿、浅矿井、工匠棚、粗熔炉和矿工。</span>
-                            <span>研究状态：未完成。</span>
-                        </div>
-                    </div>
+                <h2>路线导航</h2>
+                <div class="control-row research-route-tabs">
+                    <button class="btn route-survival">生存繁衍 3/17 · 可研究 2</button>
+                    <button class="btn route-industry">矿业工程 1/12 · 可研究 3</button>
+                    <button class="btn route-order">氏族制度 1/10 · 可研究 0</button>
+                    <button class="btn route-warfare">军工征服 0/6 · 可研究 1</button>
+                    <button class="btn route-mysticism">祭祀符文 0/2 · 可研究 0</button>
+                    <button class="btn route-abyss">深渊迁徙 0/4 · 可研究 0</button>
                 </div>
             </section>
             <section class="section">
-                <h2>科技树线框</h2>
-                <div class="flow">
-                    <div class="flow-node"><strong>记号</strong><span>采菌、挖掘</span></div>
-                    <div class="flow-node"><strong>采菌</strong><span>储物坑、采菌工</span></div>
-                    <div class="flow-node"><strong>采矿</strong><span>浅矿井、工坊</span></div>
-                    <div class="flow-node"><strong>冶金</strong><span>粗熔炉、铁片</span></div>
-                    <div class="flow-node"><strong>氏族规矩</strong><span>酋长厅、政策</span></div>
-                    <div class="flow-node"><strong>历法</strong><span>哥布林历、日志纪年</span></div>
-                    <div class="flow-node"><strong>货币</strong><span>黑市、外交</span></div>
-                    <div class="flow-node"><strong>祭祀</strong><span>祖灵祭坛</span></div>
-                    <div class="flow-node"><strong>机械</strong><span>工程师、自动制作</span></div>
-                    <div class="flow-node"><strong>符文学</strong><span>符文板、符文匠</span></div>
-                    <div class="flow-node"><strong>深渊测绘</strong><span>深渊门、远征</span></div>
+                <h2>地下帝国科技图谱</h2>
+                <div class="research-blueprint-grid">
+                    <div class="research-era-head">路线</div><div class="research-era-head">求生刻痕</div><div class="research-era-head">矿坑氏族</div><div class="research-era-head">地下城邦</div><div class="research-era-head">深渊帝国</div>
+                    <div class="research-route-head route-survival"><strong>生存繁衍</strong><span>食物、住房、环境、繁衍</span></div>
+                    <article class="research-node done"><strong>刻痕</strong><span>✓ 已完成 · T1</span><p>系统：打开基础知识网</p><p>成本：粗识 10</p><p>前置：研究入口</p><button class="btn" disabled>已完成</button><details><summary>查看详情</summary><p>后续：采集专精、采菌、挖掘、窝棚与采矿。</p></details></article>
+                    <article class="research-node available"><strong>采菌</strong><span>◆ 可研究 · T2</span><p>建筑 / 职业：储物坑、孢子沟、采集者</p><p>成本：粗识 25</p><p>前置：✓ 刻痕</p><button class="btn">研究</button><details><summary>查看详情</summary><p>食物净产出不足时优先建立采集职业。</p></details></article>
+                    <div class="research-empty">—</div><div class="research-empty">—</div>
+                    <div class="research-route-head route-industry"><strong>矿业工程</strong><span>矿石、冶炼、工具、机械</span></div>
+                    <article class="research-node preview"><strong>碎石分拣</strong><span>◇ 待前置 · T2</span><p>增产：搬石专精入口</p><p>成本：粗识 12</p><p>前置：○ 刻痕</p><button class="btn" disabled>需完成前置</button></article>
+                    <article class="research-node milestone"><strong>采矿</strong><span>△ 资源不足 · T2</span><p>资源 / 建筑 / 职业：矿业与工坊入口</p><p>成本：粗识 50；缺口 30</p><p>前置：✓ 刻痕</p><button class="btn" disabled>缺少资源</button><details open><summary>查看详情</summary><p>预计等待 00:01:26；后续为冶金、工具、军工与氏族制度。</p></details></article>
+                    <article class="research-node unknown"><strong>？</strong><span>未知节点</span><p>推进矿业路线后揭示。</p></article><div class="research-empty">—</div>
+                    <div class="research-route-head route-order"><strong>氏族制度</strong><span>人口、书写、外交、治理</span></div><div class="research-empty">—</div><article class="research-node preview"><strong>氏族规矩</strong><span>◇ 待前置 · 里程碑</span><p>前置：○ 采矿</p><button class="btn" disabled>需完成前置</button></article><div class="research-empty">—</div><div class="research-empty">—</div>
+                    <div class="research-route-head route-warfare"><strong>军工征服</strong><span>战兽、兵器、掠夺、地表</span></div><div class="research-empty">—</div><article class="research-node available"><strong>大木棒</strong><span>◆ 可研究</span><p>特殊触发：外交系统已开放</p><button class="btn">研究</button></article><div class="research-empty">—</div><div class="research-empty">—</div>
+                    <div class="research-route-head route-mysticism"><strong>祭祀符文</strong><span>祖灵、仪式、魔晶、符文</span></div><div class="research-empty">—</div><div class="research-empty">—</div><article class="research-node unknown"><strong>？</strong><span>未知节点</span><p>氏族形成后揭示。</p></article><div class="research-empty">—</div>
+                    <div class="research-route-head route-abyss"><strong>深渊迁徙</strong><span>远征、契约、裂隙、迁徙</span></div><div class="research-empty">—</div><div class="research-empty">—</div><div class="research-empty">—</div><article class="research-node unknown"><strong>？</strong><span>终局剪影</span><p>建立帝国后揭示。</p></article>
                 </div>
             </section>
         </main>

@@ -10,11 +10,42 @@
     --color-warn: #d68a50;
     --color-danger: #c9544a;
     --color-link: #d2b15f;
+    --color-scrollbar-thumb: #746443;
+    --color-scrollbar-thumb-hover: #9a8250;
+    --color-scrollbar-track: #191711;
     --font-main: Arial, "Microsoft YaHei", sans-serif;
 }
 
 * {
     box-sizing: border-box;
+    scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+    scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: var(--color-scrollbar-track);
+    border: 1px solid rgba(75, 65, 47, 0.55);
+}
+
+*::-webkit-scrollbar-thumb {
+    min-width: 28px;
+    min-height: 28px;
+    border: 2px solid var(--color-scrollbar-track);
+    border-radius: 5px;
+    background: var(--color-scrollbar-thumb);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--color-scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+    background: var(--color-scrollbar-track);
 }
 
 body {
@@ -128,6 +159,31 @@ h3 {
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
+}
+
+.toolbar input[type="search"] {
+    min-width: min(220px, 100%);
+    min-height: 32px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    outline: none;
+    padding: 6px 10px;
+    background: var(--color-panel-soft);
+    color: var(--color-text);
+}
+
+.toolbar input[type="search"]::placeholder {
+    color: var(--color-muted);
+    opacity: 0.82;
+}
+
+.toolbar input[type="search"]:hover {
+    border-color: #746443;
+}
+
+.toolbar input[type="search"]:focus-visible {
+    border-color: var(--color-link);
+    box-shadow: 0 0 0 2px rgba(210, 177, 95, 0.28);
 }
 
 .save-transfer-panel {
@@ -561,6 +617,330 @@ h3 {
     overflow-wrap: anywhere;
 }
 
+/* 研究图谱：桌面端以路线为泳道、时代为有限四列，移动端自然转为纵向节点链。 */
+.research-overview {
+    border-left: 4px solid #b08a45;
+}
+
+.research-line-navigation {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 8px;
+    margin: 10px 0 14px;
+}
+
+.research-line-chip {
+    border-left: 5px solid var(--research-line-color, #7f7663);
+    text-align: left;
+}
+
+.research-line-chip.is-selected {
+    box-shadow: 0 0 0 2px var(--research-line-color, #b08a45);
+}
+
+.research-survival {
+    --research-line-color: #73864b;
+}
+
+.research-industry {
+    --research-line-color: #a4653f;
+}
+
+.research-order {
+    --research-line-color: #b08a45;
+}
+
+.research-warfare {
+    --research-line-color: #934b43;
+}
+
+.research-mysticism {
+    --research-line-color: #785a8e;
+}
+
+.research-abyss {
+    --research-line-color: #437b7a;
+}
+
+.research-graph {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    overflow-x: visible;
+    position: relative;
+}
+
+.research-connections {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.research-connection {
+    fill: none;
+    stroke: #b9a36e;
+    stroke-width: 2px;
+    stroke-linecap: round;
+    opacity: 0.82;
+}
+
+.research-connection.is-alternative {
+    stroke-dasharray: 5 4;
+}
+
+.research-lane {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.7fr) repeat(4, minmax(220px, 1fr));
+    min-width: 0;
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    border: 1px solid rgba(104, 91, 68, 0.65);
+    border-left: 5px solid var(--research-line-color);
+    background: rgba(27, 25, 22, 0.45);
+    position: relative;
+}
+
+.research-lane > .research-lane-heading,
+.research-lane > .research-era-column {
+    cursor: grab;
+}
+
+.research-lane .research-card {
+    cursor: default;
+}
+
+.research-lane.is-dragging,
+.research-lane.is-dragging > .research-lane-heading,
+.research-lane.is-dragging > .research-era-column {
+    cursor: grabbing;
+    user-select: none;
+}
+
+.research-lane.is-dragging .research-card,
+.research-lane.is-dragging .research-card * {
+    cursor: grabbing;
+}
+
+.research-lane-heading,
+.research-era-column {
+    padding: 10px;
+}
+
+.research-lane-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: sticky;
+    left: 0;
+    /* 固定路线介绍必须始终盖住横向滚入其区域的科技卡片，包括悬停和键盘聚焦态。 */
+    z-index: 30;
+    background: #25231f;
+    box-shadow: 8px 0 10px -10px rgba(0, 0, 0, 0.9);
+}
+
+.research-lane-heading strong {
+    color: var(--research-line-color);
+}
+
+.research-lane-heading span,
+.research-era-column > p {
+    color: var(--color-muted);
+    font-size: 12px;
+}
+
+.research-era-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-left: 1px solid rgba(104, 91, 68, 0.35);
+}
+
+.research-era-column > h4 {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(104, 91, 68, 0.45);
+    background: #23211d;
+    color: var(--color-muted);
+    font-size: 12px;
+}
+
+.research-card {
+    display: grid;
+    gap: 6px;
+    border: 1px solid rgba(118, 105, 79, 0.75);
+    border-left: 4px solid var(--research-line-color);
+    border-radius: 3px;
+    padding: 9px;
+    background: linear-gradient(135deg, rgba(58, 53, 44, 0.92), rgba(38, 36, 31, 0.96));
+    font-size: 12px;
+    outline: none;
+    position: relative;
+    z-index: 2;
+}
+
+.research-card:focus-visible {
+    box-shadow: 0 0 0 2px rgba(210, 177, 95, 0.55);
+}
+
+.research-card header {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.research-card header strong {
+    font-size: 15px;
+}
+
+.research-card header span,
+.research-card p {
+    margin: 0;
+    color: var(--color-muted);
+}
+
+.research-card-cost span {
+    display: block;
+    color: #d98778;
+}
+
+.research-card.is-preview {
+    border-style: dashed;
+    filter: saturate(0.55);
+}
+
+.research-card.is-unaffordable {
+    border-bottom-color: #9c5c50;
+}
+
+.research-card.is-available {
+    box-shadow: 0 0 12px color-mix(in srgb, var(--research-line-color) 45%, transparent);
+}
+
+.research-card.is-researched {
+    background: linear-gradient(135deg, rgba(69, 64, 51, 0.95), rgba(43, 42, 34, 0.98));
+    opacity: 0.82;
+}
+
+.research-card.is-unknown {
+    border-style: dotted;
+    filter: grayscale(1);
+    opacity: 0.48;
+}
+
+/* 当前卡片必须连同其浮窗一起高于后绘制节点；同时解除状态滤镜对 fixed 浮窗的包含块限制。 */
+.research-card:hover,
+.research-card:focus-within,
+.research-card.is-relations-open {
+    z-index: 26;
+    filter: none;
+    opacity: 1;
+}
+
+.research-card.is-newly-researched {
+    animation: research-complete-pulse 300ms ease-out;
+}
+
+@keyframes research-complete-pulse {
+    0% { box-shadow: 0 0 0 0 var(--research-line-color); }
+    100% { box-shadow: 0 0 0 8px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .research-card.is-newly-researched {
+        animation: none;
+    }
+}
+
+.research-card.is-milestone {
+    border-width: 2px 2px 2px 6px;
+}
+
+.research-card.is-compact {
+    padding: 7px;
+}
+
+.research-specialization-group {
+    display: grid;
+    gap: 8px;
+}
+
+.research-specialization-group > .research-card:not(.research-specialization-card) {
+    margin-left: 12px;
+}
+
+.research-prerequisite-link {
+    border-style: dashed;
+    color: var(--color-muted);
+}
+
+/* 研究关联浮框：前置与后置分别锚定按钮左右，保持图谱节点扫描方向。 */
+.research-relations {
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.research-relations-toggle {
+    width: 100%;
+    max-width: 180px;
+    border-style: dashed;
+}
+
+.research-relations-popover {
+    position: fixed;
+    z-index: 40;
+    width: max-content;
+    min-width: 150px;
+    max-width: 230px;
+    padding: 10px;
+    border: 1px solid rgba(190, 163, 105, 0.75);
+    border-radius: 4px;
+    background: rgba(28, 26, 22, 0.9);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(3px);
+}
+
+.research-relations-popover[hidden] {
+    display: none;
+}
+
+.research-relations-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 7px;
+}
+
+.research-relations-list button {
+    width: 100%;
+    text-align: left;
+}
+
+.research-relations.is-open ~ .research-tooltip {
+    display: none;
+}
+
+@media (max-width: 760px) {
+    .research-relations-popover {
+        width: min(42vw, 230px);
+    }
+}
+
+.research-graph.is-list-view {
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    overflow-x: visible;
+}
+
+.research-graph.is-list-view .research-card {
+    min-width: 0;
+}
+
 .building-cost {
     min-width: 0;
     overflow-wrap: anywhere;
@@ -610,6 +990,10 @@ h3 {
 
 .building-tooltip.is-tooltip-active {
     display: block;
+}
+
+.research-tooltip {
+    border-color: var(--research-line-color);
 }
 
 .building-tooltip h4 {
@@ -770,6 +1154,28 @@ h3 {
     .location-row,
     .raid-location-row {
         grid-template-columns: 1fr;
+    }
+
+    .research-line-navigation {
+        grid-template-columns: 1fr;
+    }
+
+    .research-graph {
+        overflow-x: visible;
+    }
+
+    .research-lane {
+        grid-template-columns: 1fr;
+        min-width: 0;
+    }
+
+    .research-lane-heading {
+        position: static;
+    }
+
+    .research-era-column {
+        border-top: 1px solid rgba(104, 91, 68, 0.35);
+        border-left: 0;
     }
 
     .building-availability {

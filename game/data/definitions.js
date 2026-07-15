@@ -1789,7 +1789,127 @@
         }
     ];
 
-    // TechnologyDefinition[] 科技定义列表：版本一研究入口。
+    // ResearchLineDefinition[] 正式研究路线定义：为图谱、筛选和其他系统提供唯一分类来源。
+    var RESEARCH_LINE_DEFINITIONS = [
+        {
+            id: "survival",
+            name: "生存繁衍",
+            description: "稳定食物、基础采集、住房、环境与繁衍。",
+            colorToken: "research-survival",
+            iconId: "mushroom",
+            order: 10
+        },
+        {
+            id: "industry",
+            name: "矿业工程",
+            description: "从浅矿井推进到机械与黑铁工业。",
+            colorToken: "research-industry",
+            iconId: "pickaxe",
+            order: 20
+        },
+        {
+            id: "order",
+            name: "氏族制度",
+            description: "组织人口、书写、货币、外交与帝国治理。",
+            colorToken: "research-order",
+            iconId: "tablet",
+            order: 30
+        },
+        {
+            id: "warfare",
+            name: "军工征服",
+            description: "发展战兽、兵器、掠夺与地表战争。",
+            colorToken: "research-warfare",
+            iconId: "war_flag",
+            order: 40
+        },
+        {
+            id: "mysticism",
+            name: "祭祀符文",
+            description: "建立祖灵仪式、魔晶利用与符文工业。",
+            colorToken: "research-mysticism",
+            iconId: "bone_rune",
+            order: 50
+        },
+        {
+            id: "abyss",
+            name: "深渊迁徙",
+            description: "推进深渊探索、契约、裂隙与迁徙重置。",
+            colorToken: "research-abyss",
+            iconId: "rift",
+            order: 60
+        }
+    ];
+
+    // ResearchEraDefinition[] 研究时代定义：只负责图谱分段与进度摘要，不改变真实研究门槛。
+    var RESEARCH_ERA_DEFINITIONS = [
+        {
+            id: "scramble",
+            name: "求生刻痕",
+            description: "先活下去，并建立基础采集能力。",
+            order: 10
+        },
+        {
+            id: "clan",
+            name: "矿坑氏族",
+            description: "形成矿业、职业、军备和管理分工。",
+            order: 20
+        },
+        {
+            id: "city_state",
+            name: "地下城邦",
+            description: "建立钢铁、贸易、外交和祭祀体系。",
+            order: 30
+        },
+        {
+            id: "empire",
+            name: "深渊帝国",
+            description: "进入符文工业、深渊远征与重置循环。",
+            order: 40
+        }
+    ];
+
+    // ResearchSpecializationDefinition[] 采集专精链定义：默认折叠以避免十二项同类节点占满首屏。
+    var RESEARCH_SPECIALIZATION_DEFINITIONS = [
+        {
+            id: "fungus_gathering",
+            name: "采菌专精",
+            lineId: "survival",
+            eraId: "scramble",
+            technologyIds: [
+                "spore_identification",
+                "mycelium_tracing",
+                "safe_fungus_harvest",
+                "fungus_gathering_mastery"
+            ]
+        },
+        {
+            id: "wood_scavenging",
+            name: "捡柴专精",
+            lineId: "survival",
+            eraId: "scramble",
+            technologyIds: [
+                "decay_grading",
+                "dry_core_search",
+                "vermin_probing",
+                "wood_scavenging_mastery"
+            ]
+        },
+        {
+            id: "rubble_hauling",
+            name: "搬石专精",
+            lineId: "industry",
+            eraId: "scramble",
+            technologyIds: [
+                "rock_sorting",
+                "seam_listening",
+                "braced_hauling",
+                "rubble_hauling_mastery"
+            ]
+        }
+    ];
+
+    // TechnologyDefinition[] 科技定义列表：价格与真实解锁行为保持不变，图谱字段在列表后由显式元数据归一补齐。
     var TECHNOLOGY_DEFINITIONS = [
         {
             id: "marks",
@@ -2746,6 +2866,693 @@
             }
         }
     ];
+
+    /**
+     * @typedef {Object} ResearchNodeMetadata
+     * @property {ResearchLineId} lineId - 科技所属正式路线。
+     * @property {ResearchEraId} eraId - 科技所属版面时代。
+     * @property {number} tier - 路线内纵深正整数。
+     * @property {"compact"|"normal"|"milestone"} nodeSize - 节点视觉权重。
+     * @property {TechnologyId[]} prerequisiteTechnologyIds - AND 展示前置科技 ID 数组。
+     * @property {TechnologyId[]} alternativePrerequisiteTechnologyIds - OR 展示前置科技 ID 数组。
+     * @property {string[]} effectTags - 核心效果类别标签数组。
+     * @property {string} recommendedFor - 瓶颈导向建议。
+     * @property {number} layoutOrder - 稳定布局排序整数。
+     * @property {TechnologyTriggerCondition[]=} triggerConditions - 可选特殊系统触发条件数组。
+     */
+
+    // Object.<TechnologyId, ResearchNodeMetadata> 科技图谱元数据字典：key 为全部稳定科技 ID，value 为该节点完整展示契约。
+    var RESEARCH_NODE_METADATA_BY_ID = {
+        marks: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 1,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: [],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["系统"],
+            recommendedFor: "涂鸦墙建成后优先研究，打开帝国知识网。",
+            layoutOrder: 10
+        },
+        spore_identification: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 2,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["marks"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "手动采菌仍是主要食物来源时优先。",
+            layoutOrder: 20
+        },
+        mycelium_tracing: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 3,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["spore_identification"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "需要提高采菌收益和好事件权重时研究。",
+            layoutOrder: 30
+        },
+        safe_fungus_harvest: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 4,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["mycelium_tracing"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "采菌坏事件持续拖累库存时研究。",
+            layoutOrder: 40
+        },
+        fungus_gathering_mastery: {
+            lineId: "survival",
+            eraId: "clan",
+            tier: 5,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["safe_fungus_harvest"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "需要完成采菌专精并强化单次采集时研究。",
+            layoutOrder: 50
+        },
+        decay_grading: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 2,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["marks"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "朽木限制早期建筑扩张时优先。",
+            layoutOrder: 60
+        },
+        dry_core_search: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 3,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["decay_grading"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "需要提高捡柴稳定性时研究。",
+            layoutOrder: 70
+        },
+        vermin_probing: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 4,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["dry_core_search"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "捡柴坏事件造成明显损失时研究。",
+            layoutOrder: 80
+        },
+        wood_scavenging_mastery: {
+            lineId: "survival",
+            eraId: "clan",
+            tier: 5,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["vermin_probing"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "朽木仍是长期建设瓶颈时研究。",
+            layoutOrder: 90
+        },
+        rock_sorting: {
+            lineId: "industry",
+            eraId: "scramble",
+            tier: 2,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["marks"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "碎石不足以支撑矿坑扩建时优先。",
+            layoutOrder: 10
+        },
+        seam_listening: {
+            lineId: "industry",
+            eraId: "scramble",
+            tier: 3,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["rock_sorting"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "需要提高搬石收益和好事件权重时研究。",
+            layoutOrder: 20
+        },
+        braced_hauling: {
+            lineId: "industry",
+            eraId: "scramble",
+            tier: 4,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["seam_listening"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "搬石坏事件阻碍建设时研究。",
+            layoutOrder: 30
+        },
+        rubble_hauling_mastery: {
+            lineId: "industry",
+            eraId: "clan",
+            tier: 5,
+            nodeSize: "compact",
+            prerequisiteTechnologyIds: ["braced_hauling"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["增产"],
+            recommendedFor: "碎石仍限制中期工程时研究。",
+            layoutOrder: 40
+        },
+        deadwood_cultivation: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 2,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["marks"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "资源"],
+            recommendedFor: "朽木供应不足且需要稳定林场时优先。",
+            layoutOrder: 100
+        },
+        foraging: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 2,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["marks"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "职业"],
+            recommendedFor: "食物净产出不足时优先建立采集职业。",
+            layoutOrder: 110
+        },
+        digging: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 2,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["marks"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑"],
+            recommendedFor: "环境波动或基础设施受限时研究。",
+            layoutOrder: 120
+        },
+        hut_building: {
+            lineId: "survival",
+            eraId: "scramble",
+            tier: 2,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["marks"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "容量"],
+            recommendedFor: "住房或仓储逼近上限时优先。",
+            layoutOrder: 130
+        },
+        labor_rosters: {
+            lineId: "order",
+            eraId: "clan",
+            tier: 2,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["hut_building"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "劳力"],
+            recommendedFor: "劳力分配限制生产建筑启用时研究。",
+            layoutOrder: 10
+        },
+        weather_signs: {
+            lineId: "survival",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["digging"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "环境"],
+            recommendedFor: "负面天气频繁破坏食物循环时研究。",
+            layoutOrder: 140
+        },
+        woodcraft: {
+            lineId: "survival",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: [],
+            alternativePrerequisiteTechnologyIds: ["deadwood_cultivation", "hut_building"],
+            effectTags: ["建筑", "加工"],
+            recommendedFor: "木料加工速度跟不上建设时研究。",
+            layoutOrder: 150
+        },
+        mining: {
+            lineId: "industry",
+            eraId: "clan",
+            tier: 2,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["marks"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["资源", "建筑", "职业", "系统"],
+            recommendedFor: "准备进入矿业、冶炼和工坊循环时优先。",
+            layoutOrder: 50
+        },
+        metallurgy: {
+            lineId: "industry",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["mining"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "职业", "加工"],
+            recommendedFor: "铁矿有库存但加工速度不足时优先。",
+            layoutOrder: 60
+        },
+        charcoal_burning: {
+            lineId: "industry",
+            eraId: "clan",
+            tier: 4,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["metallurgy"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "加工"],
+            recommendedFor: "煤渣限制持续冶炼时研究。",
+            layoutOrder: 70
+        },
+        pulley_systems: {
+            lineId: "industry",
+            eraId: "clan",
+            tier: 4,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["labor_rosters"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "劳力"],
+            recommendedFor: "运输劳力占用过高时研究。",
+            layoutOrder: 80
+        },
+        cave_ventilation: {
+            lineId: "industry",
+            eraId: "clan",
+            tier: 4,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["metallurgy"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "人口"],
+            recommendedFor: "矿坑环境和寿命压力上升时研究。",
+            layoutOrder: 90
+        },
+        beast_pen: {
+            lineId: "warfare",
+            eraId: "clan",
+            tier: 2,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["mining"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "资源"],
+            recommendedFor: "准备发展战兽与皮骨资源时研究。",
+            layoutOrder: 10
+        },
+        big_club: {
+            lineId: "warfare",
+            eraId: "clan",
+            tier: 2,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: [],
+            alternativePrerequisiteTechnologyIds: ["deadwood_cultivation"],
+            effectTags: ["职业", "建筑", "系统"],
+            recommendedFor: "准备建立第一支掠夺队时优先。",
+            layoutOrder: 20,
+            triggerConditions: [
+                {
+                    type: "diplomacyUnlocked",
+                    label: "外交系统开放后也会直接揭示"
+                }
+            ]
+        },
+        crossbow: {
+            lineId: "warfare",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["mining"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "军备"],
+            recommendedFor: "需要强化地表作战装备时研究。",
+            layoutOrder: 30
+        },
+        crude_tools: {
+            lineId: "industry",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["mining"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["职业", "加工"],
+            recommendedFor: "工坊配方需要专职工匠时研究。",
+            layoutOrder: 100
+        },
+        desire_enlightenment: {
+            lineId: "survival",
+            eraId: "clan",
+            tier: 2,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: [],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["人口"],
+            recommendedFor: "族群稳定后准备扩大人口时研究。",
+            layoutOrder: 160,
+            triggerConditions: [
+                {
+                    type: "livingGoblinCount",
+                    minimum: 1,
+                    label: "拥有至少 1 名存活哥布林"
+                }
+            ]
+        },
+        public_nursery: {
+            lineId: "survival",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["desire_enlightenment"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["人口"],
+            recommendedFor: "住房充足但自然繁衍缓慢时研究。",
+            layoutOrder: 170
+        },
+        human_beast: {
+            lineId: "warfare",
+            eraId: "city_state",
+            tier: 4,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["public_nursery"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["人口", "军备"],
+            recommendedFor: "准备扩展异族繁衍和战争人口来源时研究。",
+            layoutOrder: 40
+        },
+        clan_rules: {
+            lineId: "order",
+            eraId: "clan",
+            tier: 2,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["mining"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "政策", "系统"],
+            recommendedFor: "人口和产业开始需要统一管理时优先。",
+            layoutOrder: 20
+        },
+        overseer_drills: {
+            lineId: "order",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["劳力", "增产"],
+            recommendedFor: "劳力效率成为主要瓶颈时研究。",
+            layoutOrder: 30
+        },
+        census: {
+            lineId: "order",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["人口", "系统"],
+            recommendedFor: "需要精细查看和调配族群时研究。",
+            layoutOrder: 40
+        },
+        counting: {
+            lineId: "order",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["容量", "系统"],
+            recommendedFor: "库存与产量难以判断时研究。",
+            layoutOrder: 50
+        },
+        calendar: {
+            lineId: "order",
+            eraId: "clan",
+            tier: 3,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["系统", "环境"],
+            recommendedFor: "需要按日期规划天气和行动时研究。",
+            layoutOrder: 60
+        },
+        engineering: {
+            lineId: "industry",
+            eraId: "city_state",
+            tier: 4,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "劳力"],
+            recommendedFor: "大型工程的劳力占用过高时研究。",
+            layoutOrder: 110
+        },
+        currency: {
+            lineId: "order",
+            eraId: "city_state",
+            tier: 4,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["资源", "外交"],
+            recommendedFor: "准备建立贸易循环时研究。",
+            layoutOrder: 70
+        },
+        writing: {
+            lineId: "order",
+            eraId: "city_state",
+            tier: 4,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["资源", "系统"],
+            recommendedFor: "粗识容量不足且需要账册时研究。",
+            layoutOrder: 80
+        },
+        rituals: {
+            lineId: "mysticism",
+            eraId: "city_state",
+            tier: 3,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "系统", "人口"],
+            recommendedFor: "准备积累祖灵并建立祭祀循环时优先。",
+            layoutOrder: 10
+        },
+        machinery: {
+            lineId: "industry",
+            eraId: "city_state",
+            tier: 4,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["职业", "自动化"],
+            recommendedFor: "手工加工占用过多操作时优先。",
+            layoutOrder: 120
+        },
+        steel: {
+            lineId: "industry",
+            eraId: "city_state",
+            tier: 4,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["clan_rules"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["资源", "建筑", "军备"],
+            recommendedFor: "铁片体系稳定后准备升级钢铁工业时研究。",
+            layoutOrder: 130
+        },
+        surface_lore: {
+            lineId: "warfare",
+            eraId: "city_state",
+            tier: 5,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["steel"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["外交", "军备", "系统"],
+            recommendedFor: "准备把势力扩张到地表时优先。",
+            layoutOrder: 50
+        },
+        diplomacy: {
+            lineId: "order",
+            eraId: "city_state",
+            tier: 5,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["surface_lore"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["外交", "系统"],
+            recommendedFor: "需要稳定贸易而非持续掠夺时研究。",
+            layoutOrder: 90
+        },
+        runology: {
+            lineId: "mysticism",
+            eraId: "empire",
+            tier: 5,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["diplomacy"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["资源", "职业", "加工"],
+            recommendedFor: "魔晶来源稳定后准备符文工业时研究。",
+            layoutOrder: 20
+        },
+        black_iron_smelting: {
+            lineId: "industry",
+            eraId: "empire",
+            tier: 6,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["runology"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["资源", "建筑", "加工"],
+            recommendedFor: "符文板与钢材充足后推进黑铁工业。",
+            layoutOrder: 140
+        },
+        imperial_code: {
+            lineId: "order",
+            eraId: "empire",
+            tier: 6,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["black_iron_smelting"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "政策", "终局"],
+            recommendedFor: "黑铁工业成熟后建立帝国治理时研究。",
+            layoutOrder: 100
+        },
+        abyss_mapping: {
+            lineId: "abyss",
+            eraId: "empire",
+            tier: 7,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["imperial_code"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "远征", "终局"],
+            recommendedFor: "准备开启深渊远征主线时优先。",
+            layoutOrder: 10
+        },
+        pact_lore: {
+            lineId: "abyss",
+            eraId: "empire",
+            tier: 8,
+            nodeSize: "normal",
+            prerequisiteTechnologyIds: ["abyss_mapping"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["契约", "终局"],
+            recommendedFor: "需要用长期代价换取深渊增益时研究。",
+            layoutOrder: 20
+        },
+        rift_engineering: {
+            lineId: "abyss",
+            eraId: "empire",
+            tier: 8,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["pact_lore"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["建筑", "远征", "终局"],
+            recommendedFor: "遗物和回响充足后准备稳定裂隙时研究。",
+            layoutOrder: 30
+        },
+        migration_code: {
+            lineId: "abyss",
+            eraId: "empire",
+            tier: 9,
+            nodeSize: "milestone",
+            prerequisiteTechnologyIds: ["rift_engineering"],
+            alternativePrerequisiteTechnologyIds: [],
+            effectTags: ["终局", "重置"],
+            recommendedFor: "本轮遗产收益已满足预期且准备迁徙时研究。",
+            layoutOrder: 40
+        },
+    };
+
+    /**
+     * 将权威图谱元数据补入每项科技定义，并在开发期检查父子解锁关系。
+     *
+     * @returns {void} 无返回值；直接修改 TECHNOLOGY_DEFINITIONS 中的静态定义，缺失或不一致时抛出错误。
+     */
+    function applyResearchMetadata() {
+        // Object.<TechnologyId, TechnologyDefinition> 科技定义索引：key 为稳定科技 ID，value 为对应静态定义。
+        var technologyDefinitionsById = {};
+
+        // number 科技循环索引：遍历全部科技定义的整数下标。
+        for (var technologyIndex = 0; technologyIndex < TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            // TechnologyDefinition 当前科技定义：本轮补齐图谱字段并写入索引。
+            var technologyDefinition = TECHNOLOGY_DEFINITIONS[technologyIndex];
+
+            // ResearchNodeMetadata 当前图谱元数据：必须与科技定义一一对应。
+            var nodeMetadata = RESEARCH_NODE_METADATA_BY_ID[technologyDefinition.id];
+
+            if (!nodeMetadata) {
+                throw new Error("科技缺少研究图谱元数据：" + technologyDefinition.id);
+            }
+
+            technologyDefinition.lineId = nodeMetadata.lineId;
+            technologyDefinition.eraId = nodeMetadata.eraId;
+            technologyDefinition.tier = nodeMetadata.tier;
+            technologyDefinition.nodeSize = nodeMetadata.nodeSize;
+            technologyDefinition.prerequisiteTechnologyIds = nodeMetadata.prerequisiteTechnologyIds.slice();
+            technologyDefinition.alternativePrerequisiteTechnologyIds = nodeMetadata.alternativePrerequisiteTechnologyIds.slice();
+            technologyDefinition.effectTags = nodeMetadata.effectTags.slice();
+            technologyDefinition.recommendedFor = nodeMetadata.recommendedFor;
+            technologyDefinition.layoutOrder = nodeMetadata.layoutOrder;
+            technologyDefinition.triggerConditions = nodeMetadata.triggerConditions ? nodeMetadata.triggerConditions.slice() : [];
+            technologyDefinition.revealCondition = {
+                mode: technologyDefinition.id === "marks" ? "always" : (technologyDefinition.triggerConditions.length > 0 ? "special_trigger" : "parent_or_nearby"),
+                technologyIds: technologyDefinition.prerequisiteTechnologyIds.concat(technologyDefinition.alternativePrerequisiteTechnologyIds),
+                label: technologyDefinition.triggerConditions.length > 0 ? technologyDefinition.triggerConditions[0].label : undefined
+            };
+            technologyDefinitionsById[technologyDefinition.id] = technologyDefinition;
+        }
+
+        // string[] 元数据科技 ID 数组：用于检查字典中没有指向不存在科技的多余条目。
+        var metadataTechnologyIds = Object.keys(RESEARCH_NODE_METADATA_BY_ID);
+
+        // number 元数据循环索引：遍历元数据 key 的整数下标。
+        for (var metadataIndex = 0; metadataIndex < metadataTechnologyIds.length; metadataIndex += 1) {
+            // TechnologyId 元数据科技 ID：用于核对定义索引。
+            var metadataTechnologyId = metadataTechnologyIds[metadataIndex];
+
+            if (!technologyDefinitionsById[metadataTechnologyId]) {
+                throw new Error("研究图谱元数据引用不存在科技：" + metadataTechnologyId);
+            }
+        }
+
+        // number 父科技循环索引：逐项检查真实 unlocks.technologies 与子科技展示前置一致。
+        for (var parentIndex = 0; parentIndex < TECHNOLOGY_DEFINITIONS.length; parentIndex += 1) {
+            // TechnologyDefinition 父科技定义：读取其真实后继解锁数组。
+            var parentTechnology = TECHNOLOGY_DEFINITIONS[parentIndex];
+
+            // TechnologyId[] 后继科技 ID 数组：省略 unlocks.technologies 时使用空数组。
+            var childTechnologyIds = parentTechnology.unlocks.technologies || [];
+
+            // number 子科技循环索引：遍历真实后继 ID 的整数下标。
+            for (var childIndex = 0; childIndex < childTechnologyIds.length; childIndex += 1) {
+                // TechnologyId 子科技 ID：用于读取其展示前置声明。
+                var childTechnologyId = childTechnologyIds[childIndex];
+
+                // TechnologyDefinition|undefined 子科技定义：不存在时立即暴露静态引用错误。
+                var childTechnology = technologyDefinitionsById[childTechnologyId];
+
+                if (!childTechnology) {
+                    throw new Error("科技解锁包引用不存在科技：" + parentTechnology.id + " -> " + childTechnologyId);
+                }
+
+                // boolean 是否声明父科技：AND 或 OR 展示前置包含真实父科技时为 true。
+                var hasDeclaredParent = childTechnology.prerequisiteTechnologyIds.indexOf(parentTechnology.id) !== -1 || childTechnology.alternativePrerequisiteTechnologyIds.indexOf(parentTechnology.id) !== -1;
+
+                if (!hasDeclaredParent) {
+                    throw new Error("科技父子关系未在图谱声明：" + parentTechnology.id + " -> " + childTechnologyId);
+                }
+            }
+        }
+    }
+
+    applyResearchMetadata();
 
     // JobDefinition[] 职业定义列表：版本一基础职业。
     var JOB_DEFINITIONS = [
@@ -5890,6 +6697,9 @@
         TAB_DEFINITIONS: TAB_DEFINITIONS,
         RESOURCE_DEFINITIONS: RESOURCE_DEFINITIONS,
         BUILDING_DEFINITIONS: BUILDING_DEFINITIONS,
+        RESEARCH_LINE_DEFINITIONS: RESEARCH_LINE_DEFINITIONS,
+        RESEARCH_ERA_DEFINITIONS: RESEARCH_ERA_DEFINITIONS,
+        RESEARCH_SPECIALIZATION_DEFINITIONS: RESEARCH_SPECIALIZATION_DEFINITIONS,
         TECHNOLOGY_DEFINITIONS: TECHNOLOGY_DEFINITIONS,
         JOB_DEFINITIONS: JOB_DEFINITIONS,
         POLICY_DEFINITIONS: POLICY_DEFINITIONS,

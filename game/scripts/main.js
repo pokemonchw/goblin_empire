@@ -35,7 +35,19 @@
             // boolean 交互按压状态：true 表示玩家正按住标签栏或内容区元素。
             isPointerPressingInteractiveDom: false,
             // Element|null 指针按压起点：用于判断自动刷新是否会替换当前交互目标。
-            pointerDownElement: null
+            pointerDownElement: null,
+            // Object.<string, number> 科研路线滚动位置字典：key 为 ResearchLineId，value 为非负 CSS 像素值。
+            researchScrollLeftByLineId: {},
+            // boolean 科研连线刷新排队标记：true 表示下一动画帧已有重绘任务。
+            isResearchConnectionRefreshQueued: false,
+            // HTMLElement|null 正在用鼠标拖动的科研路线元素：null 表示未拖动。
+            draggedResearchLaneElement: null,
+            // number 科研路线拖动起点横坐标：单位为视口 CSS 像素。
+            researchLaneDragStartClientX: 0,
+            // number 科研路线拖动起点滚动位置：单位为非负 CSS 像素。
+            researchLaneDragStartScrollLeft: 0,
+            // number 科研路线拖动指针 ID：用于保持同一鼠标指针的捕获。
+            researchLaneDragPointerId: -1
         };
 
         game.events.bindAllEvents();

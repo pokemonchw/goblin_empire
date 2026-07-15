@@ -683,7 +683,7 @@
     // Object.<string, {name: string, description: string}> 科技文本字典：key 为 TechnologyId。
     var TECHNOLOGY_TEXT = {
         marks: {
-            name: "记号",
+            name: "刻痕",
             description: "学会用刻痕记录潮湿、饥饿和下一次采菌。"
         },
         spore_identification: {

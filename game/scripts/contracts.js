@@ -183,6 +183,57 @@
      */
 
     /**
+     * @typedef {string} ResearchLineId
+     * 研究路线稳定 ID；取值为 survival、industry、order、warfare、mysticism 或 abyss。
+     */
+
+    /**
+     * @typedef {string} ResearchEraId
+     * 研究时代稳定 ID；取值为 scramble、clan、city_state 或 empire。
+     */
+
+    /**
+     * @typedef {Object} ResearchLineDefinition
+     * @property {ResearchLineId} id - 路线稳定 ID。
+     * @property {string} name - 路线中文显示名。
+     * @property {string} description - 路线承担的核心发展职责。
+     * @property {string} colorToken - CSS 路线主题类名，不直接保存颜色值。
+     * @property {string} iconId - 内置字符徽记或单色图形稳定 ID。
+     * @property {number} order - 路线固定排序整数，数值越小越靠前。
+     */
+
+    /**
+     * @typedef {Object} ResearchEraDefinition
+     * @property {ResearchEraId} id - 时代稳定 ID。
+     * @property {string} name - 时代中文显示名。
+     * @property {string} description - 时代发展认知说明。
+     * @property {number} order - 时代固定排序整数，数值越小越靠前。
+     */
+
+    /**
+     * @typedef {Object} ResearchSpecializationDefinition
+     * @property {string} id - 采集专精链稳定 ID。
+     * @property {string} name - 专精链中文显示名。
+     * @property {ResearchLineId} lineId - 专精链所属正式路线。
+     * @property {ResearchEraId} eraId - 折叠链卡所在时代列。
+     * @property {TechnologyId[]} technologyIds - 按推进顺序排列的四项紧凑科技 ID。
+     */
+
+    /**
+     * @typedef {Object} ResearchRevealCondition
+     * @property {"always"|"parent_or_nearby"|"special_trigger"} mode - 揭示模式；分别表示始终可见、父节点推进后可预览、特殊系统触发后可预览。
+     * @property {TechnologyId[]} technologyIds - 可触发揭示的父科技 ID 数组。
+     * @property {string=} label - 特殊揭示条件中文说明；普通父科技模式可省略。
+     */
+
+    /**
+     * @typedef {Object} TechnologyTriggerCondition
+     * @property {"livingGoblinCount"|"diplomacyUnlocked"} type - 特殊触发类型。
+     * @property {number=} minimum - 最低触发数量；计数条件必须填写。
+     * @property {string} label - 玩家可见的完整条件说明。
+     */
+
+    /**
      * @typedef {Object} TechnologyDefinition
      * @property {TechnologyId} id - 科技稳定 ID。
      * @property {string} name - 中文显示名。
@@ -190,6 +241,17 @@
      * @property {Price[]} price - 研究价格数组；amount 为非负资源数量。
      * @property {UnlockBundle} unlocks - 研究完成后立即应用的解锁包。
      * @property {UnlockBundle} unlock - 显示该科技所需的解锁条件或默认解锁标记。
+     * @property {ResearchLineId} lineId - 科技所属唯一正式路线。
+     * @property {ResearchEraId} eraId - 科技所属版面时代，不作为额外付费门槛。
+     * @property {number} tier - 路线内纵深正整数，只用于图谱布局和排序。
+     * @property {"compact"|"normal"|"milestone"} nodeSize - 科技节点视觉权重。
+     * @property {TechnologyId[]} prerequisiteTechnologyIds - 全部完成才满足的展示前置科技 ID 数组。
+     * @property {TechnologyId[]} alternativePrerequisiteTechnologyIds - 任意完成一个即可满足的展示前置科技 ID 数组。
+     * @property {ResearchRevealCondition} revealCondition - 未完成科技的渐进揭示规则。
+     * @property {string[]} effectTags - 核心效果类别中文标签数组。
+     * @property {string} recommendedFor - 面向当前瓶颈的一句研究建议。
+     * @property {number} layoutOrder - 同路线同层级稳定排序整数。
+     * @property {TechnologyTriggerCondition[]=} triggerConditions - 非科技系统触发条件数组；普通科技可省略。
      */
 
     /**

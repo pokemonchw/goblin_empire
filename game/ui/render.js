@@ -577,7 +577,14 @@
         // HTMLElement|null 标签页按钮容器：用于保护标签切换点击过程。
         var tabListElement = document.getElementById("tab-list");
 
-        if (activeElement && activeElement.dataset && activeElement.dataset.censusFilterKey) {
+        if (activeElement && activeElement.dataset && (activeElement.dataset.censusFilterKey || activeElement.dataset.researchSearch)) {
+            return true;
+        }
+
+        // HTMLElement|null 已打开关联控制区：浮框打开期间保留研究页 DOM，直到玩家主动关闭或跳转。
+        var openResearchRelationsElement = document.querySelector(".research-relations.is-open");
+
+        if (openResearchRelationsElement) {
             return true;
         }
 
@@ -1973,34 +1980,185 @@
         // HTMLElement 标题元素：显示研究标签页名称。
         var headingElement = createTextElement("h2", game.text.TEXT_REGISTRY.tabs.research.name);
 
-        // HTMLElement 列表元素：承载所有已解锁科技研究行。
-        var listElement = document.createElement("div");
+        // HTMLElement 图谱元素：承载六条路线与四个时代的研究节点。
+        var graphElement = document.createElement("div");
 
         tabContentElement.appendChild(headingElement);
         tabContentElement.appendChild(renderResearchSummary(state));
         tabContentElement.appendChild(renderResearchControls());
-        tabContentElement.appendChild(createTextElement("h3", game.text.TEXT_REGISTRY.ui.researchTitle));
-        listElement.className = "building-list research-list";
+        tabContentElement.appendChild(renderResearchLineNavigation(state));
+        tabContentElement.appendChild(createTextElement("h3", "地下帝国科技图谱"));
+        graphElement.className = "research-graph" + (game.runtime.researchView === "list" ? " is-list-view" : "");
+        if (game.runtime.researchView === "list") {
+            renderResearchCompactList(state, graphElement);
+        } else {
+            renderResearchGraph(state, graphElement);
+        }
+        tabContentElement.appendChild(graphElement);
+        if (game.runtime.researchView !== "list") {
+            restoreResearchLaneScrollPositions(graphElement);
+            renderResearchConnections(graphElement);
+        }
+    }
 
-        // TechnologyDefinition[] 可见科技定义数组：按筛选和排序生成。
-        var visibleTechnologies = getVisibleResearchTechnologies(state);
+    /**
+     * 在科技图谱插入页面并取得真实宽度后恢复各路线的横向滚动位置。
+     *
+     * @param {HTMLElement} graphElement - 已连接到页面的科技图谱容器。
+     * @returns {void} 无返回值；会按 ResearchLineId 修改各路线的 scrollLeft。
+     */
+    function restoreResearchLaneScrollPositions(graphElement) {
+        // NodeListOf<HTMLElement> 科研路线元素列表：每条路线独立恢复自己的滚动像素值。
+        var laneElements = graphElement.querySelectorAll(".research-lane[data-research-line-scroll-id]");
 
-        // number 循环索引：遍历可见科技定义数组的整数下标。
-        for (var technologyIndex = 0; technologyIndex < visibleTechnologies.length; technologyIndex += 1) {
-            // TechnologyDefinition 当前科技定义：用于渲染研究行。
-            var technologyDefinition = visibleTechnologies[technologyIndex];
+        // number 路线循环索引：遍历当前可见的科研分类卡片。
+        for (var laneIndex = 0; laneIndex < laneElements.length; laneIndex += 1) {
+            // HTMLElement 科研路线元素：从 dataset 读取稳定路线 ID。
+            var laneElement = laneElements[laneIndex];
 
-            // TechnologyState 当前科技状态：用于判断显示和完成态。
-            var technologyState = state.technologiesById[technologyDefinition.id];
+            // number 路线横向滚动位置：运行时保存的非负 CSS 像素值。
+            var savedLaneScrollLeft = game.runtime.researchScrollLeftByLineId && game.runtime.researchScrollLeftByLineId[laneElement.dataset.researchLineScrollId];
 
-            if (!technologyState || !technologyState.isUnlocked) {
+            laneElement.scrollLeft = Number(savedLaneScrollLeft) || 0;
+        }
+    }
+
+    /**
+     * 按当前可见科技节点的真实前置关系绘制图谱连线。
+     *
+     * @param {HTMLElement} graphElement - 已插入页面的研究图谱容器，会追加一层 SVG 连线画布。
+     * @returns {void} 无返回值。
+     */
+    function renderResearchConnections(graphElement) {
+        // SVGSVGElement|null 旧连线画布：路线独立滚动后重绘前先移除，避免重复叠加。
+        var existingConnectionCanvasElement = graphElement.querySelector(".research-connections");
+
+        if (existingConnectionCanvasElement) {
+            existingConnectionCanvasElement.remove();
+        }
+
+        // string SVG 命名空间：用于创建可随图谱滚动的矢量连线元素。
+        var svgNamespace = "http://www.w3.org/2000/svg";
+
+        // DOMRect 图谱边界：作为节点视口坐标转换为图谱内容坐标的原点。
+        var graphBounds = graphElement.getBoundingClientRect();
+
+        // SVGSVGElement 连线画布：覆盖完整可滚动内容，但不拦截卡片交互。
+        var connectionCanvasElement = document.createElementNS(svgNamespace, "svg");
+
+        connectionCanvasElement.classList.add("research-connections");
+        connectionCanvasElement.setAttribute("width", String(graphElement.scrollWidth));
+        connectionCanvasElement.setAttribute("height", String(graphElement.scrollHeight));
+        connectionCanvasElement.setAttribute("aria-hidden", "true");
+
+        // number 科技循环索引：遍历全部静态科技定义并寻找当前同时可见的父子节点。
+        for (var technologyIndex = 0; technologyIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            // TechnologyDefinition 子科技定义：其前置数组决定需要绘制的真实连接。
+            var technologyDefinition = game.definitions.TECHNOLOGY_DEFINITIONS[technologyIndex];
+
+            // HTMLElement|null 子科技卡片：筛选或渐进揭示隐藏节点时为空。
+            var childCardElement = document.getElementById("research-node-" + technologyDefinition.id);
+
+            if (!childCardElement || !graphElement.contains(childCardElement)) {
                 continue;
             }
 
-            listElement.appendChild(renderTechnologyRow(state, technologyDefinition, technologyState));
+            // TechnologyId[] 父科技 ID 数组：包含必须全部完成和任选其一两类真实科技前置。
+            var parentTechnologyIds = technologyDefinition.prerequisiteTechnologyIds.concat(technologyDefinition.alternativePrerequisiteTechnologyIds);
+
+            // number 父科技循环索引：逐条绘制当前视图中存在的父子关系。
+            for (var parentIndex = 0; parentIndex < parentTechnologyIds.length; parentIndex += 1) {
+                // TechnologyId 父科技 ID：用于定位连线起点卡片。
+                var parentTechnologyId = parentTechnologyIds[parentIndex];
+
+                // HTMLElement|null 父科技卡片：父节点未揭示或被筛选掉时不绘制误导性短线。
+                var parentCardElement = document.getElementById("research-node-" + parentTechnologyId);
+
+                if (!parentCardElement || !graphElement.contains(parentCardElement)) {
+                    continue;
+                }
+
+                // boolean 是否任选前置：true 使用虚线，表达任一父节点完成即可。
+                var isAlternativePrerequisite = technologyDefinition.alternativePrerequisiteTechnologyIds.indexOf(parentTechnologyId) !== -1;
+
+                connectionCanvasElement.appendChild(createResearchConnectionPath(svgNamespace, graphElement, graphBounds, parentCardElement, childCardElement, isAlternativePrerequisite));
+            }
         }
 
-        tabContentElement.appendChild(listElement);
+        graphElement.prepend(connectionCanvasElement);
+    }
+
+    /**
+     * 在单条科研路线横向滚动后重绘节点连线。
+     *
+     * @param {Event} event - 路线滚动事件；target 必须是所属研究泳道元素。
+     * @returns {void} 无返回值；会在下一动画帧替换图谱连线画布。
+     */
+    function refreshResearchConnectionsAfterLaneScroll(event) {
+        // HTMLElement|null 滚动路线元素：用于定位所属科技图谱。
+        var laneElement = event.target;
+
+        // HTMLElement|null 图谱元素：承载全部路线和连线画布。
+        var graphElement = laneElement && laneElement.closest ? laneElement.closest(".research-graph") : null;
+
+        if (!graphElement || game.runtime.isResearchConnectionRefreshQueued) {
+            return;
+        }
+
+        game.runtime.isResearchConnectionRefreshQueued = true;
+        window.requestAnimationFrame(function () {
+            game.runtime.isResearchConnectionRefreshQueued = false;
+            renderResearchConnections(graphElement);
+        });
+    }
+
+    /**
+     * 创建一条连接父科技卡片与子科技卡片的曲线路径。
+     *
+     * @param {string} svgNamespace - SVG 元素命名空间字符串。
+     * @param {HTMLElement} graphElement - 研究图谱容器，用于读取当前滚动偏移。
+     * @param {DOMRect} graphBounds - 图谱视口边界，作为内容坐标原点。
+     * @param {HTMLElement} parentCardElement - 父科技卡片，作为路径起点。
+     * @param {HTMLElement} childCardElement - 子科技卡片，作为路径终点。
+     * @param {boolean} isAlternativePrerequisite - true 表示任选前置并绘制虚线，false 表示必需前置。
+     * @returns {SVGPathElement} 可追加到研究连线画布的路径元素。
+     */
+    function createResearchConnectionPath(svgNamespace, graphElement, graphBounds, parentCardElement, childCardElement, isAlternativePrerequisite) {
+        // DOMRect 父卡片边界：用于计算路径起点。
+        var parentBounds = parentCardElement.getBoundingClientRect();
+
+        // DOMRect 子卡片边界：用于计算路径终点。
+        var childBounds = childCardElement.getBoundingClientRect();
+
+        // boolean 是否适合横向连接：子卡片左边缘位于父卡片右边缘之后。
+        var isForwardConnection = childBounds.left >= parentBounds.right;
+
+        // number 起点横坐标：横向连接取父卡右边缘，否则取父卡水平中心，单位为 CSS 像素。
+        var startX = (isForwardConnection ? parentBounds.right : parentBounds.left + parentBounds.width / 2) - graphBounds.left + graphElement.scrollLeft;
+
+        // number 起点纵坐标：横向连接取父卡垂直中心，否则取父卡下边缘，单位为 CSS 像素。
+        var startY = (isForwardConnection ? parentBounds.top + parentBounds.height / 2 : parentBounds.bottom) - graphBounds.top + graphElement.scrollTop;
+
+        // number 终点横坐标：横向连接取子卡左边缘，否则取子卡水平中心，单位为 CSS 像素。
+        var endX = (isForwardConnection ? childBounds.left : childBounds.left + childBounds.width / 2) - graphBounds.left + graphElement.scrollLeft;
+
+        // number 终点纵坐标：横向连接取子卡垂直中心，否则取子卡上边缘，单位为 CSS 像素。
+        var endY = (isForwardConnection ? childBounds.top + childBounds.height / 2 : childBounds.top) - graphBounds.top + graphElement.scrollTop;
+
+        // number 控制点中轴：让路径在卡片间隙内平滑转向，单位为 CSS 像素。
+        var controlAxis = isForwardConnection ? (startX + endX) / 2 : (startY + endY) / 2;
+
+        // string SVG 路径指令：横向跨时代与纵向同列关系分别使用对应方向的三次贝塞尔曲线。
+        var pathCommands = isForwardConnection
+            ? "M " + startX + " " + startY + " C " + controlAxis + " " + startY + ", " + controlAxis + " " + endY + ", " + endX + " " + endY
+            : "M " + startX + " " + startY + " C " + startX + " " + controlAxis + ", " + endX + " " + controlAxis + ", " + endX + " " + endY;
+
+        // SVGPathElement 连线路径：通过 class 区分必需前置和任选前置样式。
+        var pathElement = document.createElementNS(svgNamespace, "path");
+
+        pathElement.setAttribute("d", pathCommands);
+        pathElement.setAttribute("class", "research-connection" + (isAlternativePrerequisite ? " is-alternative" : ""));
+        return pathElement;
     }
 
     /**
@@ -2013,10 +2171,16 @@
         // HTMLElement 摘要元素：承载研究资源和线路计数。
         var summaryElement = document.createElement("div");
 
-        summaryElement.className = "action-card";
-        summaryElement.appendChild(createTextElement("h3", "研究资源与线路"));
-        summaryElement.appendChild(createTextElement("p", "粗识：" + formatResearchResource(state, "crudeKnowledge") + "，账册：" + formatResearchResource(state, "ledger") + "，魔晶：" + formatResearchResource(state, "manaCrystal")));
-        summaryElement.appendChild(createTextElement("p", formatResearchLineCounts(state)));
+        // ResearchEraDefinition 当前研究时代：由已完成科技的最深时代计算，只用于进度叙事。
+        var currentEraDefinition = getCurrentResearchEra(state);
+
+        // number 已完成科技数量：用于顶部总进度摘要的非负整数。
+        var researchedCount = getResearchedTechnologyCount(state);
+
+        summaryElement.className = "action-card research-overview";
+        summaryElement.appendChild(createTextElement("h3", "研究总览 · " + currentEraDefinition.name));
+        summaryElement.appendChild(createTextElement("p", "粗识：" + formatResearchResourceWithFlow(state, "crudeKnowledge") + "，账册：" + formatResearchResourceWithFlow(state, "ledger") + "，魔晶：" + formatResearchResourceWithFlow(state, "manaCrystal")));
+        summaryElement.appendChild(createTextElement("p", "已完成 " + researchedCount + " / " + game.definitions.TECHNOLOGY_DEFINITIONS.length + " 项科技。" + getResearchRecommendation(state)));
         return summaryElement;
     }
 
@@ -2030,18 +2194,351 @@
         var controlsElement = document.createElement("div");
 
         controlsElement.className = "toolbar";
-        controlsElement.appendChild(createResearchButton("researchFilter", "all", "全部"));
+        controlsElement.appendChild(createResearchButton("researchView", "graph", "路线视图"));
+        controlsElement.appendChild(createResearchButton("researchView", "list", "紧凑列表"));
+        controlsElement.appendChild(createResearchButton("researchFilter", "all", "全部状态"));
         controlsElement.appendChild(createResearchButton("researchFilter", "available", "可研究"));
-        controlsElement.appendChild(createResearchButton("researchFilter", "hide_done", "隐藏已完成"));
-        controlsElement.appendChild(createResearchButton("researchSort", "line", "按线路"));
-        controlsElement.appendChild(createResearchButton("researchSort", "cost", "按成本"));
+        controlsElement.appendChild(createResearchButton("researchFilter", "unaffordable", "资源不足"));
+        controlsElement.appendChild(createResearchButton("researchFilter", "preview", "前置未满"));
+        controlsElement.appendChild(createResearchButton("researchFilter", "researched", "已完成"));
+        controlsElement.appendChild(createResearchButton("researchFilter", "milestone", "里程碑"));
+        controlsElement.appendChild(createResearchButton("researchLocateAvailable", "true", "定位可研究"));
+
+        // HTMLInputElement 搜索输入框：按科技名称、介绍和效果标签过滤，不改变科技状态。
+        var searchInputElement = document.createElement("input");
+
+        searchInputElement.type = "search";
+        searchInputElement.placeholder = "搜索科技";
+        searchInputElement.value = game.runtime.researchSearchText || "";
+        searchInputElement.dataset.researchSearch = "true";
+        searchInputElement.setAttribute("aria-label", "搜索科技名称或效果");
+        controlsElement.appendChild(searchInputElement);
         return controlsElement;
+    }
+
+    /**
+     * 渲染六条路线徽签，点击同一路线第二次会恢复全局图谱。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 路线导航元素。
+     */
+    function renderResearchLineNavigation(state) {
+        // HTMLElement 路线导航元素：承载六个路线筛选徽签。
+        var navigationElement = document.createElement("nav");
+
+        navigationElement.className = "research-line-navigation";
+        navigationElement.setAttribute("aria-label", "研究路线筛选");
+
+        // number 路线循环索引：遍历正式路线定义的整数下标。
+        for (var lineIndex = 0; lineIndex < game.definitions.RESEARCH_LINE_DEFINITIONS.length; lineIndex += 1) {
+            // ResearchLineDefinition 路线定义：本轮用于生成徽签和进度。
+            var lineDefinition = game.definitions.RESEARCH_LINE_DEFINITIONS[lineIndex];
+
+            // HTMLButtonElement 路线按钮：点击后只改变运行时聚焦路线。
+            var lineButtonElement = document.createElement("button");
+
+            // Object 路线计数：done、available 和 total 均为非负整数。
+            var lineCounts = getResearchLineCounts(state, lineDefinition.id);
+
+            lineButtonElement.type = "button";
+            lineButtonElement.className = "research-line-chip " + lineDefinition.colorToken + (game.runtime.researchLineId === lineDefinition.id ? " is-selected" : "");
+            lineButtonElement.dataset.researchLineId = lineDefinition.id;
+            lineButtonElement.setAttribute("aria-pressed", game.runtime.researchLineId === lineDefinition.id ? "true" : "false");
+            lineButtonElement.textContent = lineDefinition.name + " " + lineCounts.done + "/" + lineCounts.total + " · 可研究 " + lineCounts.available;
+            navigationElement.appendChild(lineButtonElement);
+        }
+
+        return navigationElement;
+    }
+
+    /**
+     * 按“路线泳道 × 时代列”渲染有限宽度科技图谱。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {HTMLElement} graphElement - 图谱容器，会被写入路线和节点。
+     * @returns {void} 无返回值。
+     */
+    function renderResearchGraph(state, graphElement) {
+        // string 当前聚焦路线 ID：空字符串表示显示全部路线。
+        var focusedLineId = game.runtime.researchLineId || "";
+
+        // number 路线循环索引：遍历路线定义的整数下标。
+        for (var lineIndex = 0; lineIndex < game.definitions.RESEARCH_LINE_DEFINITIONS.length; lineIndex += 1) {
+            // ResearchLineDefinition 路线定义：用于构造本轮泳道。
+            var lineDefinition = game.definitions.RESEARCH_LINE_DEFINITIONS[lineIndex];
+
+            if (focusedLineId && focusedLineId !== lineDefinition.id) {
+                continue;
+            }
+
+            // HTMLElement 泳道元素：包含固定路线标题与四个时代列。
+            var laneElement = document.createElement("section");
+
+            laneElement.className = "research-lane " + lineDefinition.colorToken;
+            laneElement.dataset.researchLineScrollId = lineDefinition.id;
+            laneElement.appendChild(createResearchLaneHeading(lineDefinition));
+
+            // number 时代循环索引：遍历四个时代定义的整数下标。
+            for (var eraIndex = 0; eraIndex < game.definitions.RESEARCH_ERA_DEFINITIONS.length; eraIndex += 1) {
+                // ResearchEraDefinition 时代定义：用于构造泳道内时代列。
+                var eraDefinition = game.definitions.RESEARCH_ERA_DEFINITIONS[eraIndex];
+
+                // HTMLElement 时代列元素：承载本路线本时代的全部可见节点。
+                var eraColumnElement = document.createElement("div");
+
+                eraColumnElement.className = "research-era-column";
+                eraColumnElement.dataset.eraId = eraDefinition.id;
+                eraColumnElement.appendChild(createTextElement("h4", eraDefinition.name));
+
+                // HTMLElement[] 专精链卡片数组：默认在所属时代列折叠展示三条采集强化链。
+                var specializationCardElements = createResearchSpecializationCards(state, lineDefinition.id, eraDefinition.id);
+
+                // number 专精链卡循环索引：遍历当前路线时代的折叠链卡。
+                for (var specializationIndex = 0; specializationIndex < specializationCardElements.length; specializationIndex += 1) {
+                    eraColumnElement.appendChild(specializationCardElements[specializationIndex]);
+                }
+
+                // TechnologyDefinition[] 时代节点数组：按层级与显式布局顺序生成。
+                var eraTechnologies = getResearchTechnologiesForLane(state, lineDefinition.id, eraDefinition.id);
+
+                // number 科技循环索引：遍历当前时代节点的整数下标。
+                for (var technologyIndex = 0; technologyIndex < eraTechnologies.length; technologyIndex += 1) {
+                    // TechnologyDefinition 当前科技定义：用于渲染研究卡片。
+                    var technologyDefinition = eraTechnologies[technologyIndex];
+
+                    eraColumnElement.appendChild(renderTechnologyCard(state, technologyDefinition));
+                }
+
+                if (eraTechnologies.length === 0 && specializationCardElements.length === 0) {
+                    if ((!game.runtime.researchFilter || game.runtime.researchFilter === "all") && !game.runtime.researchSearchText && doesResearchLaneEraHaveNodes(lineDefinition.id, eraDefinition.id)) {
+                        eraColumnElement.appendChild(createUnknownResearchCard());
+                    } else {
+                        eraColumnElement.appendChild(createTextElement("p", "—"));
+                    }
+                }
+
+                laneElement.appendChild(eraColumnElement);
+            }
+
+            laneElement.addEventListener("scroll", refreshResearchConnectionsAfterLaneScroll, { passive: true });
+            graphElement.appendChild(laneElement);
+        }
+    }
+
+    /**
+     * 创建指定路线时代中的折叠采集专精链卡。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {ResearchLineId} lineId - 正式路线稳定 ID。
+     * @param {ResearchEraId} eraId - 研究时代稳定 ID。
+     * @returns {HTMLElement[]} 当前应显示的专精链节点组数组。
+     */
+    function createResearchSpecializationCards(state, lineId, eraId) {
+        // HTMLElement[] 专精链节点组数组：每组包含总卡及其展开后的四个直属节点。
+        var cardElements = [];
+
+        if ((game.runtime.researchFilter && game.runtime.researchFilter !== "all") || game.runtime.researchSearchText) {
+            return cardElements;
+        }
+
+        // number 专精链循环索引：遍历三条静态采集专精定义。
+        for (var specializationIndex = 0; specializationIndex < game.definitions.RESEARCH_SPECIALIZATION_DEFINITIONS.length; specializationIndex += 1) {
+            // ResearchSpecializationDefinition 专精链定义：用于匹配路线时代并计算进度。
+            var specializationDefinition = game.definitions.RESEARCH_SPECIALIZATION_DEFINITIONS[specializationIndex];
+
+            if (specializationDefinition.lineId !== lineId || specializationDefinition.eraId !== eraId) {
+                continue;
+            }
+
+            // boolean 专精链是否展开：决定按钮文案和链内节点是否另行渲染。
+            var isExpanded = isResearchSpecializationExpanded(specializationDefinition.id);
+
+            // number 已完成专精节点数量：范围为 0 至 technologyIds.length 的整数。
+            var researchedNodeCount = 0;
+
+            // number 专精科技循环索引：遍历链内科技 ID 的整数下标。
+            for (var technologyIndex = 0; technologyIndex < specializationDefinition.technologyIds.length; technologyIndex += 1) {
+                if (hasTechnologyResearched(state, specializationDefinition.technologyIds[technologyIndex])) {
+                    researchedNodeCount += 1;
+                }
+            }
+
+            // HTMLElement 专精链卡片：显示整体进度并提供展开操作。
+            var cardElement = document.createElement("article");
+
+            // HTMLElement 专精链节点组：保证展开节点紧跟总卡，不混入普通科技排序流。
+            var groupElement = document.createElement("div");
+
+            // HTMLButtonElement 展开按钮：点击后只改变运行时图谱展示状态。
+            var expandButtonElement = document.createElement("button");
+
+            cardElement.className = "research-card research-specialization-card is-compact" + (isExpanded ? " is-expanded" : "");
+            cardElement.appendChild(createTextElement("strong", specializationDefinition.name));
+            cardElement.appendChild(createTextElement("p", "紧凑支线 · 已完成 " + researchedNodeCount + "/" + specializationDefinition.technologyIds.length));
+            cardElement.appendChild(createTextElement("p", formatResearchSpecializationNames(specializationDefinition)));
+            expandButtonElement.type = "button";
+            expandButtonElement.dataset.researchSpecializationId = specializationDefinition.id;
+            expandButtonElement.textContent = isExpanded ? "收起专精节点" : "展开 4 个节点";
+            cardElement.appendChild(expandButtonElement);
+            groupElement.className = "research-specialization-group";
+            groupElement.appendChild(cardElement);
+
+            if (isExpanded) {
+                // number 展开节点循环索引：严格按专精定义中的推进顺序渲染四项科技。
+                for (var expandedNodeIndex = 0; expandedNodeIndex < specializationDefinition.technologyIds.length; expandedNodeIndex += 1) {
+                    // TechnologyId 展开科技 ID：用于读取直属节点定义并生成真实研究卡片。
+                    var expandedTechnologyId = specializationDefinition.technologyIds[expandedNodeIndex];
+
+                    // TechnologyDefinition|null 展开科技定义：定义缺失时跳过，避免生成无效操作卡片。
+                    var expandedTechnologyDefinition = game.technology.getTechnologyDefinition(expandedTechnologyId);
+
+                    if (expandedTechnologyDefinition && isTechnologyRevealed(state, expandedTechnologyDefinition)) {
+                        groupElement.appendChild(renderTechnologyCard(state, expandedTechnologyDefinition));
+                    }
+                }
+            }
+
+            cardElements.push(groupElement);
+        }
+
+        return cardElements;
+    }
+
+    /**
+     * 格式化专精链内四项科技名称。
+     *
+     * @param {ResearchSpecializationDefinition} specializationDefinition - 当前专精链定义。
+     * @returns {string} 按推进顺序连接的科技中文名。
+     */
+    function formatResearchSpecializationNames(specializationDefinition) {
+        // string[] 科技名称数组：按专精链定义顺序生成。
+        var technologyNames = [];
+
+        // number 科技循环索引：遍历链内科技 ID 的整数下标。
+        for (var technologyIndex = 0; technologyIndex < specializationDefinition.technologyIds.length; technologyIndex += 1) {
+            // TechnologyDefinition|null 科技定义：用于读取中文显示名。
+            var technologyDefinition = game.technology.getTechnologyDefinition(specializationDefinition.technologyIds[technologyIndex]);
+
+            technologyNames.push(technologyDefinition ? technologyDefinition.name : specializationDefinition.technologyIds[technologyIndex]);
+        }
+
+        return technologyNames.join(" → ");
+    }
+
+    /**
+     * 判断采集专精链是否已由玩家展开。
+     *
+     * @param {string} specializationId - 专精链稳定 ID。
+     * @returns {boolean} 当前运行时展开字典中为 true 时返回 true。
+     */
+    function isResearchSpecializationExpanded(specializationId) {
+        return Boolean(game.runtime.researchSpecializationsExpandedById && game.runtime.researchSpecializationsExpandedById[specializationId]);
+    }
+
+    /**
+     * 判断科技是否由默认图谱中的采集专精节点组负责渲染。
+     *
+     * @param {TechnologyId} technologyId - 科技稳定 ID。
+     * @returns {boolean} 默认无筛选图谱中属于任一专精链时返回 true。
+     */
+    function isTechnologyInResearchSpecializationGroup(technologyId) {
+        if ((game.runtime.researchFilter && game.runtime.researchFilter !== "all") || game.runtime.researchSearchText) {
+            return false;
+        }
+
+        // number 专精链循环索引：遍历三条采集专精定义。
+        for (var specializationIndex = 0; specializationIndex < game.definitions.RESEARCH_SPECIALIZATION_DEFINITIONS.length; specializationIndex += 1) {
+            // ResearchSpecializationDefinition 专精链定义：用于检查成员与展开状态。
+            var specializationDefinition = game.definitions.RESEARCH_SPECIALIZATION_DEFINITIONS[specializationIndex];
+
+            if (specializationDefinition.technologyIds.indexOf(technologyId) !== -1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 判断指定路线与时代是否存在静态节点。
+     *
+     * @param {ResearchLineId} lineId - 正式路线稳定 ID。
+     * @param {ResearchEraId} eraId - 研究时代稳定 ID。
+     * @returns {boolean} 静态定义中存在节点时返回 true。
+     */
+    function doesResearchLaneEraHaveNodes(lineId, eraId) {
+        // number 科技循环索引：遍历全部科技定义的整数下标。
+        for (var technologyIndex = 0; technologyIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            // TechnologyDefinition 科技定义：用于匹配路线与时代。
+            var technologyDefinition = game.definitions.TECHNOLOGY_DEFINITIONS[technologyIndex];
+
+            if (technologyDefinition.lineId === lineId && technologyDefinition.eraId === eraId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 创建不泄露具体科技内容的未知节点剪影。
+     *
+     * @returns {HTMLElement} 未知节点卡片元素。
+     */
+    function createUnknownResearchCard() {
+        // HTMLElement 未知卡片元素：只显示类别级揭示提示，不包含科技名或成本。
+        var cardElement = document.createElement("article");
+
+        cardElement.className = "research-card is-unknown";
+        cardElement.appendChild(createTextElement("strong", "？ 未知节点"));
+        cardElement.appendChild(createTextElement("p", "推进本路线或相邻前置后揭示。"));
+        return cardElement;
+    }
+
+    /**
+     * 渲染熟练玩家使用的紧凑科技列表，排序仍来自路线、时代、层级和布局字段。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {HTMLElement} graphElement - 紧凑列表容器，会被写入科技卡片。
+     * @returns {void} 无返回值。
+     */
+    function renderResearchCompactList(state, graphElement) {
+        // TechnologyDefinition[] 可见科技数组：复用统一揭示、筛选和稳定排序规则。
+        var visibleTechnologies = getVisibleResearchTechnologies(state);
+
+        // number 科技循环索引：遍历紧凑列表节点的整数下标。
+        for (var technologyIndex = 0; technologyIndex < visibleTechnologies.length; technologyIndex += 1) {
+            // TechnologyDefinition 科技定义：用于渲染紧凑卡片。
+            var technologyDefinition = visibleTechnologies[technologyIndex];
+
+            if (!doesTechnologyMatchResearchSearch(technologyDefinition)) {
+                continue;
+            }
+
+            graphElement.appendChild(renderTechnologyCard(state, technologyDefinition));
+        }
+    }
+
+    /**
+     * 创建路线泳道标题。
+     *
+     * @param {ResearchLineDefinition} lineDefinition - 当前路线定义。
+     * @returns {HTMLElement} 路线标题元素。
+     */
+    function createResearchLaneHeading(lineDefinition) {
+        // HTMLElement 标题元素：展示路线名称、徽记和职责。
+        var headingElement = document.createElement("header");
+
+        headingElement.className = "research-lane-heading";
+        headingElement.appendChild(createTextElement("strong", lineDefinition.name));
+        headingElement.appendChild(createTextElement("span", lineDefinition.description));
+        return headingElement;
     }
 
     /**
      * 创建研究筛选或排序按钮。
      *
-     * @param {"researchFilter"|"researchSort"} dataKey - dataset 字段名。
+     * @param {"researchFilter"|"researchSort"|"researchView"|"researchLocateAvailable"} dataKey - dataset 字段名。
      * @param {string} valueText - dataset 字段值。
      * @param {string} labelText - 按钮中文文本。
      * @returns {HTMLButtonElement} 研究控制按钮。
@@ -2080,15 +2577,14 @@
             // TechnologyState 当前科技状态：用于判断显示和完成态。
             var technologyState = state.technologiesById[technologyDefinition.id];
 
-            if (!technologyState || !technologyState.isUnlocked) {
+            if (!technologyState || getTechnologyResearchStatus(state, technologyDefinition) === "unknown") {
                 continue;
             }
 
-            if (researchFilter === "available" && !game.technology.canResearch(state, technologyDefinition)) {
-                continue;
-            }
+            // string 研究状态 ID：用于统一列表和图谱筛选语义。
+            var researchStatus = getTechnologyResearchStatus(state, technologyDefinition);
 
-            if (researchFilter === "hide_done" && technologyState.isResearched) {
+            if (!doesTechnologyMatchResearchFilter(technologyDefinition, researchStatus, researchFilter) || !doesTechnologyMatchResearchSearch(technologyDefinition)) {
                 continue;
             }
 
@@ -2100,9 +2596,441 @@
                 return getTechnologyCostScore(leftTechnology) - getTechnologyCostScore(rightTechnology);
             }
 
-            return getTechnologyLine(leftTechnology.id).localeCompare(getTechnologyLine(rightTechnology.id)) || leftTechnology.id.localeCompare(rightTechnology.id);
+            return getResearchLineOrder(leftTechnology.lineId) - getResearchLineOrder(rightTechnology.lineId) || leftTechnology.tier - rightTechnology.tier || leftTechnology.layoutOrder - rightTechnology.layoutOrder;
         });
         return visibleTechnologies;
+    }
+
+    /**
+     * 取得指定路线与时代中符合当前筛选的科技定义。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {ResearchLineId} lineId - 正式研究路线稳定 ID。
+     * @param {ResearchEraId} eraId - 研究时代稳定 ID。
+     * @returns {TechnologyDefinition[]} 已揭示或可预览的科技定义数组，按层级和布局顺序排列。
+     */
+    function getResearchTechnologiesForLane(state, lineId, eraId) {
+        // string 当前研究筛选 ID：空值时按 all 处理。
+        var researchFilter = game.runtime.researchFilter || "all";
+
+        // TechnologyDefinition[] 结果数组：只包含指定路线、时代并匹配状态筛选的节点。
+        var matchingTechnologies = [];
+
+        // number 科技循环索引：遍历全部科技定义的整数下标。
+        for (var technologyIndex = 0; technologyIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            // TechnologyDefinition 科技定义：用于检查路线、时代和状态。
+            var technologyDefinition = game.definitions.TECHNOLOGY_DEFINITIONS[technologyIndex];
+
+            if (technologyDefinition.lineId !== lineId || technologyDefinition.eraId !== eraId) {
+                continue;
+            }
+
+            if (isTechnologyInResearchSpecializationGroup(technologyDefinition.id)) {
+                continue;
+            }
+
+            if (!doesTechnologyMatchResearchSearch(technologyDefinition)) {
+                continue;
+            }
+
+            // string 研究状态 ID：取值为 unknown、preview、unaffordable、available 或 researched。
+            var researchStatus = getTechnologyResearchStatus(state, technologyDefinition);
+
+            if (researchStatus === "unknown" || !doesTechnologyMatchResearchFilter(technologyDefinition, researchStatus, researchFilter)) {
+                continue;
+            }
+
+            matchingTechnologies.push(technologyDefinition);
+        }
+
+        matchingTechnologies.sort(function (leftTechnology, rightTechnology) {
+            return leftTechnology.tier - rightTechnology.tier || leftTechnology.layoutOrder - rightTechnology.layoutOrder;
+        });
+        return matchingTechnologies;
+    }
+
+    /**
+     * 判断科技是否匹配研究搜索文本。
+     *
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @returns {boolean} 名称、介绍、建议或效果标签包含搜索文本时返回 true；空搜索返回 true。
+     */
+    function doesTechnologyMatchResearchSearch(technologyDefinition) {
+        // string 搜索文本：转为小写并去除首尾空白，空字符串表示不筛选。
+        var searchText = String(game.runtime.researchSearchText || "").trim().toLowerCase();
+
+        if (!searchText) {
+            return true;
+        }
+
+        // string 科技检索文本：只拼接静态中文展示字段，不读取 DOM。
+        var searchableText = [technologyDefinition.name, technologyDefinition.description, technologyDefinition.recommendedFor, technologyDefinition.effectTags.join(" ")].join(" ").toLowerCase();
+
+        return searchableText.indexOf(searchText) !== -1;
+    }
+
+    /**
+     * 判断科技是否匹配研究页状态筛选。
+     *
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @param {string} researchStatus - 当前研究状态 ID。
+     * @param {string} researchFilter - 当前筛选 ID。
+     * @returns {boolean} 是否应在当前筛选下显示。
+     */
+    function doesTechnologyMatchResearchFilter(technologyDefinition, researchStatus, researchFilter) {
+        if (researchFilter === "all") {
+            return true;
+        }
+
+        if (researchFilter === "milestone") {
+            return technologyDefinition.nodeSize === "milestone";
+        }
+
+        return researchStatus === researchFilter;
+    }
+
+    /**
+     * 计算科技节点当前状态，状态判断不修改游戏进度。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @returns {"unknown"|"preview"|"unaffordable"|"available"|"researched"} 节点状态 ID。
+     */
+    function getTechnologyResearchStatus(state, technologyDefinition) {
+        // TechnologyState|undefined 科技运行时状态：用于读取真实解锁和完成标记。
+        var technologyState = state.technologiesById[technologyDefinition.id];
+
+        if (technologyState && technologyState.isResearched) {
+            return "researched";
+        }
+
+        // boolean 前置是否满足：AND 前置全部完成，且存在 OR 前置时至少完成一项。
+        var hasPrerequisites = areTechnologyPrerequisitesMet(state, technologyDefinition);
+
+        if (technologyState && technologyState.isUnlocked && hasPrerequisites) {
+            return game.resources.canAfford(state, technologyDefinition.price) ? "available" : "unaffordable";
+        }
+
+        if (isTechnologyRevealed(state, technologyDefinition)) {
+            return "preview";
+        }
+
+        return "unknown";
+    }
+
+    /**
+     * 判断科技展示前置是否完成。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @returns {boolean} 是否满足 AND 与 OR 展示前置；无前置时返回 true。
+     */
+    function areTechnologyPrerequisitesMet(state, technologyDefinition) {
+        // number AND 前置循环索引：遍历必须全部完成的科技 ID。
+        for (var prerequisiteIndex = 0; prerequisiteIndex < technologyDefinition.prerequisiteTechnologyIds.length; prerequisiteIndex += 1) {
+            // TechnologyId 前置科技 ID：用于读取对应完成状态。
+            var prerequisiteTechnologyId = technologyDefinition.prerequisiteTechnologyIds[prerequisiteIndex];
+
+            if (!hasTechnologyResearched(state, prerequisiteTechnologyId)) {
+                return false;
+            }
+        }
+
+        if (technologyDefinition.alternativePrerequisiteTechnologyIds.length === 0) {
+            return true;
+        }
+
+        // number OR 前置循环索引：遍历完成任意一个即可的科技 ID。
+        for (var alternativeIndex = 0; alternativeIndex < technologyDefinition.alternativePrerequisiteTechnologyIds.length; alternativeIndex += 1) {
+            // TechnologyId 备选前置科技 ID：用于读取对应完成状态。
+            var alternativeTechnologyId = technologyDefinition.alternativePrerequisiteTechnologyIds[alternativeIndex];
+
+            if (hasTechnologyResearched(state, alternativeTechnologyId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 判断未解锁科技是否已达到渐进揭示条件。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @returns {boolean} 是否显示名称和预览卡；只提前展示当前节点之后一层。
+     */
+    function isTechnologyRevealed(state, technologyDefinition) {
+        // TechnologyState|undefined 科技运行时状态：真实已解锁项始终揭示。
+        var technologyState = state.technologiesById[technologyDefinition.id];
+
+        if (technologyState && technologyState.isUnlocked) {
+            return true;
+        }
+
+        if (technologyDefinition.revealCondition.mode === "always") {
+            return true;
+        }
+
+        // TechnologyId[] 揭示父科技 ID 数组：完成父节点或父节点已显示时允许预览一层。
+        var revealTechnologyIds = technologyDefinition.revealCondition.technologyIds;
+
+        // number 揭示科技循环索引：遍历可触发预览的父科技 ID。
+        for (var revealIndex = 0; revealIndex < revealTechnologyIds.length; revealIndex += 1) {
+            // TechnologyId 揭示科技 ID：用于读取父节点运行时状态。
+            var revealTechnologyId = revealTechnologyIds[revealIndex];
+
+            // TechnologyState|undefined 揭示父科技状态：已解锁即允许展示下一层剪影。
+            var revealTechnologyState = state.technologiesById[revealTechnologyId];
+
+            if (revealTechnologyState && revealTechnologyState.isUnlocked) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 渲染单项科技卡片，正面包含核心效果、完整成本、缺口和前置状态。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @returns {HTMLElement} 可键盘访问的科技卡片元素。
+     */
+    function renderTechnologyCard(state, technologyDefinition) {
+        // string 研究状态 ID：控制文案、边框和操作按钮。
+        var researchStatus = getTechnologyResearchStatus(state, technologyDefinition);
+
+        // TechnologyState 科技运行时状态：初始状态保证每项定义都有对应对象。
+        var technologyState = state.technologiesById[technologyDefinition.id];
+
+        // HTMLElement 卡片元素：承载正面信息，并作为悬浮详情的指针与键盘触发区。
+        var cardElement = document.createElement("article");
+
+        // HTMLElement 标题元素：显示科技名、层级和状态图形。
+        var headingElement = document.createElement("header");
+
+        // HTMLElement 成本元素：显示完整成本与不足差额。
+        var costElement = document.createElement("p");
+
+        // string[] 缺口文本数组：资源不足时显示每项差额。
+        var missingTexts = game.resources.getMissingResourceTexts(state, technologyDefinition.price);
+
+        // HTMLButtonElement 研究按钮：只有 available 状态且未暂停时可点击。
+        var researchButtonElement = document.createElement("button");
+
+        cardElement.id = "research-node-" + technologyDefinition.id;
+        cardElement.className = "research-card is-" + researchStatus + " is-" + technologyDefinition.nodeSize + " connection-" + getTechnologyConnectionType(technologyDefinition);
+        if (game.runtime.recentlyResearchedTechnologyId === technologyDefinition.id) {
+            cardElement.className += " is-newly-researched";
+            game.runtime.recentlyResearchedTechnologyId = "";
+        }
+        cardElement.dataset.technologyNodeId = technologyDefinition.id;
+        cardElement.tabIndex = 0;
+        cardElement.setAttribute("aria-describedby", "research-tooltip-" + technologyDefinition.id);
+
+        headingElement.appendChild(createTextElement("strong", technologyDefinition.name));
+        headingElement.appendChild(createTextElement("span", "T" + technologyDefinition.tier + " · " + getResearchStatusLabel(researchStatus)));
+        cardElement.appendChild(headingElement);
+        cardElement.appendChild(createTextElement("p", technologyDefinition.effectTags.join(" / ") + "：" + technologyDefinition.description));
+
+        costElement.className = "research-card-cost";
+        costElement.textContent = "成本：" + formatPriceList(technologyDefinition.price);
+        if (missingTexts.length > 0 && researchStatus !== "researched") {
+            costElement.appendChild(createTextElement("span", " 缺口：" + missingTexts.join("，")));
+        }
+        cardElement.appendChild(costElement);
+        cardElement.appendChild(createTextElement("p", formatTechnologyPrerequisiteSummary(state, technologyDefinition)));
+
+        // TechnologyId[] 前置研究 ID 数组：合并必须前置与任选前置，供左侧关联浮框展示。
+        var prerequisiteTechnologyIds = getRevealedRelatedTechnologyIds(state, technologyDefinition.prerequisiteTechnologyIds.concat(technologyDefinition.alternativePrerequisiteTechnologyIds));
+
+        // TechnologyId[] 后置研究 ID 数组：收集所有直接依赖当前研究的科技，供右侧关联浮框展示。
+        var successorTechnologyIds = getRevealedRelatedTechnologyIds(state, getTechnologySuccessorIds(technologyDefinition.id));
+
+        if (prerequisiteTechnologyIds.length > 0 || successorTechnologyIds.length > 0) {
+            cardElement.appendChild(createResearchRelationsControl(technologyDefinition.id, prerequisiteTechnologyIds, successorTechnologyIds));
+        }
+
+        // TechnologyId|null 首个未完成前置科技 ID：存在时提供一次点击定位父节点。
+        var unfinishedPrerequisiteTechnologyId = getFirstUnfinishedPrerequisiteTechnologyId(state, technologyDefinition);
+
+        if (unfinishedPrerequisiteTechnologyId) {
+            // HTMLButtonElement 定位父节点按钮：不修改科技状态，只聚焦图谱中的前置卡片。
+            var prerequisiteButtonElement = document.createElement("button");
+
+            prerequisiteButtonElement.type = "button";
+            prerequisiteButtonElement.className = "research-prerequisite-link";
+            prerequisiteButtonElement.dataset.researchFocusTechnologyId = unfinishedPrerequisiteTechnologyId;
+            prerequisiteButtonElement.textContent = "定位未完成前置";
+            cardElement.appendChild(prerequisiteButtonElement);
+        }
+
+        researchButtonElement.type = "button";
+        researchButtonElement.dataset.technologyId = technologyDefinition.id;
+        researchButtonElement.disabled = researchStatus !== "available" || state.isPaused;
+        researchButtonElement.textContent = getResearchButtonLabel(state, researchStatus, missingTexts);
+        cardElement.appendChild(researchButtonElement);
+        cardElement.appendChild(createTechnologyCardTooltip(state, technologyDefinition, technologyState, researchStatus));
+        return cardElement;
+    }
+
+    /**
+     * 创建研究关联控制区；按钮打开后，前置与后置研究分别显示在按钮左右两侧。
+     *
+     * @param {TechnologyId} technologyId - 当前科技稳定 ID。
+     * @param {TechnologyId[]} prerequisiteTechnologyIds - 直接前置科技 ID 数组。
+     * @param {TechnologyId[]} successorTechnologyIds - 直接后置科技 ID 数组。
+     * @returns {HTMLElement} 包含关联按钮与双侧半透明浮框的控制区元素。
+     */
+    function createResearchRelationsControl(technologyId, prerequisiteTechnologyIds, successorTechnologyIds) {
+        // HTMLElement 关联控制区元素：作为按钮和左右浮框的共同定位容器。
+        var controlElement = document.createElement("div");
+
+        // HTMLButtonElement 查看关联按钮：点击时由事件模块切换双侧浮框。
+        var toggleButtonElement = document.createElement("button");
+
+        controlElement.className = "research-relations";
+        controlElement.dataset.researchRelationsFor = technologyId;
+        toggleButtonElement.type = "button";
+        toggleButtonElement.className = "research-relations-toggle";
+        toggleButtonElement.dataset.researchRelationsToggle = technologyId;
+        toggleButtonElement.setAttribute("aria-expanded", "false");
+        toggleButtonElement.textContent = "查看关联";
+        controlElement.appendChild(toggleButtonElement);
+
+        if (prerequisiteTechnologyIds.length > 0) {
+            controlElement.appendChild(createResearchRelationPopover("prerequisites", "前置研究", prerequisiteTechnologyIds));
+        }
+
+        if (successorTechnologyIds.length > 0) {
+            controlElement.appendChild(createResearchRelationPopover("successors", "后置研究", successorTechnologyIds));
+        }
+
+        return controlElement;
+    }
+
+    /**
+     * 创建一侧研究关联浮框，列表项可定位到对应研究卡片。
+     *
+     * @param {"prerequisites"|"successors"} relationSide - 浮框方向；前置在左，后置在右。
+     * @param {string} headingText - 浮框中文标题。
+     * @param {TechnologyId[]} relatedTechnologyIds - 可跳转的关联科技 ID 数组。
+     * @returns {HTMLElement} 默认隐藏的半透明关联浮框元素。
+     */
+    function createResearchRelationPopover(relationSide, headingText, relatedTechnologyIds) {
+        // HTMLElement 关联浮框元素：承载单侧标题与研究按钮列表。
+        var popoverElement = document.createElement("div");
+
+        // HTMLElement 关联列表元素：保持多个研究项的稳定纵向顺序。
+        var listElement = document.createElement("div");
+
+        popoverElement.className = "research-relations-popover is-" + relationSide;
+        popoverElement.hidden = true;
+        popoverElement.appendChild(createTextElement("strong", headingText));
+        listElement.className = "research-relations-list";
+
+        // number 关联科技循环索引：遍历直接前置或后置研究 ID。
+        for (var relationIndex = 0; relationIndex < relatedTechnologyIds.length; relationIndex += 1) {
+            // TechnologyId 关联科技 ID：用于读取显示名并绑定跳转目标。
+            var relatedTechnologyId = relatedTechnologyIds[relationIndex];
+
+            // TechnologyDefinition|null 关联科技定义：用于读取玩家可见中文名。
+            var relatedTechnologyDefinition = game.technology.getTechnologyDefinition(relatedTechnologyId);
+
+            // HTMLButtonElement 关联研究按钮：点击后恢复完整图谱并定位对应卡片。
+            var relationButtonElement = document.createElement("button");
+
+            relationButtonElement.type = "button";
+            relationButtonElement.dataset.researchRelationTargetId = relatedTechnologyId;
+            relationButtonElement.textContent = relatedTechnologyDefinition ? relatedTechnologyDefinition.name : relatedTechnologyId;
+            listElement.appendChild(relationButtonElement);
+        }
+
+        popoverElement.appendChild(listElement);
+        return popoverElement;
+    }
+
+    /**
+     * 取得直接依赖指定科技的全部后置研究。
+     *
+     * @param {TechnologyId} technologyId - 当前科技稳定 ID。
+     * @returns {TechnologyId[]} 直接后置科技 ID 数组，按静态定义顺序排列。
+     */
+    function getTechnologySuccessorIds(technologyId) {
+        // TechnologyId[] 后置科技 ID 数组：只收集直接引用当前科技的定义。
+        var successorTechnologyIds = [];
+
+        // number 科技循环索引：遍历全部科技定义以反向查找依赖。
+        for (var technologyIndex = 0; technologyIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            // TechnologyDefinition 科技定义：检查其必须前置与任选前置数组。
+            var technologyDefinition = game.definitions.TECHNOLOGY_DEFINITIONS[technologyIndex];
+
+            if (technologyDefinition.prerequisiteTechnologyIds.indexOf(technologyId) !== -1 || technologyDefinition.alternativePrerequisiteTechnologyIds.indexOf(technologyId) !== -1) {
+                successorTechnologyIds.push(technologyDefinition.id);
+            }
+        }
+
+        return successorTechnologyIds;
+    }
+
+    /**
+     * 过滤尚未揭示的关联研究，避免关联列表提前泄露未知节点名称。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyId[]} technologyIds - 待过滤的关联科技 ID 数组。
+     * @returns {TechnologyId[]} 当前已揭示、能够在完整图谱中定位的科技 ID 数组。
+     */
+    function getRevealedRelatedTechnologyIds(state, technologyIds) {
+        // TechnologyId[] 已揭示科技 ID 数组：保留原始关联定义顺序。
+        var revealedTechnologyIds = [];
+
+        // number 关联科技循环索引：遍历待过滤的科技 ID。
+        for (var technologyIndex = 0; technologyIndex < technologyIds.length; technologyIndex += 1) {
+            // TechnologyId 关联科技 ID：用于读取定义并判断当前揭示状态。
+            var technologyId = technologyIds[technologyIndex];
+
+            // TechnologyDefinition|null 关联科技定义：不存在时不生成无效跳转项。
+            var technologyDefinition = game.technology.getTechnologyDefinition(technologyId);
+
+            if (technologyDefinition && getTechnologyResearchStatus(state, technologyDefinition) !== "unknown") {
+                revealedTechnologyIds.push(technologyId);
+            }
+        }
+
+        return revealedTechnologyIds;
+    }
+
+    /**
+     * 创建科技卡片悬浮详情框，由卡片悬停或键盘聚焦时显示。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @param {TechnologyState} technologyState - 当前科技运行时状态。
+     * @param {string} researchStatus - 当前研究状态 ID。
+     * @returns {HTMLElement} 科技详情浮窗元素，默认隐藏且不接收指针事件。
+     */
+    function createTechnologyCardTooltip(state, technologyDefinition, technologyState, researchStatus) {
+        // HTMLElement 浮窗元素：由统一浮窗事件在科技卡片悬停或聚焦时定位和显示。
+        var tooltipElement = document.createElement("div");
+
+        // HTMLElement 明细列表元素：展示介绍、建议、等待、前后继与解锁包。
+        var listElement = document.createElement("dl");
+
+        tooltipElement.className = "building-tooltip research-tooltip";
+        tooltipElement.id = "research-tooltip-" + technologyDefinition.id;
+        tooltipElement.setAttribute("role", "tooltip");
+        tooltipElement.appendChild(createTextElement("h4", technologyDefinition.name));
+        appendTooltipDefinition(listElement, "研究介绍", technologyDefinition.description);
+        appendTooltipDefinition(listElement, "瓶颈建议", technologyDefinition.recommendedFor);
+        appendTooltipDefinition(listElement, "预计等待", researchStatus === "researched" ? "已完成" : formatActionAvailabilityText(state, technologyDefinition.price));
+        appendTooltipDefinition(listElement, "前置条件", formatTechnologyPrerequisiteSummary(state, technologyDefinition));
+        appendTooltipDefinition(listElement, "解锁内容", formatUnlockPreview(technologyDefinition.unlocks || {}));
+        appendTooltipDefinition(listElement, "后续方向", formatTechnologySuccessors(technologyDefinition.id));
+        appendTooltipDefinition(listElement, "研究状态", getResearchStatusLabel(researchStatus));
+        tooltipElement.appendChild(listElement);
+        return tooltipElement;
     }
 
     /**
@@ -2304,27 +3232,384 @@
      * @returns {string} 科技线路中文名。
      */
     function getTechnologyLine(technologyId) {
-        if (technologyId === "marks" || technologyId === "deadwood_cultivation" || technologyId === "foraging" || technologyId === "digging" || technologyId === "hut_building" || technologyId === "woodcraft") {
-            return "生存";
+        // TechnologyDefinition|null 科技定义：正式路线 ID 只从静态定义读取。
+        var technologyDefinition = game.technology.getTechnologyDefinition(technologyId);
+
+        if (!technologyDefinition) {
+            return "未知路线";
         }
 
-        if (technologyId === "mining" || technologyId === "metallurgy" || technologyId === "charcoal_burning" || technologyId === "crude_tools" || technologyId === "engineering" || technologyId === "machinery" || technologyId === "steel" || technologyId === "black_iron_smelting") {
-            return "矿业";
+        // ResearchLineDefinition|null 路线定义：用于返回玩家可见中文名。
+        var lineDefinition = getResearchLineDefinition(technologyDefinition.lineId);
+
+        return lineDefinition ? lineDefinition.name : "未知路线";
+    }
+
+    /**
+     * 取得正式研究路线定义。
+     *
+     * @param {ResearchLineId} lineId - 正式路线稳定 ID。
+     * @returns {ResearchLineDefinition|null} 路线定义；找不到时返回 null。
+     */
+    function getResearchLineDefinition(lineId) {
+        // number 路线循环索引：遍历路线定义的整数下标。
+        for (var lineIndex = 0; lineIndex < game.definitions.RESEARCH_LINE_DEFINITIONS.length; lineIndex += 1) {
+            // ResearchLineDefinition 路线定义：用于匹配稳定 ID。
+            var lineDefinition = game.definitions.RESEARCH_LINE_DEFINITIONS[lineIndex];
+
+            if (lineDefinition.id === lineId) {
+                return lineDefinition;
+            }
         }
 
-        if (technologyId === "clan_rules" || technologyId === "census" || technologyId === "counting" || technologyId === "calendar" || technologyId === "currency" || technologyId === "writing" || technologyId === "diplomacy" || technologyId === "imperial_code" || technologyId === "migration_code") {
-            return "制度";
+        return null;
+    }
+
+    /**
+     * 取得路线固定排序值。
+     *
+     * @param {ResearchLineId} lineId - 正式路线稳定 ID。
+     * @returns {number} 路线排序整数；未知路线返回最大安全整数。
+     */
+    function getResearchLineOrder(lineId) {
+        // ResearchLineDefinition|null 路线定义：用于读取固定排序值。
+        var lineDefinition = getResearchLineDefinition(lineId);
+
+        return lineDefinition ? lineDefinition.order : Number.MAX_SAFE_INTEGER;
+    }
+
+    /**
+     * 统计指定路线的完成、可研究和总节点数。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {ResearchLineId} lineId - 正式路线稳定 ID。
+     * @returns {{done: number, available: number, total: number}} 三项均为非负整数的路线计数。
+     */
+    function getResearchLineCounts(state, lineId) {
+        // Object 路线计数：done、available 和 total 均为非负整数。
+        var lineCounts = { done: 0, available: 0, total: 0 };
+
+        // number 科技循环索引：遍历全部科技定义的整数下标。
+        for (var technologyIndex = 0; technologyIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            // TechnologyDefinition 科技定义：用于匹配路线并计算状态。
+            var technologyDefinition = game.definitions.TECHNOLOGY_DEFINITIONS[technologyIndex];
+
+            if (technologyDefinition.lineId !== lineId) {
+                continue;
+            }
+
+            lineCounts.total += 1;
+            // string 研究状态 ID：用于累加完成和可研究数量。
+            var researchStatus = getTechnologyResearchStatus(state, technologyDefinition);
+
+            if (researchStatus === "researched") {
+                lineCounts.done += 1;
+            } else if (researchStatus === "available") {
+                lineCounts.available += 1;
+            }
         }
 
-        if (technologyId === "beast_pen" || technologyId === "big_club" || technologyId === "crossbow" || technologyId === "desire_enlightenment" || technologyId === "public_nursery" || technologyId === "human_beast" || technologyId === "surface_lore") {
-            return "军工";
+        return lineCounts;
+    }
+
+    /**
+     * 取得顶部进度摘要所显示的当前时代。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {ResearchEraDefinition} 当前最深已研究时代；新局返回第一个时代。
+     */
+    function getCurrentResearchEra(state) {
+        // ResearchEraDefinition 当前时代定义：从首个时代开始，遇到更深已完成节点时更新。
+        var currentEraDefinition = game.definitions.RESEARCH_ERA_DEFINITIONS[0];
+
+        // number 科技循环索引：遍历全部科技定义的整数下标。
+        for (var technologyIndex = 0; technologyIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            // TechnologyDefinition 科技定义：用于检查完成状态与所属时代。
+            var technologyDefinition = game.definitions.TECHNOLOGY_DEFINITIONS[technologyIndex];
+
+            if (!hasTechnologyResearched(state, technologyDefinition.id)) {
+                continue;
+            }
+
+            // ResearchEraDefinition|null 科技时代定义：用于比较固定排序值。
+            var technologyEraDefinition = getResearchEraDefinition(technologyDefinition.eraId);
+
+            if (technologyEraDefinition && technologyEraDefinition.order > currentEraDefinition.order) {
+                currentEraDefinition = technologyEraDefinition;
+            }
         }
 
-        if (technologyId === "rituals" || technologyId === "runology" || technologyId === "rift_engineering") {
-            return "符文";
+        return currentEraDefinition;
+    }
+
+    /**
+     * 取得研究时代定义。
+     *
+     * @param {ResearchEraId} eraId - 研究时代稳定 ID。
+     * @returns {ResearchEraDefinition|null} 时代定义；找不到时返回 null。
+     */
+    function getResearchEraDefinition(eraId) {
+        // number 时代循环索引：遍历时代定义的整数下标。
+        for (var eraIndex = 0; eraIndex < game.definitions.RESEARCH_ERA_DEFINITIONS.length; eraIndex += 1) {
+            // ResearchEraDefinition 时代定义：用于匹配稳定 ID。
+            var eraDefinition = game.definitions.RESEARCH_ERA_DEFINITIONS[eraIndex];
+
+            if (eraDefinition.id === eraId) {
+                return eraDefinition;
+            }
         }
 
-        return "深渊";
+        return null;
+    }
+
+    /**
+     * 统计全部已完成科技数量。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 已完成科技数量，非负整数。
+     */
+    function getResearchedTechnologyCount(state) {
+        // number 已完成数量：遍历科技状态后累加的非负整数。
+        var researchedCount = 0;
+
+        // number 科技循环索引：遍历全部科技定义的整数下标。
+        for (var technologyIndex = 0; technologyIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            if (hasTechnologyResearched(state, game.definitions.TECHNOLOGY_DEFINITIONS[technologyIndex].id)) {
+                researchedCount += 1;
+            }
+        }
+
+        return researchedCount;
+    }
+
+    /**
+     * 格式化研究资源库存、容量与每秒净变化。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {ResourceId} resourceId - 研究资源稳定 ID。
+     * @returns {string} 库存、容量和有符号每秒速率文本；隐藏资源返回“隐藏”。
+     */
+    function formatResearchResourceWithFlow(state, resourceId) {
+        // ResourceState 资源状态：用于读取库存、容量与每秒速率。
+        var resourceState = state.resourcesById[resourceId];
+
+        if (!resourceState || !resourceState.isVisible) {
+            return "隐藏";
+        }
+
+        // string 速率符号：非负速率显式显示加号。
+        var rateSign = resourceState.perSecond >= 0 ? "+" : "";
+
+        return resourceState.value.toFixed(1) + " / " + resourceState.maxValue.toFixed(0) + "（" + rateSign + resourceState.perSecond.toFixed(2) + "/秒）";
+    }
+
+    /**
+     * 生成当前研究瓶颈提示，不修改状态或科技排序。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {string} 一句带原因的研究建议。
+     */
+    function getResearchRecommendation(state) {
+        // ResourceState 菌菇状态：用于判断食物净产出是否为负。
+        var fungusState = state.resourcesById.fungus;
+
+        if (fungusState && fungusState.perSecond < 0) {
+            return " 当前提示：食物净产出为负，先查看生存繁衍路线。";
+        }
+
+        // ResourceState 粗识状态：用于判断是否接近容量上限。
+        var knowledgeState = state.resourcesById.crudeKnowledge;
+
+        if (knowledgeState && knowledgeState.maxValue > 0 && knowledgeState.value >= knowledgeState.maxValue * 0.9) {
+            return " 当前提示：粗识接近容量上限，优先研究可支付节点或扩建研究设施。";
+        }
+
+        return " 当前提示：定位可研究会按时代、层级和路线寻找最早节点。";
+    }
+
+    /**
+     * 格式化科技前置摘要，并明确标出未完成父节点或特殊触发。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @returns {string} 玩家可见的前置条件摘要。
+     */
+    function formatTechnologyPrerequisiteSummary(state, technologyDefinition) {
+        // string[] 前置摘要数组：包含 AND、OR 与特殊触发条件文本。
+        var prerequisiteTexts = [];
+
+        // number AND 前置循环索引：遍历必须完成的父科技 ID。
+        for (var prerequisiteIndex = 0; prerequisiteIndex < technologyDefinition.prerequisiteTechnologyIds.length; prerequisiteIndex += 1) {
+            // TechnologyId 前置科技 ID：用于查找中文名与完成状态。
+            var prerequisiteTechnologyId = technologyDefinition.prerequisiteTechnologyIds[prerequisiteIndex];
+
+            prerequisiteTexts.push(formatTechnologyReference(prerequisiteTechnologyId, state));
+        }
+
+        if (technologyDefinition.alternativePrerequisiteTechnologyIds.length > 0) {
+            // string[] OR 前置文本数组：列出任意完成一项即可的父科技。
+            var alternativeTexts = [];
+
+            // number OR 前置循环索引：遍历备选父科技 ID。
+            for (var alternativeIndex = 0; alternativeIndex < technologyDefinition.alternativePrerequisiteTechnologyIds.length; alternativeIndex += 1) {
+                // TechnologyId 备选前置科技 ID：用于查找中文名与完成状态。
+                var alternativeTechnologyId = technologyDefinition.alternativePrerequisiteTechnologyIds[alternativeIndex];
+
+                alternativeTexts.push(formatTechnologyReference(alternativeTechnologyId, state));
+            }
+
+            prerequisiteTexts.push("任一：" + alternativeTexts.join(" / "));
+        }
+
+        // number 触发条件循环索引：遍历非科技系统触发条件。
+        for (var triggerIndex = 0; triggerIndex < technologyDefinition.triggerConditions.length; triggerIndex += 1) {
+            // TechnologyTriggerCondition 触发条件：用于展示具名来源而非伪装成无前置。
+            var triggerCondition = technologyDefinition.triggerConditions[triggerIndex];
+
+            prerequisiteTexts.push(triggerCondition.label);
+        }
+
+        return prerequisiteTexts.length > 0 ? "前置：" + prerequisiteTexts.join("；") : "前置：研究入口";
+    }
+
+    /**
+     * 格式化单个父科技引用及其完成图形。
+     *
+     * @param {TechnologyId} technologyId - 父科技稳定 ID。
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {string} 带“✓”或“○”状态图形的科技名。
+     */
+    function formatTechnologyReference(technologyId, state) {
+        // TechnologyDefinition|null 科技定义：用于读取中文名。
+        var technologyDefinition = game.technology.getTechnologyDefinition(technologyId);
+
+        return (hasTechnologyResearched(state, technologyId) ? "✓ " : "○ ") + (technologyDefinition ? technologyDefinition.name : technologyId);
+    }
+
+    /**
+     * 格式化科技真实后继方向。
+     *
+     * @param {TechnologyId} technologyId - 当前科技稳定 ID。
+     * @returns {string} 后继科技中文名列表；终点返回“路线终点”。
+     */
+    function formatTechnologySuccessors(technologyId) {
+        // string[] 后继名称数组：从真实 unlocks.technologies 反向读取，避免 UI 自行猜测。
+        var successorNames = [];
+
+        // number 科技循环索引：遍历全部科技定义的整数下标。
+        for (var technologyIndex = 0; technologyIndex < game.definitions.TECHNOLOGY_DEFINITIONS.length; technologyIndex += 1) {
+            // TechnologyDefinition 科技定义：用于检查其展示前置是否引用当前科技。
+            var technologyDefinition = game.definitions.TECHNOLOGY_DEFINITIONS[technologyIndex];
+
+            if (technologyDefinition.prerequisiteTechnologyIds.indexOf(technologyId) !== -1 || technologyDefinition.alternativePrerequisiteTechnologyIds.indexOf(technologyId) !== -1) {
+                successorNames.push(technologyDefinition.name);
+            }
+        }
+
+        return successorNames.length > 0 ? successorNames.join("，") : "路线终点";
+    }
+
+    /**
+     * 取得研究状态中文标签，文字与图形共同表达状态。
+     *
+     * @param {string} researchStatus - 研究状态 ID。
+     * @returns {string} 带状态图形的中文标签。
+     */
+    function getResearchStatusLabel(researchStatus) {
+        // Object.<string, string> 状态标签字典：key 为封闭研究状态 ID，value 为图形与中文标签。
+        var statusLabelsById = {
+            unknown: "？ 未知",
+            preview: "◇ 待前置",
+            unaffordable: "△ 资源不足",
+            available: "◆ 可研究",
+            researched: "✓ 已完成"
+        };
+
+        return statusLabelsById[researchStatus] || researchStatus;
+    }
+
+    /**
+     * 取得研究按钮文案。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} researchStatus - 当前研究状态 ID。
+     * @param {string[]} missingTexts - 当前资源缺口文本数组。
+     * @returns {string} 精确描述完成、暂停、前置、缺口或可研究状态的按钮文案。
+     */
+    function getResearchButtonLabel(state, researchStatus, missingTexts) {
+        if (researchStatus === "researched") {
+            return "已完成";
+        }
+
+        if (researchStatus === "preview") {
+            return "需完成前置";
+        }
+
+        if (state.isPaused) {
+            return "已暂停";
+        }
+
+        if (researchStatus === "unaffordable") {
+            return missingTexts.length > 0 ? "缺少资源" : "资源不足";
+        }
+
+        return "研究";
+    }
+
+    /**
+     * 取得节点连接线类型，供主干、跨路线和特殊系统触发使用不同线型。
+     *
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @returns {"none"|"main"|"cross"|"special"} 连接线类型 ID。
+     */
+    function getTechnologyConnectionType(technologyDefinition) {
+        if (technologyDefinition.triggerConditions.length > 0) {
+            return "special";
+        }
+
+        // TechnologyId[] 全部展示父科技 ID：用于判断是否存在跨路线依赖。
+        var parentTechnologyIds = technologyDefinition.prerequisiteTechnologyIds.concat(technologyDefinition.alternativePrerequisiteTechnologyIds);
+
+        if (parentTechnologyIds.length === 0) {
+            return "none";
+        }
+
+        // number 父科技循环索引：遍历前置定义的整数下标。
+        for (var parentIndex = 0; parentIndex < parentTechnologyIds.length; parentIndex += 1) {
+            // TechnologyDefinition|null 父科技定义：用于比较路线 ID。
+            var parentTechnology = game.technology.getTechnologyDefinition(parentTechnologyIds[parentIndex]);
+
+            if (parentTechnology && parentTechnology.lineId !== technologyDefinition.lineId) {
+                return "cross";
+            }
+        }
+
+        return "main";
+    }
+
+    /**
+     * 取得首个未完成前置科技，供预览卡一次点击定位。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @returns {TechnologyId|null} 首个未完成父科技 ID；无需定位时返回 null。
+     */
+    function getFirstUnfinishedPrerequisiteTechnologyId(state, technologyDefinition) {
+        // number AND 前置循环索引：优先返回必须完成但尚未完成的父科技。
+        for (var prerequisiteIndex = 0; prerequisiteIndex < technologyDefinition.prerequisiteTechnologyIds.length; prerequisiteIndex += 1) {
+            // TechnologyId 前置科技 ID：用于检查完成状态。
+            var prerequisiteTechnologyId = technologyDefinition.prerequisiteTechnologyIds[prerequisiteIndex];
+
+            if (!hasTechnologyResearched(state, prerequisiteTechnologyId)) {
+                return prerequisiteTechnologyId;
+            }
+        }
+
+        if (technologyDefinition.alternativePrerequisiteTechnologyIds.length === 0 || areTechnologyPrerequisitesMet(state, technologyDefinition)) {
+            return null;
+        }
+
+        return technologyDefinition.alternativePrerequisiteTechnologyIds[0];
     }
 
     /**
@@ -5939,6 +7224,21 @@
      * @returns {void} 无返回值。
      */
     function renderApp(state, shouldForceTabRender) {
+        // NodeListOf<HTMLElement> 旧研究路线元素列表：重建标签页前分别记录横向滚动位置。
+        var existingResearchLaneElements = document.querySelectorAll(".research-lane[data-research-line-scroll-id]");
+
+        if (!game.runtime.researchScrollLeftByLineId) {
+            game.runtime.researchScrollLeftByLineId = {};
+        }
+
+        // number 路线循环索引：遍历当前图谱中的科研分类卡片。
+        for (var laneIndex = 0; laneIndex < existingResearchLaneElements.length; laneIndex += 1) {
+            // HTMLElement 路线元素：提供稳定路线 ID 与当前横向滚动像素值。
+            var existingResearchLaneElement = existingResearchLaneElements[laneIndex];
+
+            game.runtime.researchScrollLeftByLineId[existingResearchLaneElement.dataset.researchLineScrollId] = existingResearchLaneElement.scrollLeft;
+        }
+
         renderTopbar(state);
         renderResources(state);
         renderStatus(state);
