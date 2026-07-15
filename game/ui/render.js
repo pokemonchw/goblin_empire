@@ -6846,32 +6846,955 @@
      * @returns {HTMLElement} 建筑购买区元素。
      */
     function renderBuildingActions(state) {
-        // HTMLElement 区块元素：承载建筑购买行列表。
+        // HTMLElement 区块元素：承载建设总览、筛选、路线、建筑列表与建议。
         var sectionElement = document.createElement("section");
 
-        // HTMLElement 行列表元素：按资源卡片风格排列建筑行。
-        var listElement = document.createElement("div");
-
         sectionElement.appendChild(createTextElement("h3", game.text.TEXT_REGISTRY.ui.basicBuildings));
-        listElement.className = "building-list";
+        sectionElement.className = "building-workspace";
 
-        // number 循环索引：遍历建筑定义数组的整数下标。
-        for (var buildingIndex = 0; buildingIndex < game.definitions.BUILDING_DEFINITIONS.length; buildingIndex += 1) {
-            // BuildingDefinition 当前建筑定义：用于渲染购买行和效果。
-            var buildingDefinition = game.definitions.BUILDING_DEFINITIONS[buildingIndex];
+        // Object[] 全部已揭示建筑视图模型：完全隐藏建筑不进入统计或 DOM。
+        var allViewModels = game.buildingView.collectBuildingViewModels(state);
 
-            // BuildingState 建筑状态：用于读取解锁和拥有数量。
-            var buildingState = state.buildingsById[buildingDefinition.id];
+        synchronizeNewBuildingReveals(state, allViewModels);
 
-            if (!buildingState || !buildingState.isUnlocked) {
+        sectionElement.appendChild(renderBuildingOverview(state, allViewModels));
+        sectionElement.appendChild(renderBuildingFilters(allViewModels));
+        sectionElement.appendChild(renderBuildingRouteNavigation(allViewModels));
+
+        // HTMLElement 主体网格元素：左侧分组列表，右侧建设参谋。
+        var workspaceBodyElement = document.createElement("div");
+
+        workspaceBodyElement.className = "building-workspace-body";
+        workspaceBodyElement.appendChild(renderBuildingRouteGroups(state, allViewModels));
+        sectionElement.appendChild(workspaceBodyElement);
+        return sectionElement;
+    }
+
+    /**
+     * 渲染建设总览卡。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 建设总览卡元素。
+     */
+    function renderBuildingOverview(state, viewModels) {
+        // HTMLElement 总览卡元素：显示建设阶段核心指标和首要瓶颈。
+        var overviewElement = document.createElement("section");
+
+        // number 正式解锁建筑数：不包含接近解锁预览。
+        var unlockedCount = countBuildingModels(viewModels, function (viewModel) { return !viewModel.isPreview; });
+
+        // number 已拥有建筑总座数：累加所有建筑拥有数量，非负整数。
+        var ownedCount = sumBuildingOwned(viewModels);
+
+        // number 可立即建造数：状态为 available 的建筑数量。
+        var availableCount = countBuildingModels(viewModels, function (viewModel) { return viewModel.buildingViewStatus === "available"; });
+
+        // number 等待资源数：资源不足但等待可达的建筑数量。
+        var waitingCount = countBuildingModels(viewModels, function (viewModel) { return viewModel.buildingViewStatus === "unaffordable"; });
+
+        // number 前置未满数：接近解锁建筑数量。
+        var previewCount = countBuildingModels(viewModels, function (viewModel) { return viewModel.isPreview; });
+
+        // number 当前存活人口：用于显示住房使用量，非负整数。
+        var aliveCount = game.population.countAliveGoblins(state);
+
+        // number 当前住房上限：由建筑效果派生，非负整数。
+        var housingMax = game.population.calculateHousingMax(state);
+
+        // LaborBreakdown 劳力摘要：用于显示建筑占用、人口供给和过载状态。
+        var laborBreakdown = game.population.analyzeLaborBreakdown(state);
+
+        // string 首要建设瓶颈：由当前状态确定性推导。
+        var bottleneckText = getPrimaryBuildingBottleneck(state, viewModels);
+
+        overviewElement.className = "card building-overview";
+        overviewElement.appendChild(createTextElement("h4", "建设总览"));
+
+        // HTMLElement 指标网格元素：将六项高频建设指标保持在同一视线。
+        var metricsElement = document.createElement("div");
+
+        metricsElement.className = "building-overview-metrics";
+        metricsElement.appendChild(createTextElement("span", "已解锁 " + unlockedCount + " / " + game.definitions.BUILDING_DEFINITIONS.length));
+        metricsElement.appendChild(createTextElement("span", "拥有 " + ownedCount + " 座"));
+        metricsElement.appendChild(createTextElement("span", "住房 " + aliveCount + " / " + housingMax));
+        metricsElement.appendChild(createTextElement("span", "建筑劳力 " + formatNumber(laborBreakdown.adjustedBuildingUsageTotal) + " / " + formatNumber(laborBreakdown.populationLabor) + (laborBreakdown.isProductionLaborOverloaded ? "（过载）" : "")));
+        metricsElement.appendChild(createTextElement("span", "可建造 " + availableCount));
+        metricsElement.appendChild(createTextElement("span", "等待资源 " + waitingCount + "｜前置未满 " + previewCount));
+        overviewElement.appendChild(metricsElement);
+        // HTMLButtonElement 瓶颈定位按钮：只切换筛选并定位相关建筑，不执行购买。
+        var bottleneckButtonElement = document.createElement("button");
+
+        bottleneckButtonElement.type = "button";
+        bottleneckButtonElement.dataset.buildingBottleneckLocate = "true";
+        bottleneckButtonElement.textContent = "当前瓶颈：" + bottleneckText;
+        overviewElement.appendChild(bottleneckButtonElement);
+        return overviewElement;
+    }
+
+    /**
+     * 渲染建筑状态筛选按钮。
+     *
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 筛选按钮组元素。
+     */
+    function renderBuildingFilters(viewModels) {
+        // HTMLElement 筛选容器元素：承载封闭状态和叠加标记筛选。
+        var filterElement = document.createElement("div");
+
+        // Object[] 筛选定义数组：id 为运行时筛选值，name 为中文文案。
+        var filterDefinitions = [
+            { id: "all", name: "全部状态" }, { id: "available", name: "可建造" },
+            { id: "unaffordable", name: "资源不足" }, { id: "waiting", name: "等待可达" },
+            { id: "blocked", name: "当前不可达" }, { id: "preview", name: "接近解锁" },
+            { id: "owned", name: "已拥有" }, { id: "key", name: "关键建筑" }
+        ];
+
+        // string 当前筛选 ID：未设置时默认为 all。
+        var activeFilterId = game.runtime.buildingFilter || "all";
+
+        filterElement.className = "building-filter-bar";
+        filterElement.setAttribute("aria-label", "建筑状态筛选");
+
+        // number 筛选循环索引：遍历筛选定义的整数下标。
+        for (var filterIndex = 0; filterIndex < filterDefinitions.length; filterIndex += 1) {
+            // Object 当前筛选定义：包含 id 和 name。
+            var filterDefinition = filterDefinitions[filterIndex];
+
+            // HTMLButtonElement 筛选按钮元素：只修改运行时视图偏好。
+            var filterButtonElement = document.createElement("button");
+
+            filterButtonElement.type = "button";
+            filterButtonElement.dataset.buildingFilter = filterDefinition.id;
+            filterButtonElement.setAttribute("aria-pressed", String(activeFilterId === filterDefinition.id));
+            filterButtonElement.textContent = filterDefinition.name + " " + countBuildingModels(viewModels, getBuildingFilterPredicate(filterDefinition.id));
+            filterElement.appendChild(filterButtonElement);
+        }
+
+        // HTMLSelectElement 排序选择元素：切换当前视图排序，不写入游戏存档。
+        var sortSelectElement = document.createElement("select");
+
+        sortSelectElement.dataset.buildingSort = "true";
+        sortSelectElement.setAttribute("aria-label", "建筑排序方式");
+        appendSelectOption(sortSelectElement, "status", "状态优先", (game.runtime.buildingSort || "status") === "status");
+        appendSelectOption(sortSelectElement, "design", "设计顺序", game.runtime.buildingSort === "design");
+        appendSelectOption(sortSelectElement, "owned", "拥有数量", game.runtime.buildingSort === "owned");
+        filterElement.appendChild(sortSelectElement);
+        return filterElement;
+    }
+
+    /**
+     * 渲染六条建设路线导航。
+     *
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 路线导航元素。
+     */
+    function renderBuildingRouteNavigation(viewModels) {
+        // HTMLElement 路线导航元素：允许横向滚动并保持徽签完整。
+        var navigationElement = document.createElement("nav");
+
+        navigationElement.className = "building-route-navigation";
+        navigationElement.setAttribute("aria-label", "建设路线");
+
+        // number 路线循环索引：遍历路线定义的整数下标。
+        for (var routeIndex = 0; routeIndex < game.definitions.BUILDING_ROUTE_DEFINITIONS.length; routeIndex += 1) {
+            // BuildingRouteDefinition 当前路线定义：用于统计和显示路线徽签。
+            var routeDefinition = game.definitions.BUILDING_ROUTE_DEFINITIONS[routeIndex];
+
+            // Object[] 当前路线视图模型：用于计算揭示、拥有和可建造数量。
+            var routeModels = viewModels.filter(function (viewModel) { return viewModel.definition.routeId === routeDefinition.id; });
+
+            // HTMLButtonElement 路线按钮元素：再次点击当前路线恢复全部路线。
+            var routeButtonElement = document.createElement("button");
+
+            routeButtonElement.type = "button";
+            routeButtonElement.dataset.buildingRouteId = routeDefinition.id;
+            routeButtonElement.setAttribute("aria-pressed", String(game.runtime.buildingRouteId === routeDefinition.id));
+            routeButtonElement.textContent = routeDefinition.symbol + " " + routeDefinition.name + (game.runtime.newBuildingRouteIdsById[routeDefinition.id] ? " 新" : "") + " " + routeModels.length + "·拥有" + sumBuildingOwned(routeModels) + "·可建" + countBuildingModels(routeModels, function (viewModel) { return viewModel.buildingViewStatus === "available"; });
+            navigationElement.appendChild(routeButtonElement);
+        }
+
+        return navigationElement;
+    }
+
+    /**
+     * 渲染按路线分组的建筑主体列表。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 路线分组列表元素。
+     */
+    function renderBuildingRouteGroups(state, viewModels) {
+        // HTMLElement 分组容器元素：承载当前路线与筛选匹配的建筑行。
+        var groupsElement = document.createElement("div");
+
+        // Function 当前筛选谓词：只影响视图，不改变原始模型数组。
+        var filterPredicate = getBuildingFilterPredicate(game.runtime.buildingFilter || "all");
+
+        groupsElement.className = "building-route-groups";
+
+        // number 路线循环索引：按固定路线顺序生成分组。
+        for (var routeIndex = 0; routeIndex < game.definitions.BUILDING_ROUTE_DEFINITIONS.length; routeIndex += 1) {
+            // BuildingRouteDefinition 当前路线定义：用于标题和分组键。
+            var routeDefinition = game.definitions.BUILDING_ROUTE_DEFINITIONS[routeIndex];
+
+            if (game.runtime.buildingRouteId && game.runtime.buildingRouteId !== routeDefinition.id) {
                 continue;
             }
 
-            listElement.appendChild(renderBuildingRow(state, buildingDefinition, buildingState));
+            // Object[] 当前路线筛选后模型：随后按用户选择稳定排序。
+            var routeModels = viewModels.filter(function (viewModel) { return viewModel.definition.routeId === routeDefinition.id && filterPredicate(viewModel); });
+
+            if (routeModels.length <= 0) {
+                continue;
+            }
+
+            sortBuildingViewModels(routeModels, game.runtime.buildingSort || "status");
+            groupsElement.appendChild(renderBuildingRouteGroup(state, routeDefinition, routeModels));
         }
 
-        sectionElement.appendChild(listElement);
-        return sectionElement;
+        if (!groupsElement.firstChild) {
+            groupsElement.appendChild(createTextElement("p", "当前筛选下没有已揭示建筑。"));
+        }
+
+        return groupsElement;
+    }
+
+    /**
+     * 渲染单条建设路线分组。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {BuildingRouteDefinition} routeDefinition - 当前路线静态定义。
+     * @param {Object[]} routeModels - 当前路线筛选并排序后的模型数组。
+     * @returns {HTMLElement} 路线分组元素。
+     */
+    function renderBuildingRouteGroup(state, routeDefinition, routeModels) {
+        // HTMLElement 路线分组元素：包含标题、折叠按钮和建筑列表。
+        var groupElement = document.createElement("section");
+
+        // HTMLElement 分组标题元素：显示路线进度。
+        var headingElement = document.createElement("header");
+
+        // boolean 是否折叠：从运行时本地视图偏好读取。
+        var isCollapsed = Boolean(game.runtime.collapsedBuildingRoutesById && game.runtime.collapsedBuildingRoutesById[routeDefinition.id]);
+
+        // HTMLButtonElement 折叠按钮元素：使用 aria-expanded 表达状态。
+        var collapseButtonElement = document.createElement("button");
+
+        groupElement.className = "building-route-group building-route-" + routeDefinition.id;
+        headingElement.className = "building-route-heading";
+        headingElement.appendChild(createTextElement("strong", routeDefinition.symbol + " " + routeDefinition.name));
+        headingElement.appendChild(createTextElement("span", "已揭示 " + routeModels.length + "｜拥有 " + sumBuildingOwned(routeModels) + " 座｜可建造 " + countBuildingModels(routeModels, function (viewModel) { return viewModel.buildingViewStatus === "available"; })));
+        collapseButtonElement.type = "button";
+        collapseButtonElement.dataset.buildingRouteCollapseId = routeDefinition.id;
+        collapseButtonElement.setAttribute("aria-expanded", String(!isCollapsed));
+        collapseButtonElement.textContent = isCollapsed ? "展开" : "收起";
+        headingElement.appendChild(collapseButtonElement);
+        groupElement.appendChild(headingElement);
+
+        if (!isCollapsed) {
+            // HTMLElement 建筑列表元素：承载当前路线紧凑六区建筑行。
+            var listElement = document.createElement("div");
+
+            listElement.className = "building-list";
+
+            // number 模型循环索引：遍历当前路线建筑模型的整数下标。
+            for (var modelIndex = 0; modelIndex < routeModels.length; modelIndex += 1) {
+                listElement.appendChild(renderBuildingViewRow(state, routeModels[modelIndex]));
+            }
+
+            groupElement.appendChild(listElement);
+        }
+
+        return groupElement;
+    }
+
+    /**
+     * 渲染视图模型驱动的单个建筑行。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object} viewModel - 建筑视图模型，包含状态、价格、阻断和劳力风险。
+     * @returns {HTMLElement} 建筑行元素。
+     */
+    function renderBuildingViewRow(state, viewModel) {
+        // BuildingDefinition 建筑定义：用于显示身份、效果和静态展示标签。
+        var buildingDefinition = viewModel.definition;
+
+        // BuildingState 建筑状态：用于显示拥有和启用数量。
+        var buildingState = viewModel.state;
+
+        // HTMLElement 行元素：桌面为六区网格，窄屏为堆叠卡片。
+        var rowElement = document.createElement("article");
+
+        rowElement.className = "building-row building-status-" + viewModel.buildingViewStatus + (viewModel.isKeyBuilding ? " is-milestone" : "");
+        rowElement.id = "building-row-" + buildingDefinition.id;
+        rowElement.tabIndex = 0;
+
+        // HTMLElement 身份区元素：状态图形、建筑名和效果标签。
+        var identityElement = document.createElement("div");
+
+        identityElement.className = "building-identity";
+        identityElement.appendChild(createTextElement("span", getBuildingStatusSymbol(viewModel.buildingViewStatus)));
+        identityElement.appendChild(createTextElement("strong", buildingDefinition.name));
+
+        if (!viewModel.isPreview) {
+            // number 标签循环索引：遍历受控效果标签的整数下标。
+            for (var tagIndex = 0; tagIndex < buildingDefinition.effectTags.length; tagIndex += 1) {
+                // HTMLElement 标签元素：显示受控中文效果短标签。
+                var tagElement = createTextElement("span", game.buildingView.getEffectTagLabel(buildingDefinition.effectTags[tagIndex]));
+
+                tagElement.className = "building-effect-tag";
+                identityElement.appendChild(tagElement);
+            }
+        } else {
+            identityElement.appendChild(createTextElement("span", "用途剪影：" + game.buildingView.getEffectTagLabel(buildingDefinition.effectTags[0])));
+        }
+
+        // HTMLElement 成本区元素：预览行只显示具名前置，不泄露数值。
+        var costElement = document.createElement("div");
+
+        costElement.className = "building-cost";
+        costElement.textContent = viewModel.isPreview ? "前置：" + viewModel.unlockText : "所需：" + formatPriceList(viewModel.price);
+
+        if (!viewModel.isPreview && viewModel.waitInfo.entries.length > 0) {
+            // string[] 缺口文本数组：逐资源显示当前差额。
+            var missingTexts = game.resources.getMissingResourceTexts(state, viewModel.price);
+
+            // HTMLElement 缺口元素：紧邻完整价格显示。
+            var missingElement = createTextElement("span", "缺：" + missingTexts.join("，"));
+
+            missingElement.className = "building-missing";
+            costElement.appendChild(missingElement);
+        }
+
+        // HTMLElement 可用性区元素：明确区分等待、容量、来源、前置与暂停。
+        var availabilityElement = createTextElement("div", getBuildingAvailabilityLabel(viewModel));
+
+        availabilityElement.className = "building-availability";
+
+        // HTMLElement 操作区元素：承载建造和安全摧毁流程。
+        var actionsElement = document.createElement("div");
+
+        // HTMLButtonElement 建造按钮元素：状态按钮文案使用封闭集合。
+        var buyButtonElement = document.createElement("button");
+
+        actionsElement.className = "building-actions";
+        buyButtonElement.type = "button";
+        buyButtonElement.dataset.buildingId = buildingDefinition.id;
+        buyButtonElement.disabled = viewModel.buildingViewStatus !== "available";
+        buyButtonElement.textContent = getBuildingActionLabel(viewModel);
+        buyButtonElement.setAttribute("aria-label", "建造" + buildingDefinition.name);
+        actionsElement.appendChild(buyButtonElement);
+
+        if (!viewModel.isPreview && buildingState.owned > 0) {
+            appendBuildingDestroyControls(actionsElement, state, viewModel);
+        }
+
+        rowElement.appendChild(identityElement);
+        rowElement.appendChild(costElement);
+        rowElement.appendChild(availabilityElement);
+        rowElement.appendChild(actionsElement);
+
+        rowElement.appendChild(createBuildingViewTooltip(state, viewModel));
+
+        return rowElement;
+    }
+
+    /**
+     * 创建完整建筑浮窗；正式建筑包含原展开详情全部字段，预览建筑只包含允许公开的信息。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object} viewModel - 建筑视图模型。
+     * @returns {HTMLElement} 建筑浮窗元素。
+     */
+    function createBuildingViewTooltip(state, viewModel) {
+        // BuildingDefinition 建筑定义：用于读取介绍、效果、价格倍率和解锁内容。
+        var buildingDefinition = viewModel.definition;
+
+        // HTMLElement 浮窗元素：由鼠标悬停或键盘聚焦整行显示。
+        var tooltipElement = document.createElement("div");
+
+        // HTMLElement 明细列表元素：承载完整建筑信息键值行。
+        var listElement = document.createElement("dl");
+
+        tooltipElement.className = "building-tooltip";
+        tooltipElement.setAttribute("role", "tooltip");
+        tooltipElement.appendChild(createTextElement("h4", buildingDefinition.name));
+
+        if (viewModel.isPreview) {
+            appendTooltipDefinition(listElement, "用途剪影", game.buildingView.getEffectTagLabel(buildingDefinition.effectTags[0]));
+            appendTooltipDefinition(listElement, "解锁条件", viewModel.unlockText);
+            appendTooltipDefinition(listElement, "当前状态", "需完成前置；完整成本与效果将在正式解锁后显示");
+            tooltipElement.appendChild(listElement);
+            return tooltipElement;
+        }
+
+        appendTooltipDefinition(listElement, "建筑介绍", buildingDefinition.description);
+        appendTooltipDefinition(listElement, "拥有/启用", viewModel.state.owned + " / " + viewModel.state.active);
+        appendTooltipDefinition(listElement, "本次成本", formatPriceList(viewModel.price));
+        appendTooltipDefinition(listElement, "价格倍率", "x" + buildingDefinition.priceRatio.toFixed(2));
+        appendTooltipDefinition(listElement, "下次预估", formatPriceList(viewModel.nextPrice));
+        appendTooltipDefinition(listElement, "摧毁返还", formatPriceList(viewModel.refundPrice));
+        appendTooltipDefinition(listElement, "单座效果", formatBuildingEffects(buildingDefinition.effects));
+        appendTooltipDefinition(listElement, "当前累计", formatBuildingAccumulatedEffects(buildingDefinition.effects, viewModel.state.owned));
+        appendTooltipDefinition(listElement, "下一座", formatBuildingEffects(buildingDefinition.effects));
+        appendTooltipDefinition(listElement, "劳力占用", "单座 " + formatNumber(viewModel.laborUsage) + "；该类当前 " + formatNumber(viewModel.totalLaborUsage) + (viewModel.willOverloadLabor ? "；建造后将过载" : "；建造后不过载"));
+        appendTooltipDefinition(listElement, "解锁来源", viewModel.unlockText);
+        appendTooltipDefinition(listElement, "建成开放", formatUnlockBundle(buildingDefinition.unlock));
+        appendTooltipDefinition(listElement, "成本瓶颈", formatBuildingCostBottlenecks(state, viewModel));
+        appendTooltipDefinition(listElement, "摧毁风险", getBuildingDestroyRiskText(state, viewModel) + "；一次性解锁、成就与统计不会回滚");
+        tooltipElement.appendChild(listElement);
+        return tooltipElement;
+    }
+
+    /**
+     * 向操作区添加摧毁按钮或行内确认条。
+     *
+     * @param {HTMLElement} actionsElement - 建筑操作区元素，会被追加控件。
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object} viewModel - 建筑视图模型。
+     * @returns {void} 无返回值。
+     */
+    function appendBuildingDestroyControls(actionsElement, state, viewModel) {
+        // boolean 是否正在确认摧毁：运行时视图偏好只允许一个建筑进入确认。
+        var isConfirming = game.runtime.confirmDestroyBuildingId === viewModel.definition.id;
+
+        if (!isConfirming) {
+            // HTMLButtonElement 摧毁请求按钮：首次点击只打开确认条。
+            var destroyRequestButtonElement = document.createElement("button");
+
+            destroyRequestButtonElement.type = "button";
+            destroyRequestButtonElement.dataset.buildingDestroyRequestId = viewModel.definition.id;
+            destroyRequestButtonElement.disabled = state.isPaused;
+            destroyRequestButtonElement.textContent = state.isPaused ? "已暂停" : "摧毁";
+            destroyRequestButtonElement.className = "danger-button";
+            destroyRequestButtonElement.setAttribute("aria-label", "摧毁" + viewModel.definition.name);
+            actionsElement.appendChild(destroyRequestButtonElement);
+            return;
+        }
+
+        // HTMLElement 确认条元素：明确显示返还与容量、住房、生产风险。
+        var confirmationElement = createTextElement("span", "返还 " + formatPriceList(viewModel.refundPrice) + "；" + getBuildingDestroyRiskText(state, viewModel));
+
+        confirmationElement.className = "building-destroy-confirmation";
+        actionsElement.appendChild(confirmationElement);
+
+        // HTMLButtonElement 确认摧毁按钮：确认后才修改游戏状态。
+        var confirmButtonElement = document.createElement("button");
+
+        confirmButtonElement.type = "button";
+        confirmButtonElement.dataset.buildingDestroyId = viewModel.definition.id;
+        confirmButtonElement.textContent = "确认摧毁";
+        confirmButtonElement.className = "danger-button";
+        actionsElement.appendChild(confirmButtonElement);
+
+        // HTMLButtonElement 取消按钮：关闭确认条且不修改状态。
+        var cancelButtonElement = document.createElement("button");
+
+        cancelButtonElement.type = "button";
+        cancelButtonElement.dataset.buildingDestroyCancel = "true";
+        cancelButtonElement.textContent = "取消";
+        actionsElement.appendChild(cancelButtonElement);
+    }
+
+    /**
+     * 渲染建筑可点击详情层。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object} viewModel - 建筑视图模型。
+     * @returns {HTMLElement} 建筑详情层元素。
+     */
+    function renderBuildingDetails(state, viewModel) {
+        // HTMLElement 详情层元素：触屏和键盘均可读取完整信息。
+        var detailsElement = document.createElement("section");
+
+        // BuildingDefinition 建筑定义：用于读取效果、解锁与价格倍率。
+        var buildingDefinition = viewModel.definition;
+
+        detailsElement.className = "building-details";
+        detailsElement.appendChild(createTextElement("p", buildingDefinition.description));
+        detailsElement.appendChild(createTextElement("p", "拥有/启用：" + viewModel.state.owned + " / " + viewModel.state.active));
+        detailsElement.appendChild(createTextElement("p", "本次成本：" + formatPriceList(viewModel.price) + "｜倍率 x" + buildingDefinition.priceRatio.toFixed(2) + "｜下次预估：" + formatPriceList(viewModel.nextPrice)));
+        detailsElement.appendChild(createTextElement("p", "摧毁返还：" + formatPriceList(viewModel.refundPrice)));
+        detailsElement.appendChild(createTextElement("p", "单座/下一座增量：" + formatBuildingEffects(buildingDefinition.effects)));
+        detailsElement.appendChild(createTextElement("p", "当前累计效果：" + formatBuildingAccumulatedEffects(buildingDefinition.effects, viewModel.state.owned)));
+        detailsElement.appendChild(createTextElement("p", "劳力：单座 " + formatNumber(viewModel.laborUsage) + "｜该类当前 " + formatNumber(viewModel.totalLaborUsage) + (viewModel.willOverloadLabor ? "｜建造后将过载" : "｜建造后不过载")));
+        detailsElement.appendChild(createTextElement("p", "解锁来源：" + viewModel.unlockText + "｜建成开放：" + formatUnlockBundle(buildingDefinition.unlock)));
+        detailsElement.appendChild(createTextElement("p", "成本瓶颈：" + formatBuildingCostBottlenecks(state, viewModel)));
+        detailsElement.appendChild(createTextElement("p", "摧毁风险：" + getBuildingDestroyRiskText(state, viewModel) + "；一次性解锁、成就与统计不会回滚。"));
+        return detailsElement;
+    }
+
+    /**
+     * 渲染建设建议卡。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 建设建议卡元素。
+     */
+    function renderBuildingAdviceCard(state, viewModels) {
+        // string[] 建设建议数组：按生存、硬阻断、劳力、入口和来源优先级生成。
+        var adviceTexts = getBuildingAdviceTexts(state, viewModels);
+
+        // HTMLElement 建议卡元素：没有可靠建议时明确显示无明显瓶颈。
+        var adviceCardElement = document.createElement("section");
+
+        adviceCardElement.className = "card";
+        adviceCardElement.appendChild(createTextElement("h4", "建设建议"));
+
+        if (adviceTexts.length <= 0) {
+            adviceCardElement.appendChild(createTextElement("p", "当前没有明显建设瓶颈。"));
+        } else {
+            // HTMLOListElement 建议列表元素：最多包含三条可解释建议。
+            var adviceListElement = document.createElement("ol");
+
+            // number 建议循环索引：遍历建议文本的整数下标。
+            for (var adviceIndex = 0; adviceIndex < adviceTexts.length; adviceIndex += 1) {
+                // HTMLLIElement 建议列表项：承载只定位、不购买的建议按钮。
+                var adviceItemElement = document.createElement("li");
+
+                // HTMLButtonElement 建议定位按钮：点击后定位当前首个瓶颈或关键建筑。
+                var adviceButtonElement = document.createElement("button");
+
+                adviceButtonElement.type = "button";
+                adviceButtonElement.dataset.buildingAdviceLocate = "true";
+                adviceButtonElement.textContent = adviceTexts[adviceIndex];
+                adviceItemElement.appendChild(adviceButtonElement);
+                adviceListElement.appendChild(adviceItemElement);
+            }
+
+            adviceCardElement.appendChild(adviceListElement);
+        }
+
+        return adviceCardElement;
+    }
+
+    /**
+     * 渲染建筑工作台内的最近建设日志卡。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 最近建设日志卡元素。
+     */
+    function renderRecentBuildingLogCard(state) {
+        // HTMLElement 日志卡容器元素：保持在建筑工作台主体右侧或窄屏下方。
+        var logContainerElement = document.createElement("aside");
+
+        logContainerElement.className = "building-log-adviser";
+
+        // HTMLElement 日志卡元素：筛选当前日志中的建设、解锁和劳力记录。
+        var logCardElement = document.createElement("section");
+
+        logCardElement.className = "card";
+        logCardElement.appendChild(createTextElement("h4", "最近建设日志"));
+
+        // string[] 最近建设日志文本数组：最多保留五条，保持现有日期前缀。
+        var buildingLogTexts = getRecentBuildingLogTexts(state);
+
+        if (buildingLogTexts.length <= 0) {
+            logCardElement.appendChild(createTextElement("p", "尚无建设记录。"));
+        } else {
+            // HTMLOListElement 建设日志列表元素：显示筛选后的最近记录。
+            var buildingLogListElement = document.createElement("ol");
+
+            // number 日志循环索引：遍历最近建设记录的整数下标。
+            for (var logIndex = 0; logIndex < buildingLogTexts.length; logIndex += 1) {
+                buildingLogListElement.appendChild(createTextElement("li", buildingLogTexts[logIndex]));
+            }
+
+            logCardElement.appendChild(buildingLogListElement);
+        }
+
+        logContainerElement.appendChild(logCardElement);
+        return logContainerElement;
+    }
+
+    /**
+     * 在左侧重要状态下方渲染建设建议，并保持非建筑界面时隐藏。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {void} 无返回值；会重建侧栏建议容器内容。
+     */
+    function renderSidebarBuildingAdvice(state) {
+        // HTMLElement 侧栏建议容器：位于重要状态卡片之后。
+        var adviceContainerElement = document.getElementById("sidebar-building-advice");
+
+        // boolean 是否显示建设建议：仅地穴标签且新局模式选择完成后显示。
+        var shouldShowAdvice = state.activeTabId === "cavern" && !(game.challengesSystem && game.challengesSystem.isRunModeSelectionOpen(state));
+
+        adviceContainerElement.hidden = !shouldShowAdvice;
+        adviceContainerElement.innerHTML = "";
+
+        if (!shouldShowAdvice) {
+            return;
+        }
+
+        // Object[] 已揭示建筑视图模型：用于生成与原建筑工作台相同的确定性建议。
+        var viewModels = game.buildingView.collectBuildingViewModels(state);
+
+        adviceContainerElement.appendChild(renderBuildingAdviceCard(state, viewModels));
+        adviceContainerElement.appendChild(renderRecentBuildingLogCard(state));
+    }
+
+    /**
+     * 同步新揭示建筑基线、路线“新”标记与日志。
+     *
+     * @param {GameState} state - 当前游戏状态对象，新揭示时会追加重要日志。
+     * @param {Object[]} viewModels - 当前已揭示建筑视图模型数组。
+     * @returns {void} 无返回值；会更新运行时视图标记并在后续新揭示时写日志。
+     */
+    function synchronizeNewBuildingReveals(state, viewModels) {
+        if (!game.runtime.revealedBuildingIdsById) {
+            game.runtime.revealedBuildingIdsById = {};
+            // number 初始模型循环索引：建立首屏基线，避免把默认建筑当成新揭示。
+            for (var initialIndex = 0; initialIndex < viewModels.length; initialIndex += 1) {
+                game.runtime.revealedBuildingIdsById[viewModels[initialIndex].definition.id] = true;
+            }
+            return;
+        }
+
+        // number 模型循环索引：查找相对上次渲染新进入列表的建筑。
+        for (var modelIndex = 0; modelIndex < viewModels.length; modelIndex += 1) {
+            // Object 当前建筑模型：用于读取 ID、名称和所属路线。
+            var viewModel = viewModels[modelIndex];
+
+            if (!game.runtime.revealedBuildingIdsById[viewModel.definition.id]) {
+                game.runtime.revealedBuildingIdsById[viewModel.definition.id] = true;
+                game.runtime.newBuildingRouteIdsById[viewModel.definition.routeId] = true;
+                game.simulation.addLog(state, "important", "新的建筑接近可建造：" + viewModel.definition.name + "。");
+            }
+        }
+    }
+
+    /**
+     * 统计满足条件的建筑模型数量。
+     *
+     * @param {Object[]} viewModels - 建筑视图模型数组。
+     * @param {Function} predicate - 接收单个模型并返回 boolean 的筛选函数。
+     * @returns {number} 匹配模型数量，非负整数。
+     */
+    function countBuildingModels(viewModels, predicate) {
+        return viewModels.filter(predicate).length;
+    }
+
+    /**
+     * 累加建筑拥有总数。
+     *
+     * @param {Object[]} viewModels - 建筑视图模型数组。
+     * @returns {number} 已拥有建筑总座数，非负整数。
+     */
+    function sumBuildingOwned(viewModels) {
+        // number 拥有总数：累加每个运行时建筑状态的 owned 字段。
+        var ownedTotal = 0;
+
+        // number 模型循环索引：遍历模型数组的整数下标。
+        for (var modelIndex = 0; modelIndex < viewModels.length; modelIndex += 1) {
+            ownedTotal += viewModels[modelIndex].state ? viewModels[modelIndex].state.owned : 0;
+        }
+
+        return ownedTotal;
+    }
+
+    /**
+     * 获取指定建筑筛选的谓词函数。
+     *
+     * @param {string} filterId - 筛选稳定 ID。
+     * @returns {Function} 接收建筑视图模型并返回 boolean 的函数。
+     */
+    function getBuildingFilterPredicate(filterId) {
+        if (filterId === "available") { return function (viewModel) { return viewModel.buildingViewStatus === "available"; }; }
+        if (filterId === "unaffordable") { return function (viewModel) { return viewModel.buildingViewStatus === "unaffordable" || viewModel.buildingViewStatus === "blocked"; }; }
+        if (filterId === "waiting") { return function (viewModel) { return viewModel.buildingViewStatus === "unaffordable"; }; }
+        if (filterId === "blocked") { return function (viewModel) { return viewModel.buildingViewStatus === "blocked"; }; }
+        if (filterId === "preview") { return function (viewModel) { return viewModel.isPreview; }; }
+        if (filterId === "owned") { return function (viewModel) { return viewModel.state && viewModel.state.owned > 0; }; }
+        if (filterId === "key") { return function (viewModel) { return viewModel.isKeyBuilding; }; }
+        return function () { return true; };
+    }
+
+    /**
+     * 按用户选择稳定排序建筑模型。
+     *
+     * @param {Object[]} viewModels - 建筑视图模型数组，会被原地排序。
+     * @param {string} sortId - status、design 或 owned。
+     * @returns {void} 无返回值；副作用为修改数组顺序。
+     */
+    function sortBuildingViewModels(viewModels, sortId) {
+        // Object.<string, number> 状态权重字典：key 为封闭状态 ID，value 越小越靠前。
+        var statusOrderById = { available: 0, unaffordable: 1, blocked: 2, paused: 3, preview: 4, hidden: 5 };
+
+        viewModels.sort(function (leftModel, rightModel) {
+            if (sortId === "owned") {
+                return rightModel.state.owned - leftModel.state.owned || leftModel.definition.designOrder - rightModel.definition.designOrder;
+            }
+            if (sortId === "design") {
+                return leftModel.definition.designOrder - rightModel.definition.designOrder;
+            }
+            if (leftModel.buildingViewStatus === "unaffordable" && rightModel.buildingViewStatus === "unaffordable") {
+                return leftModel.waitInfo.seconds - rightModel.waitInfo.seconds || leftModel.definition.designOrder - rightModel.definition.designOrder;
+            }
+            return statusOrderById[leftModel.buildingViewStatus] - statusOrderById[rightModel.buildingViewStatus] || leftModel.definition.designOrder - rightModel.definition.designOrder;
+        });
+    }
+
+    /**
+     * 向选择框追加选项。
+     *
+     * @param {HTMLSelectElement} selectElement - 目标选择框，会被追加 option。
+     * @param {string} value - 选项稳定值。
+     * @param {string} label - 选项中文文案。
+     * @param {boolean} isSelected - true 表示当前选中；false 表示未选中。
+     * @returns {void} 无返回值。
+     */
+    function appendSelectOption(selectElement, value, label, isSelected) {
+        // HTMLOptionElement 选项元素：承载排序值与显示文案。
+        var optionElement = document.createElement("option");
+
+        optionElement.value = value;
+        optionElement.textContent = label;
+        optionElement.selected = isSelected;
+        selectElement.appendChild(optionElement);
+    }
+
+    /**
+     * 获取建筑状态图形符号。
+     *
+     * @param {string} statusId - 建筑封闭状态 ID。
+     * @returns {string} 不依赖颜色的状态图形。
+     */
+    function getBuildingStatusSymbol(statusId) {
+        // Object.<string, string> 状态符号字典：key 为状态 ID，value 为可读图形。
+        var symbolByStatusId = { available: "◆", unaffordable: "△", blocked: "×", preview: "◇", paused: "Ⅱ", hidden: "·" };
+
+        return symbolByStatusId[statusId] || "·";
+    }
+
+    /**
+     * 获取建筑可用性文字。
+     *
+     * @param {Object} viewModel - 建筑视图模型。
+     * @returns {string} 可用、等待时间或明确阻断原因。
+     */
+    function getBuildingAvailabilityLabel(viewModel) {
+        if (viewModel.isPreview) { return "需完成前置"; }
+        if (viewModel.buildingViewStatus === "paused") { return "已暂停"; }
+        if (viewModel.buildingViewStatus === "available") { return "可用"; }
+        if (viewModel.capacityBlockedResourceIds.length > 0) { return "容量受限：" + formatResourceIdList(viewModel.capacityBlockedResourceIds); }
+        if (viewModel.sourceBlockedResourceIds.length > 0) { return "无持续来源：" + formatResourceIdList(viewModel.sourceBlockedResourceIds); }
+        return "约 " + formatSecondsAsClock(viewModel.waitInfo.seconds);
+    }
+
+    /**
+     * 获取建筑主操作按钮封闭文案。
+     *
+     * @param {Object} viewModel - 建筑视图模型。
+     * @returns {string} 建造、缺少资源、容量受限、暂无来源、需完成前置或已暂停。
+     */
+    function getBuildingActionLabel(viewModel) {
+        if (viewModel.isPreview) { return "需完成前置"; }
+        if (viewModel.buildingViewStatus === "paused") { return "已暂停"; }
+        if (viewModel.buildingViewStatus === "available") { return "建造"; }
+        if (viewModel.capacityBlockedResourceIds.length > 0) { return "容量受限"; }
+        if (viewModel.sourceBlockedResourceIds.length > 0) { return "暂无来源"; }
+        return "缺少资源";
+    }
+
+    /**
+     * 格式化资源 ID 数组为中文名列表。
+     *
+     * @param {ResourceId[]} resourceIds - 资源稳定 ID 数组。
+     * @returns {string} 中文资源名顿号列表。
+     */
+    function formatResourceIdList(resourceIds) {
+        // string[] 资源名称数组：按输入顺序映射中文名。
+        var resourceNames = [];
+
+        // number 资源循环索引：遍历资源 ID 的整数下标。
+        for (var resourceIndex = 0; resourceIndex < resourceIds.length; resourceIndex += 1) {
+            // ResourceDefinition|null 资源定义：缺失时回退稳定 ID。
+            var resourceDefinition = game.resources.getResourceDefinition(resourceIds[resourceIndex]);
+
+            resourceNames.push(resourceDefinition ? resourceDefinition.name : resourceIds[resourceIndex]);
+        }
+
+        return resourceNames.join("、");
+    }
+
+    /**
+     * 格式化秒数为建筑等待时钟。
+     *
+     * @param {number} seconds - 非负等待秒数。
+     * @returns {string} HH:MM:SS 格式时间；非有限值返回不可达。
+     */
+    function formatSecondsAsClock(seconds) {
+        if (!Number.isFinite(seconds)) { return "不可达"; }
+        // number 总秒数：向上取整避免仍缺资源时显示零秒。
+        var totalSeconds = Math.max(0, Math.ceil(seconds));
+        // number 小时数：完整小时整数。
+        var hours = Math.floor(totalSeconds / 3600);
+        // number 分钟数：扣除小时后的完整分钟整数。
+        var minutes = Math.floor((totalSeconds % 3600) / 60);
+        // number 剩余秒数：0-59 整数。
+        var remainingSeconds = totalSeconds % 60;
+        return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(remainingSeconds).padStart(2, "0");
+    }
+
+    /**
+     * 格式化建筑累计效果。
+     *
+     * @param {Object.<string, number>} effects - 单座建筑效果字典。
+     * @param {number} ownedCount - 已拥有建筑数量，非负整数。
+     * @returns {string} 当前累计效果文本。
+     */
+    function formatBuildingAccumulatedEffects(effects, ownedCount) {
+        // Object.<string, number> 累计效果字典：key 与单座效果一致，value 乘拥有数量。
+        var accumulatedEffects = {};
+        // string[] 效果 ID 数组：用于遍历单座效果键。
+        var effectIds = Object.keys(effects);
+        // number 效果循环索引：遍历效果 ID 的整数下标。
+        for (var effectIndex = 0; effectIndex < effectIds.length; effectIndex += 1) {
+            // string 当前效果 ID：用于写入累计值。
+            var effectId = effectIds[effectIndex];
+            accumulatedEffects[effectId] = effects[effectId] * ownedCount;
+        }
+        return formatBuildingEffects(accumulatedEffects);
+    }
+
+    /**
+     * 格式化建筑建成后开放内容。
+     *
+     * @param {UnlockBundle} unlockBundle - 建筑解锁包。
+     * @returns {string} 标签页、资源、职业、配方等开放内容；无则返回无一次性开放。
+     */
+    function formatUnlockBundle(unlockBundle) {
+        // string[] 开放内容文本数组：按系统类别汇总稳定 ID。
+        var unlockTexts = [];
+        if ((unlockBundle.tabs || []).length > 0) { unlockTexts.push("标签页 " + unlockBundle.tabs.join("、")); }
+        if ((unlockBundle.resources || []).length > 0) { unlockTexts.push("资源 " + formatResourceIdList(unlockBundle.resources)); }
+        if ((unlockBundle.jobs || []).length > 0) { unlockTexts.push("职业 " + unlockBundle.jobs.join("、")); }
+        if ((unlockBundle.crafts || []).length > 0) { unlockTexts.push("配方 " + unlockBundle.crafts.join("、")); }
+        if ((unlockBundle.buildings || []).length > 0) { unlockTexts.push("建筑 " + unlockBundle.buildings.join("、")); }
+        return unlockTexts.length > 0 ? unlockTexts.join("；") : "无一次性开放";
+    }
+
+    /**
+     * 格式化成本瓶颈逐项说明。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object} viewModel - 建筑视图模型。
+     * @returns {string} 缺口、净产量、等待与容量说明。
+     */
+    function formatBuildingCostBottlenecks(state, viewModel) {
+        if (viewModel.waitInfo.entries.length <= 0) { return "资源已齐备"; }
+        // string[] 瓶颈明细数组：逐缺口资源生成可解释文本。
+        var bottleneckTexts = [];
+        // number 条目循环索引：遍历缺口资源的整数下标。
+        for (var entryIndex = 0; entryIndex < viewModel.waitInfo.entries.length; entryIndex += 1) {
+            // ResourceWaitEntry 当前缺口条目：读取差额、净产量和等待秒数。
+            var waitEntry = viewModel.waitInfo.entries[entryIndex];
+            // ResourceState|null 当前资源状态：用于显示容量上限。
+            var resourceState = state.resourcesById[waitEntry.resource] || null;
+            bottleneckTexts.push(formatResourceIdList([waitEntry.resource]) + "缺 " + formatNumber(waitEntry.missingAmount) + "，净产量 " + formatNumber(waitEntry.perSecond) + "/秒，" + (waitEntry.isReachable ? "约 " + formatSecondsAsClock(waitEntry.seconds) : "不可等待") + "，容量 " + (resourceState ? formatNumber(resourceState.maxValue) : "0"));
+        }
+        return bottleneckTexts.join("；");
+    }
+
+    /**
+     * 获取摧毁一座建筑的可逆效果风险说明。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object} viewModel - 建筑视图模型。
+     * @returns {string} 容量、住房、生产和劳力变化说明。
+     */
+    function getBuildingDestroyRiskText(state, viewModel) {
+        // string[] 风险文本数组：只列出当前建筑实际包含的关键可逆效果。
+        var riskTexts = [];
+        // Object.<string, number> 单座效果字典：用于识别风险类别。
+        var effects = viewModel.definition.effects;
+        if (effects.housingMax) { riskTexts.push("住房 -" + effects.housingMax + (game.population.countAliveGoblins(state) > game.population.calculateHousingMax(state) - effects.housingMax ? "（将低于人口）" : "")); }
+        if (viewModel.laborUsage > 0) { riskTexts.push("建筑劳力占用减少 " + formatNumber(viewModel.laborUsage)); }
+        if (Object.keys(effects).some(function (effectId) { return /Max$/.test(effectId); })) { riskTexts.push("资源容量降低，超额库存会被截断"); }
+        if (Object.keys(effects).some(function (effectId) { return /PerTick$|PerSecond$|OutputRatio$/.test(effectId); })) { riskTexts.push("持续生产能力降低"); }
+        return riskTexts.length > 0 ? riskTexts.join("；") : "无明显即时风险";
+    }
+
+    /**
+     * 获取当前首要建设瓶颈。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {string} 确定性瓶颈说明。
+     */
+    function getPrimaryBuildingBottleneck(state, viewModels) {
+        // number 当前人口数量：用于住房压力判断。
+        var aliveCount = game.population.countAliveGoblins(state);
+        // number 当前住房上限：用于住房压力判断。
+        var housingMax = game.population.calculateHousingMax(state);
+        if (housingMax <= aliveCount) { return "住房将满"; }
+        if (game.population.analyzeLaborBreakdown(state).isProductionLaborOverloaded) { return "劳力过载"; }
+        // number 模型循环索引：按设计顺序查找首个容量或来源阻断。
+        for (var modelIndex = 0; modelIndex < viewModels.length; modelIndex += 1) {
+            if (viewModels[modelIndex].capacityBlockedResourceIds.length > 0) { return formatResourceIdList(viewModels[modelIndex].capacityBlockedResourceIds) + "容量不足"; }
+            if (viewModels[modelIndex].sourceBlockedResourceIds.length > 0) { return "缺少" + formatResourceIdList(viewModels[modelIndex].sourceBlockedResourceIds) + "持续来源"; }
+        }
+        return "当前没有明显建设瓶颈";
+    }
+
+    /**
+     * 生成最多三条确定性建设建议。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {string[]} 建设建议文本数组，最多三条。
+     */
+    function getBuildingAdviceTexts(state, viewModels) {
+        // string[] 建议文本数组：按明确优先级追加并在三条时停止。
+        var adviceTexts = [];
+        // number 当前存活人口：用于判断住房阻断。
+        var aliveCount = game.population.countAliveGoblins(state);
+        // number 当前住房上限：用于判断住房阻断。
+        var housingMax = game.population.calculateHousingMax(state);
+        if (housingMax <= aliveCount) { adviceTexts.push("住房 " + aliveCount + "/" + housingMax + "，新的哥布林无法获得床位；可查看窝棚、洞室或黑铁居所。"); }
+        if (state.resourcesById.fungus && state.resourcesById.fungus.perSecond < 0 && adviceTexts.length < 3) { adviceTexts.push("菌菇净产量为 " + formatNumber(state.resourcesById.fungus.perSecond) + "/秒，库存会持续下降；可查看菌菇床、孢子沟或采菌职业。"); }
+        // LaborBreakdown 当前劳力摘要：用于判断建筑生产过载。
+        var laborBreakdown = game.population.analyzeLaborBreakdown(state);
+        if (laborBreakdown.isProductionLaborOverloaded && adviceTexts.length < 3) { adviceTexts.push("建筑劳力 " + formatNumber(laborBreakdown.adjustedBuildingUsageTotal) + "/" + formatNumber(laborBreakdown.populationLabor) + " 已过载，除菌菇床外生产停摆；可查看住房或劳力减免建筑。"); }
+        // number 模型循环索引：按定义顺序追加硬阻断、入口和来源建议。
+        for (var modelIndex = 0; modelIndex < viewModels.length && adviceTexts.length < 3; modelIndex += 1) {
+            // Object 当前建筑模型：用于检查容量、来源和关键入口。
+            var viewModel = viewModels[modelIndex];
+            if (viewModel.capacityBlockedResourceIds.length > 0) { adviceTexts.push(formatResourceIdList(viewModel.capacityBlockedResourceIds) + "容量阻断“" + viewModel.definition.name + "”的价格；可查看仓储运输路线。"); continue; }
+            if (viewModel.buildingViewStatus === "available" && viewModel.isKeyBuilding) { adviceTexts.push("关键建筑“" + viewModel.definition.name + "”当前可建，会开放新的核心系统；可定位后自行决定是否投入。"); continue; }
+            if (viewModel.sourceBlockedResourceIds.length > 0) { adviceTexts.push("“" + viewModel.definition.name + "”缺少" + formatResourceIdList(viewModel.sourceBlockedResourceIds) + "且暂无持续来源；可先查看对应生产建筑或科技。"); }
+        }
+        // number 资源循环索引：没有更高优先级建议时查找已满容量资源。
+        for (var resourceIndex = 0; resourceIndex < game.definitions.RESOURCE_DEFINITIONS.length && adviceTexts.length < 3; resourceIndex += 1) {
+            // ResourceDefinition 当前资源定义：用于读取运行时库存并推荐容量或消费出口。
+            var resourceDefinition = game.definitions.RESOURCE_DEFINITIONS[resourceIndex];
+            // ResourceState|null 当前资源状态：仅处理可见、受容量限制且已满仓的资源。
+            var resourceState = state.resourcesById[resourceDefinition.id] || null;
+            if (resourceState && resourceState.isVisible && resourceDefinition.isCapacityLimited && resourceState.maxValue > 0 && resourceState.value >= resourceState.maxValue) {
+                adviceTexts.push(resourceDefinition.name + "已满仓，后续持续产出会溢出；可查看仓储路线或对应消费出口。");
+            }
+        }
+        return adviceTexts.slice(0, 3);
+    }
+
+    /**
+     * 获取最近建设相关日志文本。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {string[]} 最近五条带既有日期前缀的建设日志。
+     */
+    function getRecentBuildingLogTexts(state) {
+        // string[] 建设日志文本数组：按现有日志新旧顺序筛选。
+        var logTexts = [];
+        // number 日志循环索引：遍历日志数组的整数下标。
+        for (var logIndex = 0; logIndex < state.logs.length && logTexts.length < 5; logIndex += 1) {
+            // Object 当前日志记录：包含 text 和日期字段。
+            var logEntry = state.logs[logIndex];
+            if (/建造|摧毁|建筑|劳力|解锁|开启/.test(logEntry.text)) { logTexts.push(logEntry.text); }
+        }
+        return logTexts;
     }
 
     /**
@@ -6983,9 +7906,10 @@
      * @param {BuildingDefinition} buildingDefinition - 建筑定义对象，用于读取介绍和效果。
      * @param {Price[]} price - 当前建造价格数组；amount 为非负资源数量。
      * @param {Price[]} refundPrice - 当前摧毁返还数组；amount 为非负资源数量。
+     * @param {BuildingState=} buildingState - 可选建筑运行时状态；提供时在浮窗显示拥有、启用和下一座信息。
      * @returns {HTMLElement} 建筑悬浮框元素。
      */
-    function createBuildingTooltip(buildingDefinition, price, refundPrice) {
+    function createBuildingTooltip(buildingDefinition, price, refundPrice, buildingState) {
         // HTMLElement 悬浮框元素：承载建筑介绍、成本和效果详情。
         var tooltipElement = document.createElement("div");
 
@@ -6996,6 +7920,10 @@
         tooltipElement.setAttribute("role", "tooltip");
         tooltipElement.appendChild(createTextElement("h4", buildingDefinition.name));
         appendTooltipDefinition(listElement, "建筑介绍", buildingDefinition.description);
+        if (buildingState) {
+            appendTooltipDefinition(listElement, "拥有/启用", buildingState.owned + " / " + buildingState.active);
+            appendTooltipDefinition(listElement, "下一座", formatBuildingEffects(buildingDefinition.effects));
+        }
         appendTooltipDefinition(listElement, "建筑成本", formatPriceList(price));
         appendTooltipDefinition(listElement, "摧毁返还", formatPriceList(refundPrice));
         appendTooltipDefinition(listElement, "建筑效果", formatBuildingEffects(buildingDefinition.effects));
@@ -7227,6 +8155,20 @@
         // NodeListOf<HTMLElement> 旧研究路线元素列表：重建标签页前分别记录横向滚动位置。
         var existingResearchLaneElements = document.querySelectorAll(".research-lane[data-research-line-scroll-id]");
 
+        // HTMLElement|null 旧建筑筛选栏：重建标签页前记录玩家当前横向滚动位置。
+        var existingBuildingFilterElement = document.querySelector(".building-filter-bar");
+
+        // HTMLElement|null 旧建筑路线栏：重建标签页前记录玩家当前横向滚动位置。
+        var existingBuildingRouteElement = document.querySelector(".building-route-navigation");
+
+        if (existingBuildingFilterElement) {
+            game.runtime.buildingFilterScrollLeft = existingBuildingFilterElement.scrollLeft;
+        }
+
+        if (existingBuildingRouteElement) {
+            game.runtime.buildingRouteScrollLeft = existingBuildingRouteElement.scrollLeft;
+        }
+
         if (!game.runtime.researchScrollLeftByLineId) {
             game.runtime.researchScrollLeftByLineId = {};
         }
@@ -7242,10 +8184,33 @@
         renderTopbar(state);
         renderResources(state);
         renderStatus(state);
+        renderSidebarBuildingAdvice(state);
         if (shouldForceTabRender || !shouldPreserveInteractiveTabDom()) {
             renderTabs(state);
+            restoreBuildingNavigationScrollPositions();
         }
         renderLogs(state);
+    }
+
+    /**
+     * 恢复建筑状态筛选栏和路线导航栏的横向滚动位置。
+     *
+     * @returns {void} 无返回值；存在对应元素时会写入其 scrollLeft。
+     */
+    function restoreBuildingNavigationScrollPositions() {
+        // HTMLElement|null 新建筑筛选栏：标签页重建后恢复之前的横向像素位置。
+        var buildingFilterElement = document.querySelector(".building-filter-bar");
+
+        // HTMLElement|null 新建筑路线栏：标签页重建后恢复之前的横向像素位置。
+        var buildingRouteElement = document.querySelector(".building-route-navigation");
+
+        if (buildingFilterElement) {
+            buildingFilterElement.scrollLeft = Math.max(0, Number(game.runtime.buildingFilterScrollLeft) || 0);
+        }
+
+        if (buildingRouteElement) {
+            buildingRouteElement.scrollLeft = Math.max(0, Number(game.runtime.buildingRouteScrollLeft) || 0);
+        }
     }
 
     /**

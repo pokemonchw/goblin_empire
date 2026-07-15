@@ -159,6 +159,11 @@
      */
 
     /**
+     * @typedef {string} BuildingRouteId
+     * 建设路线稳定 ID；取值为 survival、storage、industry、governance、military 或 abyss。
+     */
+
+    /**
      * @typedef {Object} BuildingDefinition
      * @property {BuildingId} id - 建筑稳定 ID。
      * @property {string} name - 中文显示名。
@@ -172,6 +177,19 @@
      * @property {number=} effects.weatherPositiveAmplificationRatio - 每个已拥有建筑放大资源产出正面天气的比例，范围通常为 0-1。
      * @property {UnlockBundle} unlock - 显示该建筑所需的解锁条件或默认解锁标记。
      * @property {BuildingUnlockRequirements=} unlockRequirements - 建筑显示前额外必须满足的运行时门槛。
+     * @property {BuildingRouteId} routeId - 建筑唯一主建设路线 ID。
+     * @property {string[]} effectTags - 受控效果标签 ID 数组，用于建筑行快速识别作用。
+     * @property {boolean} isMilestone - 是否为打开核心系统的里程碑建筑。
+     * @property {number} designOrder - 路线内稳定设计顺序，非负整数。
+     */
+
+    /**
+     * @typedef {Object} BuildingRouteDefinition
+     * @property {BuildingRouteId} id - 建设路线稳定 ID。
+     * @property {string} name - 路线中文显示名。
+     * @property {string} description - 路线职责说明。
+     * @property {string} symbol - 不依赖颜色的单字符路线标记。
+     * @property {number} order - 路线固定排序整数。
      */
 
     /**

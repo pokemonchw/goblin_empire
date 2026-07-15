@@ -1789,6 +1789,90 @@
         }
     ];
 
+    // BuildingRouteDefinition[] 建设路线定义：为建筑导航、分组和建议定位提供唯一分类来源。
+    var BUILDING_ROUTE_DEFINITIONS = [
+        { id: "survival", name: "生存繁衍", description: "食物、口粮、住房与环境调控。", symbol: "●", order: 1 },
+        { id: "storage", name: "仓储运输", description: "资源容量、搬运与劳力减免。", symbol: "■", order: 2 },
+        { id: "industry", name: "矿业工业", description: "采矿、燃料、冶炼与加工。", symbol: "◆", order: 3 },
+        { id: "governance", name: "知识治理", description: "粗识、账册、服从与制度入口。", symbol: "▲", order: 4 },
+        { id: "military", name: "军事祭祀", description: "掠夺、俘虏、战兽与祖灵。", symbol: "✦", order: 5 },
+        { id: "abyss", name: "深渊扩张", description: "魔晶、远征、裂隙与迁徙入口。", symbol: "◇", order: 6 }
+    ];
+
+    /**
+     * @typedef {Object} BuildingPresentationDefinition
+     * @property {BuildingRouteId} routeId - 建筑唯一主路线 ID。
+     * @property {string[]} effectTags - 受控效果标签 ID 数组。
+     * @property {boolean} isMilestone - 是否为核心系统入口。
+     */
+
+    // Object.<string, BuildingPresentationDefinition> 建筑展示定义字典：key 为 BuildingId，value 为路线、标签和里程碑配置。
+    var BUILDING_PRESENTATION_BY_ID = {
+        fungus_bed: { routeId: "survival", effectTags: ["food", "production"], isMilestone: false },
+        rotten_grove: { routeId: "survival", effectTags: ["production", "labor"], isMilestone: false },
+        mud_hut: { routeId: "survival", effectTags: ["housing", "unlock"], isMilestone: true },
+        spore_trench: { routeId: "survival", effectTags: ["food", "efficiency"], isMilestone: false },
+        drying_rack: { routeId: "storage", effectTags: ["storage", "production", "labor"], isMilestone: false },
+        cave_room: { routeId: "survival", effectTags: ["housing"], isMilestone: false },
+        barracks_cave: { routeId: "military", effectTags: ["housing", "military"], isMilestone: false },
+        drip_channel: { routeId: "survival", effectTags: ["food", "production", "labor"], isMilestone: false },
+        weather_totem: { routeId: "survival", effectTags: ["weather", "labor"], isMilestone: false },
+        spore_sluice: { routeId: "survival", effectTags: ["food", "storage", "weather"], isMilestone: false },
+        graffiti_wall: { routeId: "governance", effectTags: ["knowledge", "unlock", "labor"], isMilestone: true },
+        storage_pit: { routeId: "storage", effectTags: ["storage"], isMilestone: false },
+        witch_doctor_hut: { routeId: "governance", effectTags: ["knowledge", "obedience"], isMilestone: false },
+        wooden_storehouse: { routeId: "storage", effectTags: ["storage"], isMilestone: false },
+        hauling_post: { routeId: "storage", effectTags: ["production", "efficiency"], isMilestone: false },
+        shallow_mine: { routeId: "industry", effectTags: ["mining", "production", "labor"], isMilestone: false },
+        artisan_shed: { routeId: "governance", effectTags: ["crafting", "unlock", "labor"], isMilestone: true },
+        crude_furnace: { routeId: "industry", effectTags: ["smelting", "conversion", "labor"], isMilestone: false },
+        pulley_gallery: { routeId: "storage", effectTags: ["labor", "efficiency"], isMilestone: false },
+        rubble_yard: { routeId: "industry", effectTags: ["mining", "production", "labor"], isMilestone: false },
+        charcoal_kiln: { routeId: "industry", effectTags: ["fuel", "conversion", "labor"], isMilestone: false },
+        vent_shaft: { routeId: "storage", effectTags: ["weather", "production", "labor"], isMilestone: false },
+        beast_pen: { routeId: "military", effectTags: ["warbeast", "production", "labor"], isMilestone: false },
+        bad_wine_barrel: { routeId: "survival", effectTags: ["food", "obedience", "labor"], isMilestone: false },
+        chief_hall: { routeId: "governance", effectTags: ["obedience", "unlock", "labor"], isMilestone: true },
+        black_market: { routeId: "governance", effectTags: ["trade", "production", "labor"], isMilestone: false },
+        training_pit: { routeId: "military", effectTags: ["military", "efficiency"], isMilestone: false },
+        overseer_platform: { routeId: "governance", effectTags: ["obedience", "labor", "efficiency"], isMilestone: false },
+        weapon_shed: { routeId: "military", effectTags: ["military", "storage", "labor"], isMilestone: false },
+        captive_bed: { routeId: "military", effectTags: ["captive", "storage", "labor"], isMilestone: false },
+        brainwash_shed: { routeId: "military", effectTags: ["captive", "conversion", "labor"], isMilestone: false },
+        ledger_room: { routeId: "governance", effectTags: ["knowledge", "production", "labor"], isMilestone: false },
+        ancestral_altar: { routeId: "military", effectTags: ["faith", "unlock", "labor"], isMilestone: true },
+        underground_port: { routeId: "storage", effectTags: ["storage", "trade"], isMilestone: false },
+        tar_well: { routeId: "industry", effectTags: ["fuel", "production", "storage"], isMilestone: false },
+        deep_furnace: { routeId: "industry", effectTags: ["smelting", "conversion", "labor"], isMilestone: false },
+        black_iron_fortress: { routeId: "military", effectTags: ["military", "prestige", "unlock"], isMilestone: true },
+        black_iron_dwelling: { routeId: "survival", effectTags: ["housing", "military"], isMilestone: false },
+        rune_machine_room: { routeId: "governance", effectTags: ["knowledge", "conversion", "labor"], isMilestone: false },
+        war_camp: { routeId: "military", effectTags: ["military", "storage", "labor"], isMilestone: false },
+        abyss_gate: { routeId: "abyss", effectTags: ["abyss", "unlock", "labor"], isMilestone: true },
+        sacrifice_pit: { routeId: "abyss", effectTags: ["abyss", "faith", "risk"], isMilestone: false },
+        void_warehouse: { routeId: "abyss", effectTags: ["storage", "abyss"], isMilestone: false },
+        expedition_camp: { routeId: "abyss", effectTags: ["expedition", "storage"], isMilestone: false },
+        rift_anchor: { routeId: "abyss", effectTags: ["rift", "storage", "prestige"], isMilestone: false }
+    };
+
+    // number 建筑展示字段循环索引：将独立展示表按定义顺序合并到每个建筑定义，整数下标。
+    for (var buildingPresentationIndex = 0; buildingPresentationIndex < BUILDING_DEFINITIONS.length; buildingPresentationIndex += 1) {
+        // BuildingDefinition 当前建筑定义：补齐路线、标签、里程碑和稳定设计顺序。
+        var presentedBuildingDefinition = BUILDING_DEFINITIONS[buildingPresentationIndex];
+
+        // BuildingPresentationDefinition 建筑展示配置：必须与当前建筑稳定 ID 一一对应。
+        var buildingPresentation = BUILDING_PRESENTATION_BY_ID[presentedBuildingDefinition.id];
+
+        if (!buildingPresentation) {
+            throw new Error("建筑缺少展示定义：" + presentedBuildingDefinition.id);
+        }
+
+        presentedBuildingDefinition.routeId = buildingPresentation.routeId;
+        presentedBuildingDefinition.effectTags = buildingPresentation.effectTags.slice();
+        presentedBuildingDefinition.isMilestone = buildingPresentation.isMilestone;
+        presentedBuildingDefinition.designOrder = buildingPresentationIndex;
+    }
+
     // ResearchLineDefinition[] 正式研究路线定义：为图谱、筛选和其他系统提供唯一分类来源。
     var RESEARCH_LINE_DEFINITIONS = [
         {
@@ -6697,6 +6781,7 @@
         TAB_DEFINITIONS: TAB_DEFINITIONS,
         RESOURCE_DEFINITIONS: RESOURCE_DEFINITIONS,
         BUILDING_DEFINITIONS: BUILDING_DEFINITIONS,
+        BUILDING_ROUTE_DEFINITIONS: BUILDING_ROUTE_DEFINITIONS,
         RESEARCH_LINE_DEFINITIONS: RESEARCH_LINE_DEFINITIONS,
         RESEARCH_ERA_DEFINITIONS: RESEARCH_ERA_DEFINITIONS,
         RESEARCH_SPECIALIZATION_DEFINITIONS: RESEARCH_SPECIALIZATION_DEFINITIONS,

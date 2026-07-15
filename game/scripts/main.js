@@ -47,7 +47,25 @@
             // number 科研路线拖动起点滚动位置：单位为非负 CSS 像素。
             researchLaneDragStartScrollLeft: 0,
             // number 科研路线拖动指针 ID：用于保持同一鼠标指针的捕获。
-            researchLaneDragPointerId: -1
+            researchLaneDragPointerId: -1,
+            // string 建筑状态筛选 ID：只保存当前浏览偏好，不进入存档。
+            buildingFilter: "all",
+            // string 建筑聚焦路线 ID：空字符串表示显示全部路线。
+            buildingRouteId: "",
+            // string 建筑排序 ID：status 表示状态优先，design 表示设计顺序，owned 表示拥有数量。
+            buildingSort: "status",
+            // number 建筑状态筛选横向滚动位置：单位为非负 CSS 像素值。
+            buildingFilterScrollLeft: 0,
+            // number 建筑路线导航横向滚动位置：单位为非负 CSS 像素值。
+            buildingRouteScrollLeft: 0,
+            // Object.<string, boolean> 建筑路线折叠字典：key 为 BuildingRouteId，value true 表示折叠。
+            collapsedBuildingRoutesById: {},
+            // BuildingId|string 待确认摧毁建筑 ID：空字符串表示没有确认条。
+            confirmDestroyBuildingId: "",
+            // Object.<string, boolean>|null 已见建筑字典：首次渲染后用于识别新揭示建筑；null 表示尚未建立基线。
+            revealedBuildingIdsById: null,
+            // Object.<string, boolean> 路线新揭示标记字典：key 为 BuildingRouteId，value true 表示存在新建筑。
+            newBuildingRouteIdsById: {}
         };
 
         game.events.bindAllEvents();

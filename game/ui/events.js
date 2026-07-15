@@ -270,8 +270,54 @@
                 return;
             }
 
+            if (targetElement.dataset.buildingFilter) {
+                game.runtime.buildingFilter = targetElement.dataset.buildingFilter;
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingBottleneckLocate || targetElement.dataset.buildingAdviceLocate) {
+                game.runtime.buildingFilter = "all";
+                game.runtime.buildingRouteId = "";
+                renderAfterStateChange(currentState);
+                focusFirstBuildingBottleneck();
+                return;
+            }
+
+            if (targetElement.dataset.buildingRouteId) {
+                // BuildingRouteId 点击路线 ID：再次点击当前路线恢复全部路线。
+                var clickedBuildingRouteId = targetElement.dataset.buildingRouteId;
+
+                game.runtime.buildingRouteId = game.runtime.buildingRouteId === clickedBuildingRouteId ? "" : clickedBuildingRouteId;
+                game.runtime.newBuildingRouteIdsById[clickedBuildingRouteId] = false;
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingRouteCollapseId) {
+                // BuildingRouteId 折叠路线 ID：用于切换本地视图偏好。
+                var collapsedRouteId = targetElement.dataset.buildingRouteCollapseId;
+
+                game.runtime.collapsedBuildingRoutesById[collapsedRouteId] = !game.runtime.collapsedBuildingRoutesById[collapsedRouteId];
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingDestroyRequestId) {
+                game.runtime.confirmDestroyBuildingId = targetElement.dataset.buildingDestroyRequestId;
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingDestroyCancel) {
+                game.runtime.confirmDestroyBuildingId = "";
+                renderAfterStateChange(currentState);
+                return;
+            }
+
             if (targetElement.dataset.buildingDestroyId) {
                 game.buildings.destroyBuilding(currentState, targetElement.dataset.buildingDestroyId);
+                game.runtime.confirmDestroyBuildingId = "";
                 renderAfterStateChange(currentState);
                 return;
             }
@@ -513,10 +559,20 @@
         });
 
         tabContentElement.addEventListener("change", function (event) {
-            // HTMLSelectElement|null 变化目标：这里只处理掠夺随队战兽选择器。
+            // HTMLSelectElement|null 变化目标：处理建筑排序和掠夺随队战兽选择器。
             var targetElement = event.target;
 
-            if (!targetElement || !targetElement.dataset || !targetElement.dataset.raidWarbeastTargetId) {
+            if (!targetElement || !targetElement.dataset) {
+                return;
+            }
+
+            if (targetElement.dataset.buildingSort) {
+                game.runtime.buildingSort = targetElement.value;
+                renderAfterStateChange(game.runtime.state);
+                return;
+            }
+
+            if (!targetElement.dataset.raidWarbeastTargetId) {
                 return;
             }
 
@@ -569,6 +625,48 @@
             }
             scheduleResearchSearchRender(currentState);
         });
+    }
+
+    /**
+     * 绑定左侧建设建议定位事件。
+     *
+     * @returns {void} 无返回值。
+     */
+    function bindSidebarBuildingAdviceEvents() {
+        // HTMLElement 建设建议容器：使用事件委托处理每次渲染生成的建议按钮。
+        var adviceContainerElement = document.getElementById("sidebar-building-advice");
+
+        adviceContainerElement.addEventListener("click", function (event) {
+            // HTMLElement|null 点击目标：仅处理带建筑建议定位标记的按钮。
+            var targetElement = event.target;
+
+            if (!targetElement || !targetElement.dataset || !targetElement.dataset.buildingAdviceLocate) {
+                return;
+            }
+
+            // GameState 当前运行时状态：用于恢复完整建筑列表后执行定位。
+            var currentState = game.runtime.state;
+
+            game.runtime.buildingFilter = "all";
+            game.runtime.buildingRouteId = "";
+            game.render.renderApp(currentState);
+            focusFirstBuildingBottleneck();
+        });
+    }
+
+    /**
+     * 定位当前首个不可达、关键可建或住房建筑。
+     *
+     * @returns {void} 无返回值；存在目标时滚动并聚焦对应建筑行。
+     */
+    function focusFirstBuildingBottleneck() {
+        // HTMLElement|null 目标建筑行：按阻断、关键可建、住房标签的优先级选择。
+        var targetBuildingElement = document.querySelector(".building-status-blocked, .building-row.is-milestone.building-status-available, .building-route-survival .building-row");
+
+        if (targetBuildingElement) {
+            targetBuildingElement.scrollIntoView({ behavior: "smooth", block: "center" });
+            targetBuildingElement.focus({ preventScroll: true });
+        }
     }
 
     /**
@@ -1630,6 +1728,7 @@
         bindToolbarEvents();
         bindTabEvents();
         bindContentEvents();
+        bindSidebarBuildingAdviceEvents();
         bindInteractivePointerEvents();
         bindBuildingTooltipEvents();
         bindResourceTooltipEvents();

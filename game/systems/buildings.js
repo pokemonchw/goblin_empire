@@ -465,6 +465,7 @@
     game.buildings = {
         getBuildingDefinition: getBuildingDefinition,
         getBuildingPrice: getBuildingPrice,
+        getBuildingPriceForOwnedCount: getBuildingPriceForOwnedCount,
         getBuildingDestroyRefund: getBuildingDestroyRefund,
         canBuyBuilding: canBuyBuilding,
         buyBuilding: buyBuilding,

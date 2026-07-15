@@ -59,7 +59,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
     font: inherit;
 }
 
@@ -1028,6 +1029,247 @@ h3 {
     margin-left: 8px;
     color: var(--color-warn);
     overflow-wrap: anywhere;
+}
+
+/* 建筑工作台：总览、筛选、路线导航、六区建筑行与建设参谋共同组成高频管理界面。 */
+.building-workspace {
+    display: grid;
+    gap: 12px;
+}
+
+.building-overview {
+    border-left: 4px solid #b08a45;
+}
+
+.building-overview-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    gap: 6px 12px;
+}
+
+.building-filter-bar,
+.building-route-navigation {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.building-filter-bar button,
+.building-route-navigation button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.building-filter-bar [aria-pressed="true"],
+.building-route-navigation [aria-pressed="true"] {
+    box-shadow: 0 0 0 2px rgba(210, 177, 95, 0.55);
+    color: var(--color-link);
+}
+
+.building-filter-bar select {
+    margin-left: auto;
+    min-width: 112px;
+    min-height: 32px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-panel-soft);
+    padding: 5px 28px 5px 10px;
+    color: var(--color-text);
+    cursor: pointer;
+    color-scheme: dark;
+}
+
+.building-filter-bar select:hover,
+.building-filter-bar select:focus-visible {
+    border-color: var(--color-link);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(210, 177, 95, 0.35);
+}
+
+.building-filter-bar select option {
+    background: var(--color-panel-soft);
+    color: var(--color-text);
+}
+
+.building-workspace-body {
+    display: block;
+}
+
+.building-route-groups,
+.building-adviser {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+}
+
+.building-route-group {
+    border: 1px solid rgba(104, 91, 68, 0.65);
+    border-left: 5px solid #7f7663;
+    background: rgba(27, 25, 22, 0.35);
+}
+
+.building-route-survival { border-left-color: #73864b; }
+.building-route-storage { border-left-color: #8a7450; }
+.building-route-industry { border-left-color: #a4653f; }
+.building-route-governance { border-left-color: #b08a45; }
+.building-route-military { border-left-color: #934b43; }
+.building-route-abyss { border-left-color: #437b7a; }
+
+.building-route-heading {
+    display: grid;
+    grid-template-columns: minmax(110px, auto) minmax(160px, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    background: rgba(45, 41, 34, 0.72);
+}
+
+.building-route-heading span {
+    color: var(--color-muted);
+    font-size: 12px;
+}
+
+.building-route-group .building-list {
+    padding: 0 10px 6px;
+}
+
+.building-route-group .building-row {
+    grid-template-columns: minmax(170px, 1fr) minmax(220px, 1.35fr) minmax(130px, 0.7fr) minmax(118px, auto);
+    border-left: 3px solid transparent;
+    padding: 8px 4px;
+}
+
+.building-identity {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    align-items: center;
+}
+
+.building-effect-tag {
+    border: 1px solid rgba(145, 128, 91, 0.65);
+    border-radius: 3px;
+    padding: 1px 4px;
+    color: var(--color-muted);
+    font-size: 11px;
+}
+
+.building-status-available {
+    border-left-color: #7fa35b !important;
+}
+
+.building-status-blocked,
+.building-status-preview {
+    border-left-style: dashed !important;
+}
+
+.building-status-blocked .building-availability,
+.building-destroy-confirmation {
+    color: var(--color-warn);
+}
+
+.building-row.is-milestone {
+    background: rgba(176, 138, 69, 0.08);
+}
+
+.building-destroy-confirmation {
+    flex-basis: 100%;
+    font-size: 12px;
+}
+
+.building-adviser {
+    position: sticky;
+    top: 8px;
+}
+
+.sidebar-building-advice {
+    position: sticky;
+    top: 8px;
+    z-index: 5;
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.building-adviser .card,
+.sidebar-building-advice .card {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-panel-soft);
+    padding: 10px;
+}
+
+.sidebar-building-advice ol {
+    margin: 6px 0 0;
+    padding-left: 20px;
+}
+
+.sidebar-building-advice li + li {
+    margin-top: 7px;
+}
+
+.sidebar-building-advice button {
+    width: 100%;
+    border: 0;
+    padding: 2px 0;
+    background: transparent;
+    color: var(--color-text);
+    text-align: left;
+    white-space: normal;
+}
+
+.building-adviser ol {
+    margin: 6px 0 0;
+    padding-left: 20px;
+}
+
+.building-adviser li + li {
+    margin-top: 7px;
+}
+
+@media (max-width: 1600px) {
+    .building-adviser {
+        position: static;
+    }
+
+    .building-route-group .building-row {
+        grid-template-columns: minmax(160px, 1fr) minmax(210px, 1.3fr) minmax(120px, 0.7fr) auto;
+    }
+}
+
+@media (max-width: 760px) {
+    .building-overview-metrics,
+    .building-adviser {
+        grid-template-columns: 1fr;
+    }
+
+    .building-route-heading {
+        grid-template-columns: 1fr auto;
+    }
+
+    .building-route-heading span {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .building-route-group .building-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 10px;
+        padding: 10px 4px;
+    }
+
+    .building-route-group .building-identity,
+    .building-route-group .building-cost,
+    .building-route-group .building-actions {
+        grid-column: 1 / -1;
+    }
+
+    .building-route-group .building-actions {
+        justify-content: flex-start;
+    }
+
 }
 
 .cave-profile {
