@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>pending</title></head>
+<body>
+    <iframe id="game-frame" src="../index.html"></iframe>
+    <output id="result">pending</output>
+    <script>
+        // HTMLIFrameElement 测试游戏框架：隔离加载真实静态应用。
+        var gameFrameElement = document.getElementById("game-frame");
+        // HTMLOutputElement 测试结果：由无头浏览器读取 PASS 或失败原因。
+        var resultElement = document.getElementById("result");
+
+        /**
+         * 运行灭亡后建设指挥板恢复路径测试。
+         *
+         * @returns {void} 无返回值；会修改 iframe 内的测试状态并写入测试结论。
+         */
+        function runBuildingExtinctionTest() {
+            // Window 游戏窗口：用于读取运行时状态和系统入口。
+            var gameWindow = gameFrameElement.contentWindow;
+            // Document 游戏文档：用于检查主区域状态差分。
+            var gameDocument = gameFrameElement.contentDocument;
+            // Object 游戏命名空间：提供运行状态、灭亡结算和渲染入口。
+            var game = gameWindow.GoblinEmpire;
+            // HTMLButtonElement|null 正常模式按钮：先进入正式局以显示建设指挥板。
+            var initialModeButtonElement = gameDocument.querySelector("[data-normal-run-mode]");
+
+            if (initialModeButtonElement) {
+                initialModeButtonElement.click();
+            }
+
+            // boolean 初始建设指挥板是否存在：正式局必须显示建设入口。
+            var hadBuildingWorkspace = Boolean(gameDocument.querySelector(".building-workspace"));
+
+            game.runtime.state.challenges.runMode = "normal";
+            game.runtime.state.goblins = [];
+            game.runtime.state.captives = [];
+            game.runtime.state.warbeasts = [];
+            // boolean 是否成功触发灭亡重置：清空全部人口单位后必须为 true。
+            var wasExtinctionResolved = game.simulation.resolveExtinctionIfNeeded(game.runtime.state, Date.now());
+            game.render.renderApp(game.runtime.state, true);
+
+            // HTMLElement|null 灭亡卡片：必须在原建设区域解释指挥板关闭原因与恢复方式。
+            var extinctionCardElement = gameDocument.querySelector("[data-new-run-mode-card].is-extinction-notice");
+            // boolean 灭亡状态是否隐藏指挥板：未开始状态按交互合同不显示正式建设入口。
+            var isWorkspaceHiddenAfterExtinction = !gameDocument.querySelector(".building-workspace");
+            // boolean 灭亡提示是否明确具名建设指挥板：避免玩家误判为无错误的渲染丢失。
+            var hasClearExtinctionReason = Boolean(extinctionCardElement && /建设指挥板暂时关闭/.test(extinctionCardElement.textContent));
+            // HTMLButtonElement|null 新局正常模式按钮：点击后必须恢复正式地穴内容。
+            var restartModeButtonElement = gameDocument.querySelector("[data-normal-run-mode]");
+
+            if (restartModeButtonElement) {
+                restartModeButtonElement.click();
+            }
+
+            // boolean 重开后建设指挥板是否恢复：证明卡片并非永久丢失。
+            var isWorkspaceRestored = Boolean(gameDocument.querySelector(".building-workspace .building-command-body"));
+            // string 测试结论：包含每个关键状态差分，失败时便于定位。
+            var resultText = hadBuildingWorkspace && wasExtinctionResolved && isWorkspaceHiddenAfterExtinction && hasClearExtinctionReason && isWorkspaceRestored ? "PASS" : "FAIL:initial=" + hadBuildingWorkspace + ",resolved=" + wasExtinctionResolved + ",hidden=" + isWorkspaceHiddenAfterExtinction + ",notice=" + hasClearExtinctionReason + ",restored=" + isWorkspaceRestored + ",mode=" + game.runtime.state.challenges.runMode;
+
+            resultElement.textContent = resultText;
+            document.title = resultText;
+        }
+
+        gameFrameElement.addEventListener("load", runBuildingExtinctionTest);
+    </script>
+</body>
+</html>

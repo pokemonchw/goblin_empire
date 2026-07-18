@@ -59,7 +59,16 @@
             // string 资源 ID：用于读取资源状态。
             var resourceId = resourceIds[resourceIndex];
 
-            if (state.resourcesById[resourceId].value > 0 && resourceId !== "prestige" && resourceId !== "imperialLegacy" && resourceId !== "ancestralEcho") {
+            // ResourceDefinition|null 当前资源定义：用于区分开局基线库存与玩家取得的额外进度。
+            var resourceDefinition = game.definitions.RESOURCE_DEFINITIONS.find(function (candidateDefinition) {
+                return candidateDefinition.id === resourceId;
+            }) || null;
+
+            // number 开局资源基线：定义自带库存不代表玩家已经开始推进，单位为非负资源数量。
+            var initialResourceValue = resourceDefinition ? Number(resourceDefinition.initialValue) || 0 : 0;
+
+            // 俘虏库存是开局俘虏的派生投影；跨局资源和定义基线库存同样不能被误判为本局进度。
+            if (state.resourcesById[resourceId].value > initialResourceValue && resourceId !== "captive" && resourceId !== "prestige" && resourceId !== "imperialLegacy" && resourceId !== "ancestralEcho") {
                 return false;
             }
         }

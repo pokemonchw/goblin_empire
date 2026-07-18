@@ -960,10 +960,27 @@
         // HTMLElement 按钮行元素：承载正常模式按钮和所有挑战按钮。
         var buttonRowElement = document.createElement("div");
 
+        // boolean 是否刚因氏族灭亡回到新局：true 时必须在主操作区解释建设指挥板消失原因。
+        var hasExtinctionNotice = state.logs.some(function (logEntry) {
+            return logEntry.text.indexOf(game.text.TEXT_REGISTRY.logs.extinct) >= 0;
+        });
+
         cardElement.className = "action-card";
+        cardElement.dataset.newRunModeCard = "true";
         buttonRowElement.className = "toolbar";
-        cardElement.appendChild(createTextElement("h3", "新局模式"));
-        cardElement.appendChild(createTextElement("p", "选择正常模式进入标准地穴生存流程；选择挑战模式会立刻记录挑战规则和跨局奖励目标。"));
+        if (hasExtinctionNotice) {
+            // HTMLElement 灭亡状态提示：在建筑指挥板原所在主区域说明本局结束与恢复方式。
+            var extinctionNoticeElement = createTextElement("p", "最后的哥布林、俘虏和战兽都已死亡，本局已经结束，因此建设指挥板暂时关闭。选择一种新局模式后，建设指挥板会立即恢复。");
+
+            cardElement.classList.add("is-extinction-notice");
+            cardElement.setAttribute("role", "status");
+            extinctionNoticeElement.className = "new-run-extinction-notice";
+            cardElement.appendChild(createTextElement("h3", "氏族已灭亡 · 选择新局模式"));
+            cardElement.appendChild(extinctionNoticeElement);
+        } else {
+            cardElement.appendChild(createTextElement("h3", "新局模式"));
+            cardElement.appendChild(createTextElement("p", "选择正常模式进入标准地穴生存流程；选择挑战模式会立刻记录挑战规则和跨局奖励目标。"));
+        }
         buttonRowElement.appendChild(createNormalModeButton(state));
 
         // number 循环索引：遍历挑战定义数组的整数下标。
