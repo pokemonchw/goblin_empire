@@ -65,6 +65,12 @@
         // PriceWaitInfo 价格等待信息：区分可支付、等待可达和阻断。
         var waitInfo = game.resources.getPriceWaitInfo(state, price);
 
+        // GameState 诊断状态视图：暂停时只覆盖暂停标记，用于保留暂停前的等待可达性，不修改原状态。
+        var diagnosticState = state.isPaused ? Object.assign(Object.create(Object.getPrototypeOf(state)), state, { isPaused: false }) : state;
+
+        // PriceWaitInfo 决策等待信息：暂停时仍按权威库存、容量和最近净流量诊断，但界面不会倒计时。
+        var decisionWaitInfo = game.resources.getPriceWaitInfo(diagnosticState, price);
+
         // ResourceId[] 容量阻断资源 ID：价格超过容量上限的缺口资源。
         var capacityBlockedResourceIds = [];
 
@@ -72,9 +78,9 @@
         var sourceBlockedResourceIds = [];
 
         // number 等待条目循环索引：遍历每项缺口资源的整数下标。
-        for (var entryIndex = 0; entryIndex < waitInfo.entries.length; entryIndex += 1) {
+        for (var entryIndex = 0; entryIndex < decisionWaitInfo.entries.length; entryIndex += 1) {
             // ResourceWaitEntry 当前等待条目：用于判定具体阻断原因。
-            var waitEntry = waitInfo.entries[entryIndex];
+            var waitEntry = decisionWaitInfo.entries[entryIndex];
 
             // ResourceState|null 缺口资源状态：用于读取容量上限。
             var missingResourceState = state.resourcesById[waitEntry.resource] || null;
@@ -111,9 +117,11 @@
             nextPrice: game.buildings.getBuildingPriceForOwnedCount(state, buildingDefinition, (buildingState ? buildingState.owned : 0) + 1),
             refundPrice: game.buildings.getBuildingDestroyRefund(state, buildingDefinition),
             waitInfo: waitInfo,
+            decisionWaitInfo: decisionWaitInfo,
             capacityBlockedResourceIds: capacityBlockedResourceIds,
             sourceBlockedResourceIds: sourceBlockedResourceIds,
-            willOverloadLabor: laborUsageAfterPurchase > laborBreakdown.populationLabor,
+            // 零劳力建筑不会加剧既有过载，因此不要求玩家重复确认无关风险。
+            willOverloadLabor: laborUsage > 0 && laborUsageAfterPurchase > laborBreakdown.populationLabor,
             laborUsage: laborUsage,
             totalLaborUsage: laborUsage * (buildingState ? buildingState.active : 0) * (1 - laborBreakdown.reductionRatio),
             unlockText: getBuildingUnlockText(state, buildingDefinition)

@@ -23,7 +23,24 @@ Use the planning documents as product requirements.
 - `策划案/03_资源建筑职业系统.md` defines resources, production chains, buildings, jobs, and numeric direction.
 - `策划案/04_科技外交信仰与重置.md` defines technology, workshop upgrades, diplomacy, sacrifice/faith, prestige reset, and challenge modes.
 - `策划案/05_界面交互与开发落地规格.md` defines UI structure, save-data shape, unlock rules, formulas, and development milestones.
+- `策划案/07_完整交互设计策划案.md` is the mandatory and authoritative interaction contract for every interface implementation or change. Before editing UI rendering, events, controls, focus behavior, refresh boundaries, responsive behavior, or accessibility, read the relevant section and implement its state differences and acceptance criteria exactly.
 - Do not copy Kittens Game theme text, cat-specific resources, or original assets into Goblin Empire features. Borrow system structure only.
+
+## Mandatory Interaction Design Compliance
+
+- Every interface design and implementation must follow `策划案/07_完整交互设计策划案.md`. This requirement is mandatory; existing code behavior, implementation convenience, or a visual mockup may not override that document.
+- Before changing any UI, identify the relevant interaction-spec section and its refresh boundary. If the requested behavior is not covered or conflicts with the current specification, update the interaction design document in the same change before or together with the code.
+- Periodic simulation rendering must never replace a focused input, textarea, select, composition target, open interactive popover, or pointer-down target. Input-driven refreshes must replace only the smallest result container defined by the interaction specification.
+- Recreating an input and restoring focus or the caret afterward is forbidden as a substitute for preserving the original DOM node; it breaks continuous typing and IME composition.
+- UI changes are incomplete until their interaction-spec acceptance cases have been checked. For input controls, validation must cover continuous typing across multiple automatic ticks, mid-string caret editing, IME composition, deletion, focus retention, and correct result updates.
+
+## Mandatory Visual Consistency
+
+- All components must use one coherent visual language. This is a mandatory project constraint, not an optional polish pass.
+- Components with the same role must share the same typography, sizing, spacing, border treatment, corner radius, background, foreground, hover, focus, active, disabled, and validation states unless the interaction design explicitly documents a meaningful semantic difference.
+- Reuse shared component classes and design tokens before adding page-specific styling. Page-specific selectors may control layout, but must not silently redefine the visual theme of a shared control such as a button, search field, text input, select, card, list row, inspector, tooltip, or status marker.
+- Any intentional visual exception must be documented in `策划案/07_完整交互设计策划案.md` with its semantic reason and acceptance criteria. Implementation convenience is not a valid reason for divergence.
+- UI work is incomplete until touched components have been compared against equivalent components on other pages in default, hover, keyboard-focus, active, disabled, and responsive states.
 
 ## Goblin Empire Implementation Style
 
@@ -268,6 +285,17 @@ Build a usable management interface, not a landing page.
 
 - In new Goblin Empire code, centralize player-facing strings if the implementation has a localization layer. If not, keep strings easy to extract later.
 - Do not mix internal IDs with display text. IDs should remain stable even if Chinese names are revised.
+
+## Mandatory Player-Facing Display Names
+
+- Player-visible text must never expose an internal stable ID. This is a mandatory release constraint covering every panel, decision queue, inspector, tooltip, popover, button, cost line, missing-resource message, capacity warning, reward summary, event log, validation message, accessibility label, tutorial, and empty/error state.
+- Resource IDs such as `crudeKnowledge`, `rottenWood`, or `manaCrystal` must always be resolved through the authoritative resource definition/display-name helper before rendering. The same rule applies to technologies, buildings, jobs, policies, recipes, factions, species, traits, routes, tabs, effects, and every other ID-backed domain object.
+- Player-facing formatting helpers must return the registered, non-empty Chinese display name. Placeholder names such as `未知资源`、`未知科技`、`未知内容` or equivalent generic fallbacks are forbidden, and falling back to the raw ID is also forbidden.
+- Raw IDs are allowed only in source data, save data, DOM `data-*` attributes, programmatic keys, developer-console diagnostics, thrown development errors, and automated-test diagnostics that are not shown in the game interface.
+- Do not build player text by directly concatenating fields named `id`, `resourceId`, `technologyId`, `buildingId`, `jobId`, `routeId`, `effectId`, `priceEntry.resource`, dictionary keys, or equivalent stable identifiers. Resolve each value through its domain definition registry first.
+- A missing display-name mapping is a blocking data/configuration defect. The relevant formatting or validation helper must throw a development-visible error containing the internal ID, and the missing authoritative Chinese name must be added to the corresponding definition/text registry in the same change. Do not render a placeholder, silently skip the field, catch-and-ignore the error, or defer the naming fix.
+- Every ID-backed definition that can reach player-visible UI must have a non-empty display name containing Chinese characters. Static initialization or an automated validation test must reject missing definitions, blank names, ASCII-only names, and duplicate registry omissions before the interface is considered valid.
+- UI changes are incomplete until touched views have been searched and tested for raw-ID leakage in normal, insufficient-resource, capacity-blocked, locked, reward, error, preview, and legacy-save states.
 
 ## Validation
 

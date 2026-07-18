@@ -162,29 +162,48 @@ h3 {
     gap: 8px;
 }
 
+.game-search-input,
 .toolbar input[type="search"] {
+    appearance: none;
+    width: 100%;
     min-width: min(220px, 100%);
-    min-height: 32px;
+    height: 38px;
     border: 1px solid var(--color-border);
-    border-radius: 4px;
+    border-radius: 6px;
     outline: none;
-    padding: 6px 10px;
+    padding: 8px 34px 8px 10px;
     background: var(--color-panel-soft);
     color: var(--color-text);
+    caret-color: var(--color-link);
+    font: inherit;
+    line-height: 1.25;
+    transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
 }
 
+.game-search-input::placeholder,
 .toolbar input[type="search"]::placeholder {
     color: var(--color-muted);
     opacity: 0.82;
 }
 
+.game-search-input:hover,
 .toolbar input[type="search"]:hover {
     border-color: #746443;
+    background: #302d27;
 }
 
+.game-search-input:focus-visible,
 .toolbar input[type="search"]:focus-visible {
     border-color: var(--color-link);
     box-shadow: 0 0 0 2px rgba(210, 177, 95, 0.28);
+}
+
+.game-search-input::-webkit-search-cancel-button,
+.toolbar input[type="search"]::-webkit-search-cancel-button {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    filter: invert(78%) sepia(16%) saturate(575%) hue-rotate(358deg) brightness(90%);
 }
 
 .save-transfer-panel {
@@ -623,6 +642,42 @@ h3 {
     border-left: 4px solid #b08a45;
 }
 
+/* 研究工作台：复用建筑目录的单列扫描与固定检查器。 */
+.research-workspace, .research-catalog, .research-route-groups, .research-catalog-list, .research-inspector { display: grid; gap: 9px; }
+.research-command-toolbar { display: flex; gap: 8px; }
+.research-command-toolbar input { min-width: 0; }
+.research-command-body { display: grid; grid-template-columns: minmax(0, 58fr) minmax(280px, 42fr); gap: 14px; align-items: start; }
+.research-catalog-filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 3px; }
+.research-catalog-filters button { flex: 0 0 auto; }
+.research-catalog-filters button[aria-pressed="true"] { border-color: #c8a65f; color: #efd58e; }
+.research-decision-queue, .research-decision-section { display: grid; gap: 8px; }
+.research-decision-queue > p, .research-decision-section h4, .research-decision-section p { margin: 0; }
+.research-decision-section { padding: 9px; border-left: 5px solid #8e7548; background: rgba(27, 25, 22, 0.45); }
+.research-catalog-route { border-left: 5px solid var(--research-line-color, #7f7663); padding: 9px; background: rgba(27, 25, 22, 0.45); }
+.research-catalog-route h4, .research-catalog-route > p { margin: 0 0 6px; }
+.research-catalog-route > p, .research-catalog-slip small { color: var(--color-muted); font-size: 12px; }
+.research-slip-entry { position: relative; }
+.research-catalog-slip { display: grid; grid-template-columns: 24px minmax(120px, 1fr) auto; gap: 4px 10px; width: 100%; padding: 8px 10px; border-left: 4px solid var(--research-line-color, #7f7663); text-align: left; }
+.research-catalog-slip small:first-of-type { grid-column: 2; }
+.research-catalog-slip small:last-of-type { grid-column: 3; text-align: right; }
+.research-catalog-slip .research-decision-explanation { grid-column: 2 / -1; text-align: left; }
+.research-catalog-slip[aria-current="true"] { box-shadow: 0 0 0 2px var(--research-line-color, #b08a45); }
+.research-catalog-slip.is-preview { border-style: dashed; opacity: 0.72; }
+.research-catalog-slip.is-available { border-bottom-color: #789356; }
+.research-inspector { position: sticky; top: 8px; border: 1px solid rgba(118, 105, 79, 0.75); border-left: 5px solid var(--research-line-color, #7f7663); padding: 12px; background: #25231f; }
+.research-inspector h3, .research-inspector p, .research-inspector dl { margin: 0; }
+.research-inspector dl { display: grid; gap: 7px; }
+.research-inspector dl div { display: grid; grid-template-columns: 82px 1fr; gap: 8px; }
+.research-inspector dt { color: var(--color-muted); }
+.research-inspector-relations { display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (max-width: 760px) {
+    .research-command-body { grid-template-columns: 1fr; }
+    .research-inspector { position: static; }
+    .research-catalog-slip { grid-template-columns: 22px minmax(0, 1fr); }
+    .research-catalog-slip > span:nth-of-type(2), .research-catalog-slip small:last-of-type { grid-column: 2; text-align: left; }
+}
+
 .research-line-navigation {
     display: grid;
     grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -1031,10 +1086,292 @@ h3 {
     overflow-wrap: anywhere;
 }
 
-/* 建筑工作台：总览、筛选、路线导航、六区建筑行与建设参谋共同组成高频管理界面。 */
+/* 建设指挥板：决策队列、建筑图鉴与固定检查器共同组成高频管理界面。 */
 .building-workspace {
     display: grid;
+    gap: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 7px;
+    background: var(--color-panel-soft);
+    padding: 12px;
+}
+
+.building-command-heading {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    align-items: baseline;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 8px;
+}
+
+.building-command-heading h3 {
+    margin: 0;
+}
+
+.building-command-heading span {
+    font-variant-numeric: tabular-nums;
+}
+
+.building-command-heading small {
+    flex-basis: 100%;
+    color: var(--color-muted);
+}
+
+.building-command-body {
+    display: grid;
+    grid-template-columns: minmax(0, 58fr) minmax(300px, 42fr);
     gap: 12px;
+    align-items: start;
+}
+
+.building-command-body.is-catalog-view {
+    display: block;
+}
+
+.building-decision-queue,
+.building-catalog {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+}
+
+.building-queue-section {
+    display: grid;
+    gap: 6px;
+}
+
+.building-queue-section h4,
+.building-catalog-route h4 {
+    margin: 0;
+    font-size: 14px;
+}
+
+.building-queue-section > p {
+    margin: 0;
+    padding: 8px 10px;
+    color: var(--color-muted);
+    font-size: 12px;
+}
+
+.building-blueprint-slip {
+    display: grid;
+    grid-template-columns: 18px minmax(90px, 1fr) minmax(92px, auto);
+    grid-template-rows: auto auto;
+    gap: 3px 8px;
+    min-height: 56px;
+    border: 1px solid var(--color-border);
+    border-left: 2px solid #88795b;
+    border-radius: 3px;
+    background: rgba(28, 27, 23, 0.72);
+    padding: 7px 10px;
+    color: var(--color-text);
+    text-align: left;
+    transition: border-color 140ms ease;
+}
+
+.building-blueprint-entry {
+    position: relative;
+    min-width: 0;
+}
+
+.building-blueprint-entry > .building-blueprint-slip {
+    width: 100%;
+}
+
+.building-blueprint-slip:hover,
+.building-blueprint-slip:focus-visible,
+.building-blueprint-slip[aria-current="true"] {
+    border-color: var(--color-link);
+    outline: none;
+}
+
+.building-blueprint-slip.building-status-available { border-left-color: #789356 !important; }
+.building-blueprint-slip.building-status-unaffordable { border-left-color: #a78951 !important; }
+.building-blueprint-slip.building-status-blocked { border-left-color: #9c574b !important; }
+.building-blueprint-slip.building-status-preview,
+.building-blueprint-slip.building-status-paused { border-left-color: #77776d !important; }
+
+.building-slip-symbol { grid-row: 1 / 3; color: var(--color-muted); }
+.building-slip-action,
+.building-slip-bottleneck { text-align: right; }
+.building-blueprint-slip small { color: var(--color-muted); font-size: 11px; }
+.building-slip-action { font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.building-detail-panel {
+    position: sticky;
+    top: 8px;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.building-detail-panel.is-build-success {
+    animation: building-success-pulse 420ms ease-out;
+}
+
+@keyframes building-success-pulse {
+    0%, 100% { border-color: var(--color-border); }
+    45% { border-color: #789356; }
+}
+
+.building-live-result {
+    color: #91a96a;
+}
+
+.building-catalog-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.building-catalog-filters button[aria-pressed="true"] {
+    border-color: var(--color-link);
+    color: var(--color-link);
+}
+
+.building-catalog-route {
+    display: grid;
+    gap: 8px;
+    border-left: 2px solid #756d5b;
+    padding-left: 8px;
+}
+
+.building-catalog-list {
+    display: grid;
+    gap: 4px;
+}
+
+.building-blueprint-slip.is-catalog-row {
+    grid-template-columns: 18px minmax(130px, 1.2fr) minmax(110px, 0.8fr) minmax(80px, 0.6fr) minmax(130px, 1fr);
+    grid-template-rows: auto;
+    min-height: 44px;
+    align-items: center;
+    cursor: default;
+    user-select: none;
+}
+
+.is-catalog-row .building-slip-symbol { grid-row: auto; }
+.is-catalog-row .building-slip-action,
+.is-catalog-row .building-slip-bottleneck { text-align: right; }
+
+.building-catalog-empty {
+    border: 1px dashed var(--color-border);
+    padding: 12px;
+}
+
+.building-toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto;
+    gap: 8px;
+}
+
+.building-toolbar input {
+    min-width: 0;
+}
+
+.building-master-detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+    gap: 12px;
+    align-items: stretch;
+}
+
+.building-district-grid {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: visible;
+}
+
+.building-district-grid button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    border-radius: 999px;
+    padding: 5px 10px;
+    text-align: center;
+}
+
+.building-district-grid button span {
+    color: var(--color-muted);
+}
+
+.building-district-grid button small {
+    color: var(--color-warn);
+}
+
+.building-detail-panel {
+    min-width: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-panel-soft);
+    padding: 12px;
+}
+
+.building-detail-panel h4 {
+    margin-top: 0;
+}
+
+.building-detail-close {
+    display: none;
+}
+
+.building-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.building-detail-actions > button {
+    flex: 1 1 120px;
+}
+
+.building-cost-ledger {
+    display: grid;
+    gap: 5px;
+    margin: 12px 0;
+}
+
+.building-cost-ledger h5,
+.building-detail-panel h5 {
+    margin: 0;
+}
+
+.building-cost-ledger > div {
+    display: grid;
+    grid-template-columns: minmax(70px, 1fr) minmax(105px, auto) minmax(100px, auto);
+    gap: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.building-cost-ledger > div span:nth-child(n + 2) {
+    text-align: right;
+}
+
+.industry-chain {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-panel-soft);
+    padding: 10px;
+}
+
+.industry-chain p:first-of-type {
+    color: var(--color-link);
+    font-variant-numeric: tabular-nums;
+}
+
+.building-row.is-selected {
+    background: rgba(176, 138, 69, 0.14);
+    box-shadow: inset 0 0 0 1px rgba(210, 177, 95, 0.5);
+}
+
+.building-new-marker {
+    border: 1px solid var(--color-link);
+    border-radius: 999px;
+    padding: 0 5px;
+    color: var(--color-link);
 }
 
 .building-overview {
@@ -1134,6 +1471,195 @@ h3 {
     padding: 0 10px 6px;
 }
 
+.building-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+    padding: 10px;
+}
+
+.building-card {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto auto;
+    gap: 8px;
+    min-height: 190px;
+    border: 1px solid rgba(104, 91, 68, 0.75);
+    border-top: 4px solid #7f7663;
+    border-radius: 7px;
+    background: rgba(34, 31, 26, 0.76);
+    padding: 12px;
+    outline: none;
+    transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.building-card:hover,
+.building-card:focus-visible,
+.building-card:focus-within {
+    border-color: var(--color-link);
+    background: rgba(48, 43, 34, 0.92);
+}
+
+.building-card .building-identity {
+    align-items: flex-start;
+}
+
+.building-card .building-identity strong {
+    flex: 1 1 100px;
+    font-size: 15px;
+}
+
+.building-owned-badge {
+    margin-left: auto;
+    border-radius: 999px;
+    background: rgba(176, 138, 69, 0.18);
+    padding: 2px 7px;
+    color: var(--color-link);
+    white-space: nowrap;
+}
+
+.building-card > p {
+    margin: 0;
+    color: var(--color-muted);
+    line-height: 1.45;
+}
+
+.building-card .building-cost {
+    border-top: 1px solid rgba(104, 91, 68, 0.45);
+    padding-top: 8px;
+}
+
+.building-card .building-missing {
+    display: block;
+    margin: 4px 0 0;
+}
+
+.building-card .building-actions {
+    justify-content: stretch;
+}
+
+.building-card .building-actions button {
+    width: 100%;
+}
+
+.building-card.building-status-available {
+    border-top-color: #7fa35b;
+}
+
+.building-card.building-status-blocked,
+.building-card.building-status-preview {
+    border-top-style: dashed;
+}
+
+.building-card.is-milestone {
+    background: linear-gradient(145deg, rgba(176, 138, 69, 0.13), rgba(34, 31, 26, 0.8));
+}
+
+.building-card .building-tooltip {
+    pointer-events: none;
+}
+
+/* 地穴建设图：单一 Canvas 承载建筑空间，不生成建筑列表、网格或卡片节点。 */
+.building-cave-map {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgba(104, 91, 68, 0.75);
+    border-radius: 8px;
+    background: #12130f;
+}
+
+.building-map-canvas {
+    display: block;
+    width: 100%;
+    min-height: 620px;
+    outline: none;
+    touch-action: manipulation;
+}
+
+.building-map-canvas:focus-visible {
+    box-shadow: inset 0 0 0 2px rgba(210, 177, 95, 0.65);
+}
+
+.building-map-popover {
+    position: absolute;
+    z-index: 30;
+    width: min(360px, calc(100% - 16px));
+    max-height: min(520px, calc(100% - 16px));
+    overflow-y: auto;
+    border: 1px solid rgba(190, 163, 105, 0.8);
+    border-radius: 7px;
+    background: rgba(22, 20, 15, 0.96);
+    padding: 12px;
+    color: var(--color-text);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+
+.building-map-popover.is-pinned {
+    pointer-events: auto;
+}
+
+.building-map-popover-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+    border-top: 1px solid var(--color-border);
+    padding-top: 10px;
+}
+
+.building-risk-warning,
+.building-destroy-inline-confirmation {
+    flex-basis: 100%;
+    color: var(--color-warn);
+}
+
+.building-map-popover[hidden] {
+    display: none;
+}
+
+.building-map-popover h4 {
+    margin: 0 0 8px;
+    color: var(--color-link);
+}
+
+.building-map-popover dl {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+}
+
+.building-map-popover dl div {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 8px;
+}
+
+.building-map-popover dt {
+    color: var(--color-muted);
+}
+
+.building-map-popover dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.building-map-legend {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    border-radius: 4px;
+    background: rgba(15, 16, 13, 0.78);
+    padding: 5px 8px;
+    color: var(--color-muted);
+    font-size: 11px;
+    pointer-events: none;
+}
+
 .building-route-group .building-row {
     grid-template-columns: minmax(170px, 1fr) minmax(220px, 1.35fr) minmax(130px, 0.7fr) minmax(118px, auto);
     border-left: 3px solid transparent;
@@ -1153,6 +1679,24 @@ h3 {
     padding: 1px 4px;
     color: var(--color-muted);
     font-size: 11px;
+}
+
+.building-expand-button {
+    min-width: 28px !important;
+    border-color: transparent;
+    padding: 2px 5px;
+    background: transparent;
+}
+
+.building-quick-check {
+    grid-column: 1 / -1;
+    border-top: 1px dashed var(--color-border);
+    padding: 8px 10px 2px;
+    color: var(--color-muted);
+}
+
+.building-quick-check p {
+    margin: 3px 0;
 }
 
 .building-status-available {
@@ -1239,6 +1783,87 @@ h3 {
 }
 
 @media (max-width: 760px) {
+    .building-command-body {
+        display: block;
+    }
+
+    .building-blueprint-slip.is-catalog-row {
+        grid-template-columns: 18px minmax(100px, 1fr) minmax(86px, auto);
+        grid-template-rows: auto auto;
+    }
+
+    .is-catalog-row .building-slip-symbol { grid-row: 1 / 3; }
+    .is-catalog-row > strong { grid-column: 2; grid-row: 1; }
+    .is-catalog-row .building-slip-action { grid-column: 3; grid-row: 1; }
+    .is-catalog-row > small:not(.building-slip-bottleneck) { grid-column: 2; grid-row: 2; }
+    .is-catalog-row .building-slip-bottleneck { grid-column: 3; grid-row: 2; }
+
+    .building-blueprint-slip {
+        min-height: 48px;
+    }
+
+    .building-map-canvas {
+        min-height: 760px;
+    }
+
+    .building-map-popover {
+        position: fixed;
+        right: 8px;
+        bottom: 8px;
+        left: 8px !important;
+        top: auto !important;
+        width: auto;
+        max-height: 58vh;
+        pointer-events: none;
+    }
+    .building-toolbar,
+    .building-master-detail,
+    .building-district-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .building-detail-panel {
+        max-height: 62vh;
+        overflow-y: auto;
+    }
+
+    .building-detail-panel.is-active {
+        position: fixed;
+        z-index: 35;
+        right: 8px;
+        bottom: 8px;
+        left: 8px;
+        height: 46vh;
+        min-height: 46vh;
+        max-height: 82vh;
+        resize: vertical;
+        border-color: var(--color-link);
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    body:has(.building-detail-panel.is-active)::before {
+        position: fixed;
+        z-index: 34;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.42);
+        content: "";
+    }
+
+    .building-detail-panel.is-active .building-detail-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 1;
+        width: 100%;
+        background: var(--color-panel-soft);
+        padding-top: 6px;
+    }
+
+    .building-detail-panel.is-active .building-detail-close {
+        display: block;
+        position: sticky;
+        top: 0;
+        margin-left: auto;
+    }
     .building-overview-metrics,
     .building-adviser {
         grid-template-columns: 1fr;

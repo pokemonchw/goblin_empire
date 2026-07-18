@@ -57,7 +57,12 @@
                 <a class="tab" href="08-abyss.html">深渊</a>
             </nav>
             <section class="section">
-                <h2>视图与筛选</h2>
+                <h2>研究指挥板</h2>
+                <div class="control-row">
+                    <input class="blueprint-search" type="search" placeholder="搜索科技名称或效果" aria-label="搜索科技">
+                    <button class="btn">打开研究图鉴</button>
+                </div>
+                <p class="muted">搜索时临时进入完整图鉴；清空后恢复决策队列。选择研究签只更新右侧固定检查器。</p>
                 <div class="control-row">
                     <button class="btn">全部状态</button>
                     <button class="btn">可研究</button>
@@ -69,18 +74,15 @@
                 </div>
             </section>
             <section class="section">
-                <h2>路线导航</h2>
-                <div class="control-row research-route-tabs">
-                    <button class="btn route-survival">生存繁衍 3/17 · 可研究 2</button>
-                    <button class="btn route-industry">矿业工程 1/12 · 可研究 3</button>
-                    <button class="btn route-order">氏族制度 1/10 · 可研究 0</button>
-                    <button class="btn route-warfare">军工征服 0/6 · 可研究 1</button>
-                    <button class="btn route-mysticism">祭祀符文 0/2 · 可研究 0</button>
-                    <button class="btn route-abyss">深渊迁徙 0/4 · 可研究 0</button>
+                <h2>研究决策队列</h2>
+                <div class="research-route-tabs">
+                    <p><strong>当前目标 · 1</strong>　采矿：△ 等待粗识；里程碑，打开矿业与工坊。</p>
+                    <p><strong>可立即研究 · 3</strong>　采菌（生存）　大木棒（战争）　碎石分拣（工业）</p>
+                    <p><strong>需处理 · 2</strong>　氏族规矩：需先完成采矿；枯木培植：等待粗识。</p>
                 </div>
             </section>
             <section class="section">
-                <h2>地下帝国科技图谱</h2>
+                <h2>完整研究图鉴（切换后）</h2>
                 <div class="research-blueprint-grid">
                     <div class="research-era-head">路线</div><div class="research-era-head">求生刻痕</div><div class="research-era-head">矿坑氏族</div><div class="research-era-head">地下城邦</div><div class="research-era-head">深渊帝国</div>
                     <div class="research-route-head route-survival"><strong>生存繁衍</strong><span>食物、住房、环境、繁衍</span></div>

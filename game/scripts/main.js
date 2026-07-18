@@ -48,8 +48,49 @@
             researchLaneDragStartScrollLeft: 0,
             // number 科研路线拖动指针 ID：用于保持同一鼠标指针的捕获。
             researchLaneDragPointerId: -1,
+            // TechnologyId|string 当前研究检查器选择：空字符串表示进入页面时自动选择。
+            selectedResearchTechnologyId: "",
+            // string 研究状态筛选 ID：all、available、unaffordable、preview 或 researched。
+            researchFilter: "all",
+            // boolean 是否仅显示里程碑科技：true 与当前状态和搜索组合筛选。
+            isResearchMilestoneOnly: false,
+            // string 研究搜索词：匹配名称、介绍、效果、成本资源和前置科技。
+            researchSearchText: "",
+            // string 研究工作台视图 ID：decision 表示决策队列，catalog 表示完整研究图鉴。
+            researchViewId: "decision",
+            // number 研究搜索刷新计时器 ID：零表示当前没有等待刷新。
+            researchSearchRenderTimerId: 0,
+            // ResearchDecisionRuntime 研究决策运行态：只保存成员防抖快照，不进入存档。
+            researchDecisionRuntime: {
+                stableSnapshot: null,
+                pendingSnapshot: null,
+                pendingSinceTimestamp: 0,
+                structureSignature: ""
+            },
             // string 建筑状态筛选 ID：只保存当前浏览偏好，不进入存档。
             buildingFilter: "all",
+            // boolean 图鉴是否仅显示已拥有建筑：true 表示 owned 大于零，不进入存档。
+            isBuildingOwnedOnly: false,
+            // string 建筑搜索词：匹配名称、说明、效果标签、价格资源与解锁文案，不进入存档。
+            buildingSearchText: "",
+            // number 建筑搜索刷新定时器 ID：合并连续输入，零表示当前没有等待刷新。
+            buildingSearchRenderTimeoutId: 0,
+            // BuildingId|string 当前选中建筑 ID：空字符串表示详情面板显示轻提示。
+            selectedBuildingId: "",
+            // boolean 窄屏检查器是否打开：true 显示底部抽屉，关闭不清空选择。
+            isBuildingInspectorOpen: false,
+            // BuildingId|string 最近成功建造建筑 ID：用于一次性边线脉冲和读屏播报。
+            recentlyBuiltBuildingId: "",
+            // BuildingId|string 原位快速检查建筑 ID：空字符串表示没有展开行。
+            expandedBuildingId: "",
+            // string 建筑视图 ID：overview 为默认总览，catalog 为完整目录。
+            buildingViewId: "overview",
+            // boolean 建筑高级筛选是否展开：true 显示低频筛选和排序控件。
+            isBuildingFilterPanelOpen: false,
+            // Object.<string, number> 建筑批量数量字典：key 为 BuildingId，value 为正整数购买座数。
+            buildingBatchCountById: {},
+            // boolean 工业生产链是否展开：仅矿业工业分区可用，不进入存档。
+            isIndustryChainOpen: false,
             // string 建筑聚焦路线 ID：空字符串表示显示全部路线。
             buildingRouteId: "",
             // string 建筑排序 ID：status 表示状态优先，design 表示设计顺序，owned 表示拥有数量。
@@ -62,10 +103,24 @@
             collapsedBuildingRoutesById: {},
             // BuildingId|string 待确认摧毁建筑 ID：空字符串表示没有确认条。
             confirmDestroyBuildingId: "",
+            // BuildingId|string 待确认风险建筑 ID：仅劳力过载等关键持续风险需要确认。
+            confirmBuildingRiskId: "",
+            // BuildingId|string 待确认批量劳力风险建筑 ID：二次点击后才提交批量购买。
+            confirmBuildingBatchRiskId: "",
             // Object.<string, boolean>|null 已见建筑字典：首次渲染后用于识别新揭示建筑；null 表示尚未建立基线。
             revealedBuildingIdsById: null,
             // Object.<string, boolean> 路线新揭示标记字典：key 为 BuildingRouteId，value true 表示存在新建筑。
-            newBuildingRouteIdsById: {}
+            newBuildingRouteIdsById: {},
+            // Object.<string, boolean> 建筑新内容标记字典：key 为 BuildingId，value true 表示尚未查看。
+            newBuildingIdsById: {},
+            // BuildingDecisionRuntime 建筑决策运行态：仅保存压力滞回和队列防抖信息，不进入存档。
+            buildingDecisionRuntime: {
+                pressureMemoryById: {},
+                stableSnapshot: null,
+                pendingSnapshot: null,
+                pendingSinceTimestamp: 0,
+                structureSignature: ""
+            }
         };
 
         game.events.bindAllEvents();

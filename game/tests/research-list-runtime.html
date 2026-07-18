@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>pending</title></head>
+<body>
+    <iframe id="game-frame" src="../index.html"></iframe>
+    <output id="result">pending</output>
+    <script>
+        // HTMLIFrameElement 测试游戏框架：隔离加载真实静态应用。
+        var gameFrameElement = document.getElementById("game-frame");
+        // HTMLOutputElement 测试结果：由无头浏览器读取 PASS 或失败原因。
+        var resultElement = document.getElementById("result");
+
+        /**
+         * 运行研究目录、检查器和搜索输入节点保持测试。
+         *
+         * @returns {void} 无返回值；异步写入测试结果与页面标题。
+         */
+        function runResearchListTest() {
+            // Window 游戏窗口：用于访问真实运行时和渲染入口。
+            var gameWindow = gameFrameElement.contentWindow;
+            // Document 游戏文档：用于操作研究目录和搜索框。
+            var gameDocument = gameFrameElement.contentDocument;
+            // Object 游戏命名空间：提供运行时状态与渲染函数。
+            var game = gameWindow.GoblinEmpire;
+
+            // boolean 严格中文名门禁是否拒绝 ASCII-only 名称：true 表示抛错且错误包含内部 ID。
+            var hasRejectedInvalidDisplayName = false;
+
+            try {
+                game.definitions.validateStrictChineseDisplayNames("测试资源", [{ id: "missing_chinese_name", name: "English Only" }]);
+            } catch (displayNameError) { // Error 显示名门禁错误：必须包含触发失败的内部 ID。
+                hasRejectedInvalidDisplayName = displayNameError.message.indexOf("missing_chinese_name") >= 0;
+            }
+
+            if (!hasRejectedInvalidDisplayName) {
+                finishResearchListTest("FAIL:display-name-gate");
+                return;
+            }
+
+            game.runtime.state.tabsUnlockedById.research = true;
+            game.runtime.state.activeTabId = "research";
+            game.render.renderApp(game.runtime.state, true);
+
+            // HTMLInputElement|null 原搜索框：用于验证局部刷新不替换输入节点。
+            var originalSearchInputElement = gameDocument.querySelector("[data-research-search]");
+            // NodeListOf<HTMLElement> 默认决策区段：验证研究页首先展示三个固定队列区段。
+            var decisionSectionElements = gameDocument.querySelectorAll(".research-decision-section");
+            // HTMLButtonElement|null 图鉴切换按钮：用于进入完整六路线目录完成节点保持测试。
+            var catalogToggleButtonElement = gameDocument.querySelector("[data-research-catalog-toggle]");
+
+            if (decisionSectionElements.length !== 3 || !catalogToggleButtonElement) {
+                finishResearchListTest("FAIL:missing-decision-queue");
+                return;
+            }
+            // string 决策队列可见文本：任何资源稳定 ID 都不得泄露到玩家描述。
+            var decisionQueueText = gameDocument.querySelector(".research-decision-queue").textContent;
+            // string[] 资源稳定 ID 数组：从真实资源定义表读取，避免测试只覆盖少数示例。
+            var resourceIds = game.definitions.RESOURCE_DEFINITIONS.map(function (resourceDefinition) { return resourceDefinition.id; });
+            // boolean 是否泄露资源 ID：仅检查长度至少三位且文本中存在完整稳定 ID。
+            var hasLeakedResourceId = resourceIds.some(function (resourceId) { return resourceId.length >= 3 && decisionQueueText.indexOf(resourceId) >= 0; });
+
+            if (hasLeakedResourceId) {
+                finishResearchListTest("FAIL:resource-id-leak");
+                return;
+            }
+            catalogToggleButtonElement.click();
+            // NodeListOf<HTMLButtonElement> 研究签列表：用于选择另一项并验证目录节点保持。
+            var researchSlipElements = gameDocument.querySelectorAll("[data-research-select-id]");
+
+            if (!originalSearchInputElement || researchSlipElements.length < 2) {
+                finishResearchListTest("FAIL:missing-workspace");
+                return;
+            }
+
+            // HTMLButtonElement|null 原选中研究签：用于排除点击同一项造成的无视觉变化。
+            var originalSelectedSlipElement = gameDocument.querySelector(".research-catalog-slip[aria-current=\"true\"]");
+            // HTMLButtonElement 目标研究签：保证与原选择不同。
+            var targetResearchSlipElement = researchSlipElements[0] === originalSelectedSlipElement ? researchSlipElements[1] : researchSlipElements[0];
+            // TechnologyId 目标科技 ID：用于验证运行时选择和检查器标题。
+            var targetTechnologyId = targetResearchSlipElement.dataset.researchSelectId;
+            // TechnologyDefinition|null 目标科技定义：用于验证检查器显示名。
+            var targetTechnologyDefinition = game.technology.getTechnologyDefinition(targetTechnologyId);
+            // HTMLElement|null 原路线目录节点：选择研究后必须保持同一 DOM 节点。
+            var originalRouteGroupsElement = gameDocument.querySelector(".research-route-groups");
+            // number 选择开始时间：使用高精度毫秒时间戳衡量同步点击路径。
+            var selectionStartMilliseconds = performance.now();
+
+            // HTMLElement|null 行内说明节点：模拟用户点击具体研究条目的内容区域，而非程序点击按钮本体。
+            var targetResearchContentElement = targetResearchSlipElement.querySelector("small:last-of-type");
+
+            if (!targetResearchContentElement) {
+                finishResearchListTest("FAIL:missing-row-content");
+                return;
+            }
+            targetResearchContentElement.click();
+            // number 选择耗时：同步更新选中态和检查器的毫秒数。
+            var selectionDurationMilliseconds = performance.now() - selectionStartMilliseconds;
+            // boolean 目录是否保持：true 表示选择未重建六路线列表。
+            var isCatalogNodePreserved = gameDocument.querySelector(".research-route-groups") === originalRouteGroupsElement;
+            // boolean 运行时选择是否更新：true 表示事件已写入目标科技 ID。
+            var isRuntimeSelectionUpdated = game.runtime.selectedResearchTechnologyId === targetTechnologyId;
+            // boolean 研究签当前态是否更新：true 表示目标行成为唯一当前项。
+            var isCurrentSelectionUpdated = targetResearchSlipElement.getAttribute("aria-current") === "true";
+            // HTMLElement|null 检查器标题：用于确认可见详情已经替换。
+            var inspectorHeadingElement = gameDocument.querySelector(".research-inspector h3");
+            // boolean 检查器是否更新：true 表示标题与目标科技中文名一致。
+            var isInspectorUpdated = Boolean(inspectorHeadingElement && targetTechnologyDefinition && inspectorHeadingElement.textContent === targetTechnologyDefinition.name);
+            originalSearchInputElement.focus();
+            originalSearchInputElement.value = "采集";
+            originalSearchInputElement.setSelectionRange(1, 1);
+            originalSearchInputElement.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "采集" }));
+
+            window.setTimeout(function () {
+                // HTMLInputElement|null 当前搜索框：必须与刷新前节点严格相同。
+                var currentSearchInputElement = gameDocument.querySelector("[data-research-search]");
+                // boolean 节点是否保持：true 表示搜索与自动 tick 未重建输入框。
+                var isSameNode = currentSearchInputElement === originalSearchInputElement;
+                // boolean 焦点是否保持：true 表示活动元素仍是原搜索框。
+                var hasFocus = gameDocument.activeElement === originalSearchInputElement;
+                // boolean 光标是否保持：true 表示中部光标未被移动到文本末尾。
+                var hasCaret = originalSearchInputElement.selectionStart === 1;
+                // boolean 结构是否存在：true 表示目录和固定检查器均已渲染。
+                var hasWorkspace = Boolean(gameDocument.querySelector(".research-route-groups") && gameDocument.querySelector(".research-inspector"));
+
+                // boolean 选择是否足够轻量：100 毫秒上限用于捕获误重建完整目录的回归。
+                var isSelectionFast = selectionDurationMilliseconds < 100;
+
+                finishResearchListTest(isSameNode && hasFocus && hasCaret && hasWorkspace && isCatalogNodePreserved && isRuntimeSelectionUpdated && isCurrentSelectionUpdated && isInspectorUpdated && isSelectionFast ? "PASS" : "FAIL:node=" + isSameNode + ",focus=" + hasFocus + ",caret=" + hasCaret + ",workspace=" + hasWorkspace + ",catalog=" + isCatalogNodePreserved + ",runtime=" + isRuntimeSelectionUpdated + ",current=" + isCurrentSelectionUpdated + ",inspector=" + isInspectorUpdated + ",selectionMs=" + selectionDurationMilliseconds.toFixed(1));
+            }, 1400);
+        }
+
+        /**
+         * 写入无头浏览器可读的测试结论。
+         *
+         * @param {string} resultText - PASS 或具名失败原因。
+         * @returns {void} 无返回值；修改当前测试页标题与输出文本。
+         */
+        function finishResearchListTest(resultText) {
+            resultElement.textContent = resultText;
+            document.title = resultText;
+        }
+
+        gameFrameElement.addEventListener("load", runResearchListTest);
+    </script>
+</body>
+</html>

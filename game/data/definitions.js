@@ -6771,10 +6771,70 @@
         ]
     };
 
+    /**
+     * 校验所有可进入玩家界面的 ID 定义都具有严格中文显示名。
+     *
+     * @param {string} definitionTypeName - 定义类别中文名，用于开发错误定位。
+     * @param {{id: string, name: string}[]} definitionList - 该类别完整定义数组。
+     * @returns {void} 无返回值；全部名称有效时不修改定义。
+     * @throws {Error} 任一定义缺失 ID、名称为空或名称不含中文字符时立即抛错。
+     */
+    function validateStrictChineseDisplayNames(definitionTypeName, definitionList) {
+        // number 定义循环索引：遍历该类别全部玩家可见定义。
+        for (var definitionIndex = 0; definitionIndex < definitionList.length; definitionIndex += 1) {
+            // {id: string, name: string} 当前定义：必须同时具有稳定 ID 与严格中文显示名。
+            var definitionEntry = definitionList[definitionIndex];
+
+            if (!definitionEntry || typeof definitionEntry.id !== "string" || typeof definitionEntry.name !== "string" || !/[\u3400-\u9fff]/.test(definitionEntry.name)) {
+                // string 缺失名称定义 ID：只进入开发错误，不会作为玩家占位显示。
+                var invalidDefinitionId = definitionEntry && definitionEntry.id ? definitionEntry.id : "<missing-id>";
+                throw new Error(definitionTypeName + "缺少严格中文显示名：" + invalidDefinitionId);
+            }
+        }
+    }
+
+    // Array<{typeName: string, definitions: {id: string, name: string}[]}> 玩家可见定义类别：启动时统一执行严格中文名门禁。
+    var PLAYER_VISIBLE_DEFINITION_GROUPS = [
+        { typeName: "标签页", definitions: TAB_DEFINITIONS },
+        { typeName: "资源", definitions: RESOURCE_DEFINITIONS },
+        { typeName: "建筑", definitions: BUILDING_DEFINITIONS },
+        { typeName: "研究路线", definitions: RESEARCH_LINE_DEFINITIONS },
+        { typeName: "研究时代", definitions: RESEARCH_ERA_DEFINITIONS },
+        { typeName: "科技", definitions: TECHNOLOGY_DEFINITIONS },
+        { typeName: "职业", definitions: JOB_DEFINITIONS },
+        { typeName: "政策", definitions: POLICY_DEFINITIONS },
+        { typeName: "仪式升级", definitions: RITUAL_UPGRADE_DEFINITIONS },
+        { typeName: "献祭", definitions: SACRIFICE_DEFINITIONS },
+        { typeName: "契约", definitions: PACT_DEFINITIONS },
+        { typeName: "远征", definitions: EXPEDITION_ROUTE_DEFINITIONS },
+        { typeName: "威望能力", definitions: PRESTIGE_PERK_DEFINITIONS },
+        { typeName: "挑战", definitions: CHALLENGE_DEFINITIONS },
+        { typeName: "手动行动", definitions: MANUAL_ACTION_DEFINITIONS },
+        { typeName: "制作配方", definitions: CRAFT_RECIPE_DEFINITIONS },
+        { typeName: "事件", definitions: EVENT_DEFINITIONS },
+        { typeName: "信仰", definitions: FAITH_DEFINITIONS },
+        { typeName: "血脉", definitions: BLOODLINE_DEFINITIONS },
+        { typeName: "俘虏类型", definitions: CAPTIVE_TYPE_DEFINITIONS },
+        { typeName: "俘虏品质", definitions: CAPTIVE_QUALITY_DEFINITIONS },
+        { typeName: "俘虏种族", definitions: CAPTIVE_RACE_DEFINITIONS },
+        { typeName: "战兽物种", definitions: WARBEAST_SPECIES_DEFINITIONS },
+        { typeName: "外交世界", definitions: DIPLOMACY_WORLD_DEFINITIONS },
+        { typeName: "外交势力", definitions: FACTION_DEFINITIONS },
+        { typeName: "掠夺目标", definitions: RAID_TARGET_DEFINITIONS }
+    ];
+
+    // number 玩家可见类别循环索引：逐类别执行启动门禁。
+    for (var displayGroupIndex = 0; displayGroupIndex < PLAYER_VISIBLE_DEFINITION_GROUPS.length; displayGroupIndex += 1) {
+        // {typeName: string, definitions: {id: string, name: string}[]} 当前显示名校验组。
+        var displayDefinitionGroup = PLAYER_VISIBLE_DEFINITION_GROUPS[displayGroupIndex];
+        validateStrictChineseDisplayNames(displayDefinitionGroup.typeName, displayDefinitionGroup.definitions);
+    }
+
     // Object 静态定义命名空间：只存放 game/ 内部运行时数据，不引用外部目录。
     game.definitions = {
         SAVE_VERSION: SAVE_VERSION,
         TICKS_PER_SECOND: TICKS_PER_SECOND,
+        validateStrictChineseDisplayNames: validateStrictChineseDisplayNames,
         POPULATION_CONSTANTS: POPULATION_CONSTANTS,
         LIFESPAN_TECHNOLOGY_BONUSES: LIFESPAN_TECHNOLOGY_BONUSES,
         WEATHER_DEFINITIONS: WEATHER_DEFINITIONS,

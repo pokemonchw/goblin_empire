@@ -201,7 +201,7 @@
             var rewardAmount = rewardRange.min + Math.random() * (rewardRange.max - rewardRange.min);
 
             game.resources.addResource(state, resourceId, rewardAmount);
-            rewardTexts.push(resourceId + " +" + rewardAmount.toFixed(1));
+            rewardTexts.push(game.resources.getResourceDisplayName(resourceId) + " +" + rewardAmount.toFixed(1));
         }
 
         game.simulation.addLog(state, "important", "远征成功：" + routeDefinition.name + "，成员：" + memberIds.join("，") + "，收益：" + rewardTexts.join("，") + "。");
@@ -389,11 +389,8 @@
             // string 资源 ID：用于读取奖励范围。
             var resourceId = resourceIds[resourceIndex];
 
-            // ResourceDefinition|null 资源定义：用于优先显示中文资源名。
-            var resourceDefinition = game.resources ? game.resources.getResourceDefinition(resourceId) : null;
-
-            // string 资源名称：未找到定义时回退为资源 ID。
-            var resourceName = resourceDefinition ? resourceDefinition.name : resourceId;
+            // string 资源名称：从统一玩家显示名接口读取，异常时使用中文占位。
+            var resourceName = game.resources.getResourceDisplayName(resourceId);
 
             rewardTexts.push(resourceName + " " + rewards[resourceId].min + "-" + rewards[resourceId].max);
         }

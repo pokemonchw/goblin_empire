@@ -181,6 +181,80 @@
      * @property {string[]} effectTags - 受控效果标签 ID 数组，用于建筑行快速识别作用。
      * @property {boolean} isMilestone - 是否为打开核心系统的里程碑建筑。
      * @property {number} designOrder - 路线内稳定设计顺序，非负整数。
+     * @property {BuildingDecisionHints=} decisionHints - 无法仅从效果字段推导的受控决策提示。
+     */
+
+    /**
+     * @typedef {Object} BuildingDecisionHints
+     * @property {string[]=} intentIds - 受控经营意图 ID 数组。
+     * @property {ResourceId[]=} inputResourceIds - 新增转换消耗的资源 ID 数组。
+     * @property {ResourceId[]=} outputResourceIds - 直接产出的资源 ID 数组。
+     */
+
+    /**
+     * @typedef {Object} EmpirePressureSnapshot
+     * @property {string} foodPressure - safe、warning 或 critical。
+     * @property {string} housingPressure - safe、warning 或 critical。
+     * @property {string} laborPressure - safe、warning 或 critical。
+     * @property {Object.<string, string>} storagePressureById - key 为 ResourceId，value 为 safe 或 warning。
+     * @property {ResourceId[]} deficitResourceIds - 持续净亏损资源 ID 数组。
+     * @property {string[]} stalledChainIds - 输入不足的建筑 ID 数组。
+     * @property {string} activeStageId - 当前建设阶段 ID。
+     */
+
+    /**
+     * @typedef {Object} BuildingDecisionProfile
+     * @property {BuildingId} buildingId - 建筑稳定 ID。
+     * @property {Object} viewModel - 对应 BuildingViewModel，只读引用。
+     * @property {string} queueStatus - available、reachable、blocked 或 preview。
+     * @property {string[]} intentIds - 受控经营意图数组。
+     * @property {string} primaryIntentId - 首要经营意图 ID。
+     * @property {number} urgencyTier - 紧迫度档位，0-4 整数。
+     * @property {number} progressionTier - 推进价值档位，0-4 整数。
+     * @property {number} directnessTier - 解题直接度，0-3 整数。
+     * @property {number} efficiencyTier - 边际效率，0-3 整数。
+     * @property {number} strategicLeverageTier - 对当前战略目标的铺路价值，0-3 整数；3 表示下一座可一次解除阻断。
+     * @property {number} blockerCoverageCount - 下一座可同时处理的战略目标阻断数量，非负整数。
+     * @property {number} reservationConflictTier - 与当前战略目标缺口资源的冲突，0-2 整数；危机建筑不因该字段被压制。
+     * @property {number} reservationDelaySeconds - 消费目标资源造成的估算恢复时间，非负秒数或正无穷。
+     * @property {number} goalCompletionRatio - 战略目标当前价格完成比例，范围 0-1。
+     * @property {number} riskTier - 建造后风险，0-4 整数。
+     * @property {string} waitBand - now、short、medium、long 或 unreachable。
+     * @property {Object|null} bottleneck - 唯一主要瓶颈及处理方向。
+     * @property {Object.<string, string|number>} reasonTokens - 受控理由字段。
+     */
+
+    /**
+     * @typedef {Object} BuildingViewModel
+     * @property {BuildingDefinition} definition - 建筑静态定义。
+     * @property {BuildingState|null} state - 建筑运行时状态；预览也可存在未解锁状态。
+     * @property {string} buildingViewStatus - hidden、preview、unaffordable、blocked、available 或 paused。
+     * @property {boolean} isPreview - 是否为匿名接近揭示状态。
+     * @property {Price[]} price - 下一座当前价格数组。
+     * @property {PriceWaitInfo} waitInfo - 遵守暂停门控的界面等待信息。
+     * @property {PriceWaitInfo} decisionWaitInfo - 暂停时仍保留可达性的只读决策等待信息。
+     * @property {ResourceId[]} capacityBlockedResourceIds - 价格超过容量的资源 ID 数组。
+     * @property {ResourceId[]} sourceBlockedResourceIds - 没有正向持续流量的缺口资源 ID 数组。
+     * @property {boolean} willOverloadLabor - 下一座是否会令生产劳力过载。
+     * @property {number} laborUsage - 单座原始劳力占用，非负劳力数量。
+     * @property {string} unlockText - 具名解锁条件中文文本。
+     */
+
+    /**
+     * @typedef {Object} BuildingQueueSnapshot
+     * @property {BuildingDecisionProfile[]} target - 0 或 1 个当前目标。
+     * @property {BuildingDecisionProfile[]} available - 0-3 个安全可建方案。
+     * @property {BuildingDecisionProfile[]} attention - 0-3 个需先处理方案。
+     * @property {string} signature - 成员稳定签名。
+     */
+
+    /**
+     * @typedef {Object} BuildingDecisionRuntime
+     * @property {Object.<string, Object>} pressureMemoryById - key 为压力 ID，value 为等级与恢复计时；不进入存档。
+     * @property {BuildingQueueSnapshot|null} stableSnapshot - 当前稳定成员快照。
+     * @property {BuildingQueueSnapshot|null} pendingSnapshot - 正在等待稳定窗口的新快照。
+     * @property {number} pendingSinceTimestamp - 候选开始持续占优的毫秒时间戳。
+     * @property {string} structureSignature - 上次结构事件签名。
      */
 
     /**
@@ -261,7 +335,7 @@
      * @property {UnlockBundle} unlock - 显示该科技所需的解锁条件或默认解锁标记。
      * @property {ResearchLineId} lineId - 科技所属唯一正式路线。
      * @property {ResearchEraId} eraId - 科技所属版面时代，不作为额外付费门槛。
-     * @property {number} tier - 路线内纵深正整数，只用于图谱布局和排序。
+     * @property {number} tier - 路线内纵深正整数，用于研究目录的稳定排序和层级显示。
      * @property {"compact"|"normal"|"milestone"} nodeSize - 科技节点视觉权重。
      * @property {TechnologyId[]} prerequisiteTechnologyIds - 全部完成才满足的展示前置科技 ID 数组。
      * @property {TechnologyId[]} alternativePrerequisiteTechnologyIds - 任意完成一个即可满足的展示前置科技 ID 数组。
@@ -270,6 +344,24 @@
      * @property {string} recommendedFor - 面向当前瓶颈的一句研究建议。
      * @property {number} layoutOrder - 同路线同层级稳定排序整数。
      * @property {TechnologyTriggerCondition[]=} triggerConditions - 非科技系统触发条件数组；普通科技可省略。
+     */
+
+    /**
+     * @typedef {Object} CapacityBottleneck
+     * @property {ResourceId} resourceId - 已满且容量不足的资源稳定 ID。
+     * @property {BuildingId} buildingId - 当前因下一座价格超过容量而受阻的建筑 ID。
+     * @property {string} buildingName - 受阻建筑的权威中文显示名。
+     * @property {number} requiredAmount - 下一座建筑所需资源量，非负资源数量。
+     * @property {number} maxValue - 当前资源容量上限，非负资源数量。
+     */
+
+    /**
+     * @typedef {Object} CapacitySolution
+     * @property {ResourceId} resourceId - 要扩充容量的资源稳定 ID。
+     * @property {BuildingId} blockedBuildingId - 当前受容量阻断的建筑 ID。
+     * @property {string} blockedBuildingName - 当前受阻建筑的权威中文显示名。
+     * @property {BuildingId} capacityBuildingId - 科技直接解锁的扩容建筑 ID。
+     * @property {string} capacityBuildingName - 扩容建筑的权威中文显示名。
      */
 
     /**

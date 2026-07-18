@@ -30,6 +30,24 @@
     }
 
     /**
+     * 取得玩家可见的中文资源名；定义异常时立即抛错，禁止泄露内部 ID 或使用占位文案。
+     *
+     * @param {ResourceId} resourceId - 资源稳定 ID。
+     * @returns {string} 已登记且非空的中文资源名。
+     * @throws {Error} 资源定义缺失、名称为空或名称不含中文字符时抛出开发错误。
+     */
+    function getResourceDisplayName(resourceId) {
+        // ResourceDefinition|null 资源定义：玩家可见名称的唯一权威来源。
+        var resourceDefinition = getResourceDefinition(resourceId);
+
+        if (!resourceDefinition || typeof resourceDefinition.name !== "string" || !/[\u3400-\u9fff]/.test(resourceDefinition.name)) {
+            throw new Error("资源缺少严格中文显示名：" + resourceId);
+        }
+
+        return resourceDefinition.name;
+    }
+
+    /**
      * 增加资源并按容量截断。
      *
      * @param {GameState} state - 当前游戏状态对象，会被直接修改。
@@ -248,7 +266,7 @@
             var missingAmount = getPriceMissingAmount(currentAmount, priceEntry.amount);
 
             if (missingAmount > 0) {
-                missingTexts.push((resourceDefinition ? resourceDefinition.name : priceEntry.resource) + " -" + missingAmount.toFixed(0));
+                missingTexts.push(getResourceDisplayName(priceEntry.resource) + " -" + missingAmount.toFixed(0));
             }
         }
 
@@ -605,7 +623,7 @@
             // ResourceDefinition|null 资源定义：用于日志显示中文资源名。
             var resourceDefinition = getResourceDefinition(actionDefinition.resource);
 
-            game.simulation.addLog(state, "normal", actionDefinition.name + "：获得 " + addedAmount.toFixed(1) + " " + (resourceDefinition ? resourceDefinition.name : actionDefinition.resource) + "。");
+            game.simulation.addLog(state, "normal", actionDefinition.name + "：获得 " + addedAmount.toFixed(1) + " " + getResourceDisplayName(actionDefinition.resource) + "。");
         }
 
         // boolean 是否触发采集事件：每次有效按钮点击都投骰，即使基础资源已经达到容量。
@@ -617,6 +635,7 @@
     // Object 资源系统命名空间：提供资源增减、支付和手动采集函数。
     game.resources = {
         getResourceDefinition: getResourceDefinition,
+        getResourceDisplayName: getResourceDisplayName,
         addResource: addResource,
         changeResource: changeResource,
         canAfford: canAfford,

@@ -380,10 +380,7 @@
             // Price 当前价格项：用于读取资源名和数量。
             var priceEntry = price[priceIndex];
 
-            // ResourceDefinition|null 资源定义：用于显示中文资源名。
-            var resourceDefinition = game.resources.getResourceDefinition(priceEntry.resource);
-
-            priceTexts.push((resourceDefinition ? resourceDefinition.name : priceEntry.resource) + " " + priceEntry.amount);
+            priceTexts.push(game.resources.getResourceDisplayName(priceEntry.resource) + " " + priceEntry.amount);
         }
 
         return priceTexts.join("，");

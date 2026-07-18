@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>pending</title></head>
+<body>
+    <iframe id="game-frame" src="../index.html"></iframe>
+    <output id="result">pending</output>
+    <script>
+        // HTMLIFrameElement 测试游戏框架：隔离加载真实静态应用。
+        var gameFrameElement = document.getElementById("game-frame");
+        // HTMLOutputElement 测试结果：由无头浏览器读取 PASS 或失败原因。
+        var resultElement = document.getElementById("result");
+
+        /**
+         * 运行建筑搜索输入节点保持测试。
+         *
+         * @returns {void} 无返回值；异步写入测试结果与页面标题。
+         */
+        function runBuildingSearchTest() {
+            // Document 游戏文档：用于操作真实模式入口和建筑搜索框。
+            var gameDocument = gameFrameElement.contentDocument;
+            // HTMLButtonElement|null 正常模式按钮：用于进入包含建设指挥板的地穴页。
+            var normalModeButtonElement = gameDocument.querySelector("[data-normal-run-mode]");
+
+            if (normalModeButtonElement) {
+                normalModeButtonElement.click();
+            }
+
+            // HTMLInputElement|null 原搜索框：后续验证自动 tick 与防抖未替换该节点。
+            var originalSearchInputElement = gameDocument.querySelector("[data-building-search]");
+
+            if (!originalSearchInputElement) {
+                finishBuildingSearchTest("FAIL:no-input");
+                return;
+            }
+
+            originalSearchInputElement.focus();
+            originalSearchInputElement.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "住" }));
+            originalSearchInputElement.value = "住房";
+            originalSearchInputElement.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertCompositionText", data: "住房" }));
+            originalSearchInputElement.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "住房" }));
+
+            window.setTimeout(function () {
+                // HTMLInputElement|null 当前搜索框：应与输入前节点严格相同。
+                var currentSearchInputElement = gameDocument.querySelector("[data-building-search]");
+                // boolean 节点是否保持：true 表示防抖与自动 tick 均未重建输入框。
+                var isSameNode = currentSearchInputElement === originalSearchInputElement;
+                // boolean 焦点是否保持：true 表示当前活动元素仍是原搜索框。
+                var hasFocus = gameDocument.activeElement === originalSearchInputElement;
+                // boolean 结果区是否刷新：true 表示搜索已切换到目录结果视图。
+                var hasCatalogResults = Boolean(gameDocument.querySelector(".building-command-body.is-catalog-view .building-catalog"));
+
+                finishBuildingSearchTest(isSameNode && hasFocus && hasCatalogResults && originalSearchInputElement.value === "住房" ? "PASS" : "FAIL:node=" + isSameNode + ",focus=" + hasFocus + ",results=" + hasCatalogResults);
+            }, 1400);
+        }
+
+        /**
+         * 写入无头浏览器可读的测试结论。
+         *
+         * @param {string} resultText - PASS 或具名失败原因。
+         * @returns {void} 无返回值；修改当前测试页标题与输出文本。
+         */
+        function finishBuildingSearchTest(resultText) {
+            resultElement.textContent = resultText;
+            document.title = resultText;
+        }
+
+        gameFrameElement.addEventListener("load", runBuildingSearchTest);
+    </script>
+</body>
+</html>

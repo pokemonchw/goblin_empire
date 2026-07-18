@@ -221,6 +221,12 @@
         appendTooltipDefinition(listElement, "说明", resourceDefinition.description);
         appendTooltipDefinition(listElement, "总产出速度", formatRate(flowSummary.totalOutputPerSecond));
         appendTooltipDefinition(listElement, "产出明细", formatFlowEntries(flowSummary.outputEntries));
+        if (flowSummary.totalOutputPerSecond <= 0 && resourceDefinition.id !== "labor") {
+            // Object 取得路径摘要：补充手动、制作、贸易、掠夺或远征等非持续来源。
+            var resourceAcquisition = game.buildingDecisions.getResourceAcquisition(state, resourceDefinition.id);
+
+            appendTooltipDefinition(listElement, "取得方向", resourceAcquisition.text);
+        }
 
         // boolean 是否为劳力资源：劳力浮窗只展示人口来源和建筑占用，不展示常规消耗/净产出字段。
         var isLaborResource = resourceDefinition.id === "labor";
@@ -565,7 +571,7 @@
     /**
      * 判断当前是否应保留标签页 DOM，避免输入或点击过程中的节点被自动刷新替换。
      *
-     * @returns {boolean} 是否应跳过标签页重建；true 表示当前有输入框聚焦或鼠标正按住标签内容。
+     * @returns {boolean} 是否应跳过标签页重建；true 表示当前有输入、浮窗或指针交互需要保持。
      */
     function shouldPreserveInteractiveTabDom() {
         // Element|null 当前聚焦元素：用于判断玩家是否正在搜索框输入。
@@ -577,7 +583,22 @@
         // HTMLElement|null 标签页按钮容器：用于保护标签切换点击过程。
         var tabListElement = document.getElementById("tab-list");
 
-        if (activeElement && activeElement.dataset && (activeElement.dataset.censusFilterKey || activeElement.dataset.researchSearch)) {
+        if (activeElement && activeElement.dataset && (activeElement.dataset.censusFilterKey || activeElement.dataset.researchSearch || activeElement.dataset.buildingSearch)) {
+            return true;
+        }
+
+        if (activeElement && activeElement.classList && activeElement.classList.contains("building-card")) {
+            return true;
+        }
+
+        if (activeElement && activeElement.classList && activeElement.classList.contains("research-catalog-slip")) {
+            return true;
+        }
+
+        // HTMLElement|null 正在悬停的建筑列表浮窗：激活期间保留列表 DOM，避免自动刷新反复销毁并重建行与浮窗。
+        var activeCatalogBuildingTooltipElement = document.querySelector(".building-blueprint-entry:hover > .building-tooltip.is-tooltip-active, .building-blueprint-entry:focus-within > .building-tooltip.is-tooltip-active");
+
+        if (activeCatalogBuildingTooltipElement) {
             return true;
         }
 
@@ -739,6 +760,94 @@
 
         tabContentElement.innerHTML = "";
         renderDiplomacyTab(state, tabContentElement);
+        return true;
+    }
+
+    /**
+     * 只重绘地穴标签页内容，避免建筑筛选、分区和搜索触发资源栏与日志栏重建。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否完成地穴页局部刷新；false 表示当前不在地穴页。
+     */
+    function renderCavernTabOnly(state) {
+        if (state.activeTabId !== "cavern") {
+            return false;
+        }
+
+        // HTMLElement|null 标签页内容容器：局部刷新时只替换中部地穴工作区。
+        var tabContentElement = document.getElementById("tab-content");
+
+        if (!tabContentElement) {
+            return false;
+        }
+
+        tabContentElement.innerHTML = "";
+        renderActiveTabContent(state, tabContentElement);
+        restoreBuildingNavigationScrollPositions();
+        return true;
+    }
+
+    /**
+     * 只重绘地穴页中的建设工作台，供筛选、分区、排序与搜索等纯视图操作使用。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否完成建设工作台局部刷新；false 表示当前页面没有工作台。
+     */
+    function renderBuildingWorkspaceOnly(state) {
+        if (state.activeTabId !== "cavern") {
+            return false;
+        }
+
+        // HTMLElement|null 旧建设工作台：只替换该节点，保留地穴剖面与采集区 DOM。
+        var buildingWorkspaceElement = document.querySelector(".building-workspace");
+
+        if (!buildingWorkspaceElement) {
+            return false;
+        }
+
+        // HTMLElement|null 旧筛选栏：替换前保存横向滚动位置，避免筛选后跳回左侧。
+        var buildingFilterElement = buildingWorkspaceElement.querySelector(".building-filter-bar");
+        // HTMLElement|null 旧分区导航栏：替换前保存横向滚动位置。
+        var buildingRouteElement = buildingWorkspaceElement.querySelector(".building-route-navigation");
+
+        if (buildingFilterElement) {
+            game.runtime.buildingFilterScrollLeft = buildingFilterElement.scrollLeft;
+        }
+
+        if (buildingRouteElement) {
+            game.runtime.buildingRouteScrollLeft = buildingRouteElement.scrollLeft;
+        }
+
+        buildingWorkspaceElement.replaceWith(renderBuildingActions(state));
+        restoreBuildingNavigationScrollPositions();
+        return true;
+    }
+
+    /**
+     * 只重绘建设指挥板的结果区，确保建筑搜索输入框节点、焦点与输入法组合状态保持不变。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否完成建设结果区局部刷新；false 表示当前页面没有结果区。
+     */
+    function renderBuildingWorkspaceResultsOnly(state) {
+        if (state.activeTabId !== "cavern") {
+            return false;
+        }
+
+        // HTMLElement|null 旧建设结果区：仅该节点随搜索词变化，工具栏输入框不会被替换。
+        var workspaceBodyElement = document.querySelector(".building-workspace .building-command-body");
+
+        if (!workspaceBodyElement) {
+            return false;
+        }
+
+        // Object[] 全部已揭示建筑视图模型：用于生成搜索后的目录或原决策队列。
+        var allViewModels = game.buildingView.collectBuildingViewModels(state);
+        // HTMLElement 新建设结果区：根据当前搜索词确定目录或决策队列内容。
+        var refreshedWorkspaceBodyElement = renderBuildingCommandBody(state, allViewModels);
+
+        workspaceBodyElement.replaceWith(refreshedWorkspaceBodyElement);
+        restoreBuildingNavigationScrollPositions();
         return true;
     }
 
@@ -1980,25 +2089,87 @@
         // HTMLElement 标题元素：显示研究标签页名称。
         var headingElement = createTextElement("h2", game.text.TEXT_REGISTRY.tabs.research.name);
 
-        // HTMLElement 图谱元素：承载六条路线与四个时代的研究节点。
-        var graphElement = document.createElement("div");
+        // HTMLElement 研究工作台元素：采用与建筑列表一致的稳定目录和固定检查器。
+        var workspaceElement = document.createElement("section");
 
         tabContentElement.appendChild(headingElement);
         tabContentElement.appendChild(renderResearchSummary(state));
-        tabContentElement.appendChild(renderResearchControls());
-        tabContentElement.appendChild(renderResearchLineNavigation(state));
-        tabContentElement.appendChild(createTextElement("h3", "地下帝国科技图谱"));
-        graphElement.className = "research-graph" + (game.runtime.researchView === "list" ? " is-list-view" : "");
-        if (game.runtime.researchView === "list") {
-            renderResearchCompactList(state, graphElement);
-        } else {
-            renderResearchGraph(state, graphElement);
+        workspaceElement.className = "research-workspace";
+        workspaceElement.appendChild(renderResearchControls());
+        workspaceElement.appendChild(renderResearchCommandBody(state));
+        tabContentElement.appendChild(workspaceElement);
+    }
+
+    /**
+     * 只替换研究目录结果与检查器，确保搜索输入框原节点、焦点和输入法组合状态不变。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {boolean} 是否完成研究工作台局部刷新；false 表示当前页面没有研究结果区。
+     */
+    function renderResearchWorkspaceResultsOnly(state) {
+        if (state.activeTabId !== "research") {
+            return false;
         }
-        tabContentElement.appendChild(graphElement);
-        if (game.runtime.researchView !== "list") {
-            restoreResearchLaneScrollPositions(graphElement);
-            renderResearchConnections(graphElement);
+
+        // HTMLElement|null 旧研究结果区：搜索和筛选只能替换这一最小容器。
+        var commandBodyElement = document.querySelector(".research-workspace .research-command-body");
+
+        if (!commandBodyElement) {
+            return false;
         }
+
+        commandBodyElement.replaceWith(renderResearchCommandBody(state));
+        return true;
+    }
+
+    /**
+     * 只更新研究签选中态和固定检查器，避免选择科技时重建完整六路线目录。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyId} selectedTechnologyId - 新选择的科技稳定 ID。
+     * @returns {boolean} 是否完成选择局部刷新；false 表示目标未渲染或检查器不存在。
+     */
+    function renderResearchSelectionOnly(state, selectedTechnologyId) {
+        if (state.activeTabId !== "research") {
+            return false;
+        }
+
+        // HTMLButtonElement|null 旧选中研究签：需要移除当前态并恢复其快速详情浮窗。
+        var previousSlipElement = document.querySelector(".research-catalog-slip[aria-current=\"true\"]");
+        // HTMLButtonElement|null 新选中研究签：只更新该节点，不重建目录。
+        var selectedSlipElement = document.querySelector(".research-catalog-slip[data-research-select-id=\"" + selectedTechnologyId + "\"]");
+        // HTMLElement|null 旧固定检查器：将被单独替换为新选择的详情。
+        var inspectorElement = document.querySelector(".research-workspace .research-inspector");
+
+        if (!selectedSlipElement || !inspectorElement) {
+            return false;
+        }
+
+        if (previousSlipElement && previousSlipElement !== selectedSlipElement) {
+            // TechnologyId 旧选中科技 ID：用于恢复该研究签的快速详情浮窗。
+            var previousTechnologyId = previousSlipElement.dataset.researchSelectId;
+            // TechnologyDefinition|null 旧选中科技定义：定义存在时生成浮窗。
+            var previousTechnologyDefinition = game.technology.getTechnologyDefinition(previousTechnologyId);
+            // HTMLElement|null 旧研究签条目：作为恢复浮窗的父容器。
+            var previousEntryElement = previousSlipElement.closest(".research-slip-entry");
+
+            previousSlipElement.setAttribute("aria-current", "false");
+            if (previousTechnologyDefinition && previousEntryElement && !previousEntryElement.querySelector(".research-tooltip")) {
+                previousEntryElement.appendChild(createResearchSlipTooltip(state, previousTechnologyDefinition, getTechnologyResearchStatus(state, previousTechnologyDefinition)));
+            }
+        }
+
+        // HTMLElement|null 新研究签条目：选中项依赖检查器，不保留重复浮窗。
+        var selectedEntryElement = selectedSlipElement.closest(".research-slip-entry");
+        // HTMLElement|null 新研究签旧浮窗：存在时移除，避免与固定检查器重复。
+        var selectedTooltipElement = selectedEntryElement ? selectedEntryElement.querySelector(".research-tooltip") : null;
+
+        selectedSlipElement.setAttribute("aria-current", "true");
+        if (selectedTooltipElement) {
+            selectedTooltipElement.remove();
+        }
+        inspectorElement.replaceWith(renderResearchInspector(state));
+        return true;
     }
 
     /**
@@ -2190,30 +2361,449 @@
      * @returns {HTMLElement} 研究控件元素。
      */
     function renderResearchControls() {
-        // HTMLElement 控件元素：承载研究筛选与排序按钮。
+        // HTMLElement 控件元素：常驻搜索框不随研究结果刷新重建。
         var controlsElement = document.createElement("div");
 
-        controlsElement.className = "toolbar";
-        controlsElement.appendChild(createResearchButton("researchView", "graph", "路线视图"));
-        controlsElement.appendChild(createResearchButton("researchView", "list", "紧凑列表"));
-        controlsElement.appendChild(createResearchButton("researchFilter", "all", "全部状态"));
-        controlsElement.appendChild(createResearchButton("researchFilter", "available", "可研究"));
-        controlsElement.appendChild(createResearchButton("researchFilter", "unaffordable", "资源不足"));
-        controlsElement.appendChild(createResearchButton("researchFilter", "preview", "前置未满"));
-        controlsElement.appendChild(createResearchButton("researchFilter", "researched", "已完成"));
-        controlsElement.appendChild(createResearchButton("researchFilter", "milestone", "里程碑"));
-        controlsElement.appendChild(createResearchButton("researchLocateAvailable", "true", "定位可研究"));
+        controlsElement.className = "research-command-toolbar";
 
         // HTMLInputElement 搜索输入框：按科技名称、介绍和效果标签过滤，不改变科技状态。
         var searchInputElement = document.createElement("input");
 
         searchInputElement.type = "search";
+        searchInputElement.className = "game-search-input";
         searchInputElement.placeholder = "搜索科技";
         searchInputElement.value = game.runtime.researchSearchText || "";
         searchInputElement.dataset.researchSearch = "true";
         searchInputElement.setAttribute("aria-label", "搜索科技名称或效果");
         controlsElement.appendChild(searchInputElement);
+        // HTMLButtonElement 图鉴切换按钮：在有限决策队列与完整六路线目录之间切换。
+        var catalogButtonElement = document.createElement("button");
+
+        catalogButtonElement.type = "button";
+        catalogButtonElement.dataset.researchCatalogToggle = "true";
+        catalogButtonElement.textContent = game.runtime.researchViewId === "catalog" ? "返回决策队列" : "打开研究图鉴";
+        controlsElement.appendChild(catalogButtonElement);
         return controlsElement;
+    }
+
+    /**
+     * 渲染研究目录筛选、稳定路线列表和固定检查器。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 研究结果与检查器共同容器。
+     */
+    function renderResearchCommandBody(state) {
+        // HTMLElement 结果容器元素：是搜索输入允许替换的最小刷新边界。
+        var bodyElement = document.createElement("div");
+        // HTMLElement 目录列元素：承载筛选和六条稳定路线。
+        var catalogElement = document.createElement("div");
+        // TechnologyDefinition[] 匹配科技数组：只含已揭示且符合筛选的科技。
+        var visibleTechnologies = getVisibleResearchTechnologies(state);
+
+        ensureSelectedResearchTechnology(state);
+        bodyElement.className = "research-command-body";
+        catalogElement.className = "research-catalog";
+        // boolean 是否显示完整图鉴：搜索始终进入图鉴，清空后恢复玩家选择的视图。
+        var isCatalogVisible = Boolean((game.runtime.researchSearchText || "").trim()) || game.runtime.researchViewId === "catalog";
+
+        if (isCatalogVisible) {
+            catalogElement.appendChild(renderResearchCatalogFilters());
+            catalogElement.appendChild(renderResearchCatalog(state, visibleTechnologies));
+        } else {
+            catalogElement.appendChild(renderResearchDecisionQueue(state));
+        }
+        bodyElement.appendChild(catalogElement);
+        bodyElement.appendChild(renderResearchInspector(state));
+        return bodyElement;
+    }
+
+    /**
+     * 渲染研究决策队列；队列只提供有限选择，不直接执行研究。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 含当前目标、可立即研究和需处理三个区段的队列元素。
+     */
+    function renderResearchDecisionQueue(state) {
+        // HTMLElement 队列元素：承载三个固定区段。
+        var queueElement = document.createElement("div");
+        // ResearchQueueSnapshot 决策快照：由独立系统诊断知识经济、依赖和推进收益。
+        var queueSnapshot = game.researchDecisions.getResearchQueueSnapshot(state, game.runtime.researchDecisionRuntime, Date.now());
+
+        queueElement.className = "research-decision-queue";
+        queueElement.appendChild(createTextElement("p", "研究参谋按知识经济、依赖距离、系统收益与路线覆盖给出有限选择；不会自动花费资源。"));
+        appendResearchDecisionSection(queueElement, state, "当前目标", queueSnapshot.target, "暂无可由现有来源稳定到达的主目标；可先处理阻断或选择立即研究项。");
+        appendResearchDecisionSection(queueElement, state, "可立即研究", queueSnapshot.available, "当前没有资源与前置均齐备的科技。");
+        appendResearchDecisionSection(queueElement, state, "先处理", queueSnapshot.attention, "当前没有容量、来源或依赖阻断需要处理。");
+        return queueElement;
+    }
+
+    /**
+     * 向研究决策队列追加一个固定区段。
+     *
+     * @param {HTMLElement} queueElement - 队列父元素，会被追加内容。
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} title - 区段中文标题。
+     * @param {ResearchDecisionProfile[]} decisionProfiles - 本区段科技决策档案数组。
+     * @param {string} emptyText - 空区段说明文案。
+     * @returns {void} 无返回值；会修改 queueElement 子节点。
+     */
+    function appendResearchDecisionSection(queueElement, state, title, decisionProfiles, emptyText) {
+        // HTMLElement 区段元素：包含标题与研究签列表。
+        var sectionElement = document.createElement("section");
+        // HTMLElement 列表元素：复用研究签的视觉和选择行为。
+        var listElement = document.createElement("div");
+
+        sectionElement.className = "research-decision-section";
+        sectionElement.appendChild(createTextElement("h4", title + "　" + decisionProfiles.length));
+        listElement.className = "research-catalog-list";
+        // number 科技循环索引：按决策顺序生成研究签。
+        for (var technologyIndex = 0; technologyIndex < decisionProfiles.length; technologyIndex += 1) {
+            // ResearchDecisionProfile 当前决策档案：签面后追加推荐理由与唯一瓶颈。
+            var decisionProfile = decisionProfiles[technologyIndex];
+            // HTMLElement 研究签条目：复用图鉴的完整选择、焦点与浮窗行为。
+            var slipEntryElement = renderResearchCatalogSlip(state, decisionProfile.definition);
+            // HTMLButtonElement|null 研究签按钮：理由放入同一可聚焦节点，确保键盘和读屏能读取。
+            var slipButtonElement = slipEntryElement.querySelector(".research-catalog-slip");
+            // HTMLElement 推荐说明：占据签面整行并使用共享次要文本样式。
+            var decisionExplanationElement = createTextElement("small", decisionProfile.reasonText + " " + decisionProfile.bottleneckText);
+
+            decisionExplanationElement.className = "research-decision-explanation";
+            if (slipButtonElement) { slipButtonElement.appendChild(decisionExplanationElement); }
+            listElement.appendChild(slipEntryElement);
+        }
+        if (decisionProfiles.length <= 0) { listElement.appendChild(createTextElement("p", emptyText)); }
+        sectionElement.appendChild(listElement);
+        queueElement.appendChild(sectionElement);
+    }
+
+    /**
+     * 在当前已揭示科技中保证固定检查器存在有效选择。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {void} 无返回值；可能修改运行时 selectedResearchTechnologyId。
+     */
+    function ensureSelectedResearchTechnology(state) {
+        // TechnologyDefinition[] 已揭示科技数组：不受当前搜索和筛选影响。
+        var revealedTechnologies = getAllRevealedResearchTechnologies(state);
+        // TechnologyDefinition|null 原选择定义：用于判断上次选择是否仍已揭示。
+        var selectedTechnologyDefinition = game.technology.getTechnologyDefinition(game.runtime.selectedResearchTechnologyId || "");
+
+        if (selectedTechnologyDefinition && getTechnologyResearchStatus(state, selectedTechnologyDefinition) !== "unknown") {
+            return;
+        }
+
+        // TechnologyDefinition|null 默认选择：依次取可研究、等待资源和稳定顺序第一项。
+        var defaultTechnologyDefinition = revealedTechnologies.find(function (technologyDefinition) { return getTechnologyResearchStatus(state, technologyDefinition) === "available"; }) ||
+            revealedTechnologies.find(function (technologyDefinition) { return getTechnologyResearchStatus(state, technologyDefinition) === "unaffordable"; }) || revealedTechnologies[0];
+
+        game.runtime.selectedResearchTechnologyId = defaultTechnologyDefinition ? defaultTechnologyDefinition.id : "";
+    }
+
+    /**
+     * 取得全部已揭示科技并按路线、层级和布局字段稳定排序。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {TechnologyDefinition[]} 不包含 unknown 状态的科技定义数组。
+     */
+    function getAllRevealedResearchTechnologies(state) {
+        // TechnologyDefinition[] 已揭示科技数组：保持静态路线内顺序。
+        var revealedTechnologies = game.definitions.TECHNOLOGY_DEFINITIONS.filter(function (technologyDefinition) {
+            return getTechnologyResearchStatus(state, technologyDefinition) !== "unknown";
+        });
+
+        revealedTechnologies.sort(function (leftTechnology, rightTechnology) {
+            return getResearchLineOrder(leftTechnology.lineId) - getResearchLineOrder(rightTechnology.lineId) || leftTechnology.tier - rightTechnology.tier || leftTechnology.layoutOrder - rightTechnology.layoutOrder;
+        });
+        return revealedTechnologies;
+    }
+
+    /**
+     * 渲染研究目录的五态筛选与里程碑开关。
+     *
+     * @returns {HTMLElement} 研究筛选栏元素。
+     */
+    function renderResearchCatalogFilters() {
+        // HTMLElement 筛选栏元素：筛选只改变目录可见集合。
+        var filterElement = document.createElement("div");
+        // Object.<string, string> 筛选文案字典：key 为受控研究状态，value 为中文按钮名。
+        var filterLabelById = { all: "全部", available: "可研究", unaffordable: "等待资源", preview: "前置受阻", researched: "已完成" };
+        // string[] 筛选 ID 数组：定义固定展示顺序。
+        var filterIds = ["all", "available", "unaffordable", "preview", "researched"];
+
+        filterElement.className = "research-catalog-filters";
+        // number 筛选循环索引：生成五个固定状态按钮。
+        for (var filterIndex = 0; filterIndex < filterIds.length; filterIndex += 1) {
+            // string 当前筛选 ID：绑定视图状态与选中语义。
+            var filterId = filterIds[filterIndex];
+            // HTMLButtonElement 筛选按钮：点击后局部替换结果区。
+            var filterButtonElement = createResearchButton("researchFilter", filterId, filterLabelById[filterId]);
+
+            filterButtonElement.setAttribute("aria-pressed", String((game.runtime.researchFilter || "all") === filterId));
+            filterElement.appendChild(filterButtonElement);
+        }
+        // HTMLButtonElement 里程碑开关：与状态筛选组合使用。
+        var milestoneButtonElement = createResearchButton("researchMilestoneToggle", "true", game.runtime.isResearchMilestoneOnly ? "✓ 仅里程碑" : "仅里程碑");
+
+        milestoneButtonElement.setAttribute("aria-pressed", String(Boolean(game.runtime.isResearchMilestoneOnly)));
+        filterElement.appendChild(milestoneButtonElement);
+        return filterElement;
+    }
+
+    /**
+     * 渲染按六路线分区的单列研究目录。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition[]} visibleTechnologies - 已通过状态、里程碑和搜索筛选的科技数组。
+     * @returns {HTMLElement} 六路线研究目录或空态元素。
+     */
+    function renderResearchCatalog(state, visibleTechnologies) {
+        // HTMLElement 路线容器元素：承载稳定分区列表。
+        var routesElement = document.createElement("div");
+
+        routesElement.className = "research-route-groups";
+        if (visibleTechnologies.length <= 0) {
+            routesElement.appendChild(createTextElement("p", "当前搜索与筛选条件下没有已揭示科技。"));
+            return routesElement;
+        }
+
+        // number 路线循环索引：按静态研究路线顺序生成分区。
+        for (var lineIndex = 0; lineIndex < game.definitions.RESEARCH_LINE_DEFINITIONS.length; lineIndex += 1) {
+            // ResearchLineDefinition 当前路线定义：提供名称、说明和颜色类。
+            var lineDefinition = game.definitions.RESEARCH_LINE_DEFINITIONS[lineIndex];
+            // TechnologyDefinition[] 当前路线科技数组：继承上游稳定顺序。
+            var lineTechnologies = visibleTechnologies.filter(function (technologyDefinition) { return technologyDefinition.lineId === lineDefinition.id; });
+
+            if (lineTechnologies.length <= 0) {
+                continue;
+            }
+
+            // HTMLElement 路线区块元素：包含路线标题和单列研究签。
+            var routeElement = document.createElement("section");
+            // HTMLElement 研究签列表元素：每行一项科技。
+            var listElement = document.createElement("div");
+
+            routeElement.className = "research-catalog-route " + lineDefinition.colorToken;
+            routeElement.appendChild(createTextElement("h4", lineDefinition.name + "　" + lineTechnologies.length + " 项匹配"));
+            routeElement.appendChild(createTextElement("p", lineDefinition.description));
+            listElement.className = "research-catalog-list";
+            // number 科技循环索引：按层级与布局顺序生成研究签。
+            for (var technologyIndex = 0; technologyIndex < lineTechnologies.length; technologyIndex += 1) {
+                listElement.appendChild(renderResearchCatalogSlip(state, lineTechnologies[technologyIndex]));
+            }
+            routeElement.appendChild(listElement);
+            routesElement.appendChild(routeElement);
+        }
+        return routesElement;
+    }
+
+    /**
+     * 渲染只负责选择的单列研究签，研究操作留在固定检查器。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @returns {HTMLElement} 研究签与可选详情浮窗容器。
+     */
+    function renderResearchCatalogSlip(state, technologyDefinition) {
+        // HTMLElement 条目容器：为未选中科技承载浮窗。
+        var entryElement = document.createElement("div");
+        // HTMLButtonElement 研究签按钮：点击只改变检查器选择。
+        var slipElement = document.createElement("button");
+        // string 当前研究状态：决定状态字形和行动结论。
+        var researchStatus = getTechnologyResearchStatus(state, technologyDefinition);
+        // boolean 是否预览：true 时不得显示价格、缺口或解锁数值。
+        var isPreview = researchStatus === "preview";
+
+        entryElement.className = "research-slip-entry";
+        slipElement.type = "button";
+        slipElement.className = "research-catalog-slip " + technologyDefinition.lineId + " is-" + researchStatus;
+        slipElement.dataset.researchSelectId = technologyDefinition.id;
+        slipElement.setAttribute("aria-current", String(game.runtime.selectedResearchTechnologyId === technologyDefinition.id));
+        slipElement.innerHTML = "<span aria-hidden=\"true\">" + getResearchStatusSymbol(researchStatus) + "</span>" +
+            "<strong>" + technologyDefinition.name + "</strong>" +
+            "<span>" + getResearchStatusLabel(researchStatus) + "</span>" +
+            "<small>" + getResearchEraName(technologyDefinition.eraId) + " · T" + technologyDefinition.tier + " · " + technologyDefinition.effectTags[0] + "</small>" +
+            "<small>" + (isPreview ? formatTechnologyPrerequisiteSummary(state, technologyDefinition) : getResearchSingleBottleneck(state, technologyDefinition, researchStatus)) + "</small>";
+        entryElement.appendChild(slipElement);
+        if (game.runtime.selectedResearchTechnologyId !== technologyDefinition.id) {
+            entryElement.appendChild(createResearchSlipTooltip(state, technologyDefinition, researchStatus));
+        }
+        return entryElement;
+    }
+
+    /**
+     * 创建研究签详情浮窗；预览科技只公开用途剪影与具名前置。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @param {string} researchStatus - 当前研究状态 ID。
+     * @returns {HTMLElement} 不包含执行按钮的研究详情浮窗。
+     */
+    function createResearchSlipTooltip(state, technologyDefinition, researchStatus) {
+        if (researchStatus !== "preview") {
+            return createTechnologyCardTooltip(state, technologyDefinition, state.technologiesById[technologyDefinition.id], researchStatus);
+        }
+
+        // HTMLElement 预览浮窗元素：不公开成本、解锁数值或未知后继。
+        var tooltipElement = document.createElement("div");
+        // HTMLElement 预览明细列表：仅包含当前允许公开的字段。
+        var listElement = document.createElement("dl");
+
+        tooltipElement.className = "building-tooltip research-tooltip";
+        tooltipElement.setAttribute("role", "tooltip");
+        tooltipElement.appendChild(createTextElement("h4", technologyDefinition.name));
+        appendTooltipDefinition(listElement, "用途剪影", technologyDefinition.effectTags.join(" / "));
+        appendTooltipDefinition(listElement, "前置条件", formatTechnologyPrerequisiteSummary(state, technologyDefinition));
+        appendTooltipDefinition(listElement, "研究状态", getResearchStatusLabel(researchStatus));
+        tooltipElement.appendChild(listElement);
+        return tooltipElement;
+    }
+
+    /**
+     * 渲染当前选择科技的固定检查器。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 研究检查器元素。
+     */
+    function renderResearchInspector(state) {
+        // HTMLElement 检查器元素：集中显示完整资料和唯一研究操作。
+        var inspectorElement = document.createElement("aside");
+        // TechnologyDefinition|null 选中科技定义：空值时显示无内容提示。
+        var technologyDefinition = game.technology.getTechnologyDefinition(game.runtime.selectedResearchTechnologyId || "");
+
+        inspectorElement.className = "research-inspector";
+        inspectorElement.setAttribute("aria-live", "polite");
+        if (!technologyDefinition || getTechnologyResearchStatus(state, technologyDefinition) === "unknown") {
+            inspectorElement.appendChild(createTextElement("p", "选择一项已揭示科技查看完整研究资料。"));
+            return inspectorElement;
+        }
+
+        // string 当前研究状态：决定检查器公开字段和按钮状态。
+        var researchStatus = getTechnologyResearchStatus(state, technologyDefinition);
+        // boolean 是否预览：预览不公开成本与解锁数值。
+        var isPreview = researchStatus === "preview";
+        // HTMLElement 明细列表元素：按交互规格固定顺序显示资料。
+        var detailListElement = document.createElement("dl");
+
+        inspectorElement.className += " " + technologyDefinition.lineId;
+        inspectorElement.appendChild(createTextElement("h3", technologyDefinition.name));
+        inspectorElement.appendChild(createTextElement("p", getResearchLineName(technologyDefinition.lineId) + " · " + getResearchEraName(technologyDefinition.eraId) + " · T" + technologyDefinition.tier + " · " + getResearchStatusLabel(researchStatus)));
+        inspectorElement.appendChild(createTextElement("p", isPreview ? "推进具名前置后公开完整研究资料。" : technologyDefinition.description));
+        appendTooltipDefinition(detailListElement, "核心效果", technologyDefinition.effectTags.join(" / "));
+        if (!isPreview) {
+            appendTooltipDefinition(detailListElement, "研究成本", formatPriceList(technologyDefinition.price));
+            appendTooltipDefinition(detailListElement, "当前瓶颈", getResearchSingleBottleneck(state, technologyDefinition, researchStatus));
+        }
+        appendTooltipDefinition(detailListElement, "前置条件", formatTechnologyPrerequisiteSummary(state, technologyDefinition));
+        if (!isPreview) {
+            appendTooltipDefinition(detailListElement, "解锁内容", formatUnlockPreview(technologyDefinition.unlocks || {}));
+            appendTooltipDefinition(detailListElement, "后续方向", formatTechnologySuccessors(technologyDefinition.id));
+        }
+        inspectorElement.appendChild(detailListElement);
+        inspectorElement.appendChild(renderResearchInspectorRelations(state, technologyDefinition, isPreview));
+        if (!isPreview) {
+            // HTMLButtonElement 研究按钮：提交前仍由研究系统重新校验状态和资源。
+            var researchButtonElement = document.createElement("button");
+            // string[] 缺口文本数组：用于生成等待、容量或来源按钮文案。
+            var missingTexts = game.resources.getMissingResourceTexts(state, technologyDefinition.price);
+
+            researchButtonElement.type = "button";
+            researchButtonElement.dataset.technologyId = technologyDefinition.id;
+            researchButtonElement.disabled = researchStatus !== "available" || state.isPaused;
+            researchButtonElement.textContent = getResearchButtonLabel(state, researchStatus, missingTexts);
+            inspectorElement.appendChild(researchButtonElement);
+        }
+        return inspectorElement;
+    }
+
+    /**
+     * 渲染检查器内已揭示前置与后继关系按钮。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前选中科技定义。
+     * @param {boolean} isPreview - true 只显示具名前置，false 同时显示后继。
+     * @returns {HTMLElement} 关系定位按钮容器。
+     */
+    function renderResearchInspectorRelations(state, technologyDefinition, isPreview) {
+        // HTMLElement 关系容器元素：承载具名定位按钮。
+        var relationsElement = document.createElement("div");
+        // TechnologyId[] 前置科技 ID：仅保留当前已揭示目标。
+        var prerequisiteTechnologyIds = getRevealedRelatedTechnologyIds(state, technologyDefinition.prerequisiteTechnologyIds.concat(technologyDefinition.alternativePrerequisiteTechnologyIds));
+        // TechnologyId[] 后继科技 ID：预览态不公开，正式态仅保留已揭示目标。
+        var successorTechnologyIds = isPreview ? [] : getRevealedRelatedTechnologyIds(state, getTechnologySuccessorIds(technologyDefinition.id));
+        // TechnologyId[] 关系科技 ID：按前置后继顺序生成按钮。
+        var relatedTechnologyIds = prerequisiteTechnologyIds.concat(successorTechnologyIds);
+
+        relationsElement.className = "research-inspector-relations";
+        // number 关系循环索引：为每项已揭示关系生成定位按钮。
+        for (var relationIndex = 0; relationIndex < relatedTechnologyIds.length; relationIndex += 1) {
+            // TechnologyId 关系科技 ID：用于读取中文名称和定位目标。
+            var relatedTechnologyId = relatedTechnologyIds[relationIndex];
+            // TechnologyDefinition|null 关系科技定义：定义存在时显示中文名。
+            var relatedTechnologyDefinition = game.technology.getTechnologyDefinition(relatedTechnologyId);
+            // HTMLButtonElement 关系按钮：点击后清除筛选并选择目标。
+            var relationButtonElement = document.createElement("button");
+
+            relationButtonElement.type = "button";
+            relationButtonElement.dataset.researchRelationTargetId = relatedTechnologyId;
+            relationButtonElement.textContent = (relationIndex < prerequisiteTechnologyIds.length ? "前置：" : "后继：") + (relatedTechnologyDefinition ? relatedTechnologyDefinition.name : relatedTechnologyId);
+            relationsElement.appendChild(relationButtonElement);
+        }
+        return relationsElement;
+    }
+
+    /**
+     * 取得研究签唯一瓶颈文本。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {TechnologyDefinition} technologyDefinition - 当前科技定义。
+     * @param {string} researchStatus - 当前研究状态 ID。
+     * @returns {string} 可执行、等待、前置或完成结论。
+     */
+    function getResearchSingleBottleneck(state, technologyDefinition, researchStatus) {
+        if (researchStatus === "researched") { return "研究已完成"; }
+        if (researchStatus === "preview") { return formatTechnologyPrerequisiteSummary(state, technologyDefinition); }
+        if (researchStatus === "available") { return state.isPaused ? "已暂停" : "资源已齐备"; }
+        return formatActionAvailabilityText(state, technologyDefinition.price);
+    }
+
+    /**
+     * 取得研究状态字形，供高密度目录快速扫描。
+     *
+     * @param {string} researchStatus - 当前研究状态 ID。
+     * @returns {string} 单字符状态图形。
+     */
+    function getResearchStatusSymbol(researchStatus) {
+        if (researchStatus === "available") { return "◆"; }
+        if (researchStatus === "unaffordable") { return "◒"; }
+        if (researchStatus === "preview") { return "◇"; }
+        if (researchStatus === "researched") { return "✓"; }
+        return "?";
+    }
+
+    /**
+     * 按稳定 ID 取得研究时代中文名。
+     *
+     * @param {ResearchEraId} eraId - 研究时代稳定 ID。
+     * @returns {string} 时代中文名；定义缺失时返回 ID。
+     */
+    function getResearchEraName(eraId) {
+        // ResearchEraDefinition|undefined 匹配时代定义：用于读取中文名。
+        var eraDefinition = game.definitions.RESEARCH_ERA_DEFINITIONS.find(function (candidateDefinition) { return candidateDefinition.id === eraId; });
+
+        return eraDefinition ? eraDefinition.name : eraId;
+    }
+
+    /**
+     * 按稳定 ID 取得研究路线中文名。
+     *
+     * @param {ResearchLineId} lineId - 研究路线稳定 ID。
+     * @returns {string} 路线中文名；定义缺失时返回 ID。
+     */
+    function getResearchLineName(lineId) {
+        // ResearchLineDefinition|undefined 匹配路线定义：用于读取中文名。
+        var lineDefinition = game.definitions.RESEARCH_LINE_DEFINITIONS.find(function (candidateDefinition) { return candidateDefinition.id === lineId; });
+
+        return lineDefinition ? lineDefinition.name : lineId;
     }
 
     /**
@@ -2584,7 +3174,7 @@
             // string 研究状态 ID：用于统一列表和图谱筛选语义。
             var researchStatus = getTechnologyResearchStatus(state, technologyDefinition);
 
-            if (!doesTechnologyMatchResearchFilter(technologyDefinition, researchStatus, researchFilter) || !doesTechnologyMatchResearchSearch(technologyDefinition)) {
+            if (!doesTechnologyMatchResearchFilter(technologyDefinition, researchStatus, researchFilter) || (game.runtime.isResearchMilestoneOnly && technologyDefinition.nodeSize !== "milestone") || !doesTechnologyMatchResearchSearch(technologyDefinition)) {
                 continue;
             }
 
@@ -2663,8 +3253,17 @@
             return true;
         }
 
+        // string[] 成本资源名称数组：搜索允许按研究所需资源定位科技。
+        var priceResourceNames = technologyDefinition.price.map(function (priceEntry) { return formatResourceIdList([priceEntry.resource]); });
+        // string[] 前置科技名称数组：搜索允许按具名前置定位科技。
+        var prerequisiteNames = technologyDefinition.prerequisiteTechnologyIds.concat(technologyDefinition.alternativePrerequisiteTechnologyIds).map(function (technologyId) {
+            // TechnologyDefinition|null 前置科技定义：用于读取玩家可见中文名。
+            var prerequisiteDefinition = game.technology.getTechnologyDefinition(technologyId);
+
+            return prerequisiteDefinition ? prerequisiteDefinition.name : "";
+        });
         // string 科技检索文本：只拼接静态中文展示字段，不读取 DOM。
-        var searchableText = [technologyDefinition.name, technologyDefinition.description, technologyDefinition.recommendedFor, technologyDefinition.effectTags.join(" ")].join(" ").toLowerCase();
+        var searchableText = [technologyDefinition.name, technologyDefinition.description, technologyDefinition.recommendedFor, technologyDefinition.effectTags.join(" "), priceResourceNames.join(" "), prerequisiteNames.join(" ")].join(" ").toLowerCase();
 
         return searchableText.indexOf(searchText) !== -1;
     }
@@ -3687,63 +4286,78 @@
      *
      * @param {"resource"|"technology"|"building"|"job"|"tab"|"craft"|"upgrade"|"policy"} definitionType - 解锁对象类别，用于选择定义表。
      * @param {string} unlockId - 解锁对象稳定 ID。
-     * @returns {string} 中文显示名；找不到定义时返回稳定 ID 以暴露数据缺口。
+     * @returns {string} 已登记且非空的中文显示名。
+     * @throws {Error} 定义或严格中文名缺失时抛出开发错误。
      */
     function formatUnlockDisplayName(definitionType, unlockId) {
         if (definitionType === "resource") {
-            // ResourceDefinition|null 资源定义：用于读取资源中文名。
-            var resourceDefinition = game.resources.getResourceDefinition(unlockId);
-
-            return resourceDefinition ? resourceDefinition.name : unlockId;
+            return game.resources.getResourceDisplayName(unlockId);
         }
 
         if (definitionType === "technology") {
             // TechnologyDefinition|null 科技定义：用于读取科技中文名。
             var technologyDefinition = game.technology.getTechnologyDefinition(unlockId);
 
-            return technologyDefinition ? technologyDefinition.name : unlockId;
+            return getStrictDefinitionDisplayName("科技", unlockId, technologyDefinition);
         }
 
         if (definitionType === "building") {
             // BuildingDefinition|null 建筑定义：用于读取建筑中文名。
             var buildingDefinition = game.buildings.getBuildingDefinition(unlockId);
 
-            return buildingDefinition ? buildingDefinition.name : unlockId;
+            return getStrictDefinitionDisplayName("建筑", unlockId, buildingDefinition);
         }
 
         if (definitionType === "job") {
             // JobDefinition|null 职业定义：用于读取职业中文名。
             var jobDefinition = game.jobs.getJobDefinition(unlockId);
 
-            return jobDefinition ? jobDefinition.name : unlockId;
+            return getStrictDefinitionDisplayName("职业", unlockId, jobDefinition);
         }
 
         if (definitionType === "policy" && game.policiesSystem) {
             // PolicyDefinition|null 政策定义：用于读取政策中文名。
             var policyDefinition = game.policiesSystem.getPolicyDefinition(unlockId);
 
-            return policyDefinition ? policyDefinition.name : unlockId;
+            return getStrictDefinitionDisplayName("政策", unlockId, policyDefinition);
         }
 
         if (definitionType === "craft" && game.crafting) {
             // CraftRecipeDefinition|null 配方定义：用于读取配方中文名。
             var recipeDefinition = game.crafting.getRecipeDefinition(unlockId);
 
-            return recipeDefinition ? recipeDefinition.name : unlockId;
+            return getStrictDefinitionDisplayName("配方", unlockId, recipeDefinition);
         }
 
         if (definitionType === "upgrade" && game.rituals) {
             // RitualUpgradeDefinition|null 祖灵升级定义：用于读取升级中文名。
             var upgradeDefinition = game.rituals.getRitualUpgradeDefinition(unlockId);
 
-            return upgradeDefinition ? upgradeDefinition.name : unlockId;
+            return getStrictDefinitionDisplayName("升级", unlockId, upgradeDefinition);
         }
 
         if (definitionType === "tab") {
             return findDefinitionNameById(game.definitions.TAB_DEFINITIONS, unlockId);
         }
 
-        return unlockId;
+        throw new Error("不支持的显示名定义类别：" + definitionType + "，ID：" + unlockId);
+    }
+
+    /**
+     * 严格读取 ID 对应定义的中文显示名。
+     *
+     * @param {string} definitionTypeName - 定义类别中文名，用于开发错误。
+     * @param {string} definitionId - 稳定内部 ID，仅用于查表和开发错误。
+     * @param {{name: string}|null|undefined} definition - 已查询的定义对象。
+     * @returns {string} 非空且包含中文字符的玩家显示名。
+     * @throws {Error} 定义缺失、名称为空或名称不含中文字符时抛出开发错误。
+     */
+    function getStrictDefinitionDisplayName(definitionTypeName, definitionId, definition) {
+        if (!definition || typeof definition.name !== "string" || !/[\u3400-\u9fff]/.test(definition.name)) {
+            throw new Error(definitionTypeName + "缺少严格中文显示名：" + definitionId);
+        }
+
+        return definition.name;
     }
 
     /**
@@ -3751,7 +4365,8 @@
      *
      * @param {{id: string, name: string}[]} definitionList - 定义列表；每项必须包含稳定 ID 和中文显示名。
      * @param {string} definitionId - 要查找的稳定 ID。
-     * @returns {string} 中文显示名；找不到定义时返回稳定 ID。
+     * @returns {string} 已登记且非空的中文显示名。
+     * @throws {Error} 定义缺失或没有严格中文名时抛出开发错误。
      */
     function findDefinitionNameById(definitionList, definitionId) {
         // number 循环索引：遍历定义列表的整数下标。
@@ -3760,11 +4375,11 @@
             var definitionEntry = definitionList[definitionIndex];
 
             if (definitionEntry.id === definitionId) {
-                return definitionEntry.name;
+                return getStrictDefinitionDisplayName("定义", definitionId, definitionEntry);
             }
         }
 
-        return definitionId;
+        throw new Error("定义缺少严格中文显示名：" + definitionId);
     }
 
     /**
@@ -3784,7 +4399,12 @@
         tabContentElement.appendChild(headingElement);
         tabContentElement.appendChild(createTextElement("h3", game.text.TEXT_REGISTRY.ui.workshopTitle));
         tabContentElement.appendChild(createTextElement("p", game.text.TEXT_REGISTRY.ui.craftRatio + " x" + game.crafting.calculateCraftMultiplier(state).toFixed(2)));
-        tabContentElement.appendChild(createTextElement("p", "工程师：" + game.jobs.countAssigned(state, "engineer") + "，自动制作：" + (state.statistics.autoCraftRecipeId || "未选择") + "，速度 " + game.crafting.calculateAutoCraftRate(state).toFixed(2) + "/秒"));
+        // CraftRecipeDefinition|null 自动制作配方定义：用于把运行时配方 ID 转为玩家中文名。
+        var autoCraftRecipeDefinition = state.statistics.autoCraftRecipeId ? game.crafting.getRecipeDefinition(state.statistics.autoCraftRecipeId) : null;
+        // string 自动制作配方名称：未选择与异常定义均使用中文安全文本。
+        var autoCraftRecipeName = state.statistics.autoCraftRecipeId ? getStrictDefinitionDisplayName("配方", state.statistics.autoCraftRecipeId, autoCraftRecipeDefinition) : "未选择";
+
+        tabContentElement.appendChild(createTextElement("p", "工程师：" + game.jobs.countAssigned(state, "engineer") + "，自动制作：" + autoCraftRecipeName + "，速度 " + game.crafting.calculateAutoCraftRate(state).toFixed(2) + "/秒"));
         gridElement.className = "action-grid";
 
         // number 循环索引：遍历配方定义数组的整数下标。
@@ -4002,13 +4622,19 @@
         // number 法令槽位数量：用已启用政策组数量表达治理能力。
         var decreeSlotCount = chiefHallCount + Math.floor(chiefHallCount / 3);
 
-        // string[] 当前政策组 ID 数组：用于显示已使用的等价法令。
-        var activePolicyGroupIds = Object.keys(state.policies);
+        // string[] 当前政策 ID 数组：从各政策组状态中收集已启用政策。
+        var activePolicyIds = Object.keys(state.policies).map(function (policyGroupId) { return state.policies[policyGroupId]; }).filter(Boolean);
+        // string[] 当前政策中文名数组：定义异常时由严格显示名助手立即抛出开发错误。
+        var activePolicyNames = activePolicyIds.map(function (policyId) {
+            // PolicyDefinition|null 当前政策定义：用于玩家可见中文名。
+            var policyDefinition = game.policiesSystem.getPolicyDefinition(policyId);
+            return getStrictDefinitionDisplayName("政策", policyId, policyDefinition);
+        });
 
         cardElement.className = "action-card";
         cardElement.appendChild(createTextElement("h3", "法令能力"));
         cardElement.appendChild(createTextElement("p", "酋长厅等级：" + chiefHallCount + "，法令槽位：" + decreeSlotCount));
-        cardElement.appendChild(createTextElement("p", "当前政策组：" + (activePolicyGroupIds.length > 0 ? activePolicyGroupIds.join("，") : "无")));
+        cardElement.appendChild(createTextElement("p", "当前政策：" + (activePolicyNames.length > 0 ? activePolicyNames.join("，") : "无")));
         cardElement.appendChild(createTextElement("p", "说明：每座酋长厅提供 1 个治理槽，每 3 座额外提供 1 个帝国法令槽。"));
         return cardElement;
     }
@@ -4780,17 +5406,14 @@
      * @returns {string} 资源库存、容量和每秒变化中文文本。
      */
     function formatRitualResource(state, resourceId) {
-        // ResourceDefinition|null 资源定义：用于读取中文名。
-        var resourceDefinition = game.resources.getResourceDefinition(resourceId);
-
         // ResourceState|null 资源状态：用于读取当前库存、容量和变化率。
         var resourceState = state.resourcesById[resourceId] || null;
 
         if (!resourceState || !resourceState.isVisible) {
-            return (resourceDefinition ? resourceDefinition.name : resourceId) + "：未显示";
+            return game.resources.getResourceDisplayName(resourceId) + "：未显示";
         }
 
-        return (resourceDefinition ? resourceDefinition.name : resourceId) + "：" + resourceState.value.toFixed(1) + " / " + resourceState.maxValue.toFixed(0) + "（" + formatSignedNumber(resourceState.perSecond) + "/秒）";
+        return game.resources.getResourceDisplayName(resourceId) + "：" + resourceState.value.toFixed(1) + " / " + resourceState.maxValue.toFixed(0) + "（" + formatSignedNumber(resourceState.perSecond) + "/秒）";
     }
 
     /**
@@ -6239,11 +6862,8 @@
             // Price|null 菌菇成本项：用于保留“菌菇”资源名，只把数量替换为不可用。
             var fungusPriceEntry = getPriceEntryByResourceId(preview.cost, "fungus");
 
-            // ResourceDefinition|null 菌菇资源定义：缺失时回退显示稳定 ID。
-            var fungusDefinition = game.resources.getResourceDefinition("fungus");
-
             if (fungusPriceEntry) {
-                return (fungusDefinition ? fungusDefinition.name : fungusPriceEntry.resource) + " 不可用";
+                return game.resources.getResourceDisplayName(fungusPriceEntry.resource) + " 不可用";
             }
 
             return "不可用";
@@ -6410,10 +7030,7 @@
             // string 资源 ID：当前奖励资源稳定 ID。
             var resourceId = resourceIds[resourceIndex];
 
-            // ResourceDefinition|null 资源定义：用于把资源 ID 转成中文名称。
-            var resourceDefinition = game.resources.getResourceDefinition(resourceId);
-
-            rewardTexts.push((resourceDefinition ? resourceDefinition.name : resourceId) + " " + rewardsByResourceId[resourceId]);
+            rewardTexts.push(game.resources.getResourceDisplayName(resourceId) + " " + rewardsByResourceId[resourceId]);
         }
 
         return rewardTexts.join("，");
@@ -6667,10 +7284,7 @@
             // ResourceId 当前资源 ID：用于查找中文资源名。
             var resourceId = resourceIds[resourceIndex];
 
-            // ResourceDefinition|null 资源定义：用于显示中文名称。
-            var resourceDefinition = game.resources.getResourceDefinition(resourceId);
-
-            outputTexts.push((resourceDefinition ? resourceDefinition.name : resourceId) + " +" + jobDefinition.baseOutput[resourceId] + "/tick");
+            outputTexts.push(game.resources.getResourceDisplayName(resourceId) + " +" + jobDefinition.baseOutput[resourceId] + "/tick");
         }
 
         return outputTexts.join("，");
@@ -6817,9 +7431,6 @@
             // HTMLButtonElement 行动按钮：点击后执行采集。
             var buttonElement = document.createElement("button");
 
-            // ResourceDefinition|null 产出资源定义：用于显示中文资源名。
-            var resourceDefinition = game.resources.getResourceDefinition(actionDefinition.resource);
-
             // number 当前单次采集数量：包含该行动独立科技树的固定增产。
             var currentActionAmount = game.resources.getManualActionAmount(state, actionDefinition);
 
@@ -6830,7 +7441,7 @@
             buttonElement.disabled = state.isPaused;
             cardElement.appendChild(buttonElement);
             cardElement.appendChild(createTextElement("p", actionDefinition.description));
-            cardElement.appendChild(createTextElement("p", "+" + currentActionAmount + " " + (resourceDefinition ? resourceDefinition.name : actionDefinition.resource)));
+            cardElement.appendChild(createTextElement("p", "+" + currentActionAmount + " " + game.resources.getResourceDisplayName(actionDefinition.resource)));
             cardElement.appendChild(createTextElement("p", "每次点击有 " + Math.round(actionDefinition.eventChance * 100) + "% 概率触发采集事件"));
             gridElement.appendChild(cardElement);
         }
@@ -6846,28 +7457,1097 @@
      * @returns {HTMLElement} 建筑购买区元素。
      */
     function renderBuildingActions(state) {
-        // HTMLElement 区块元素：承载建设总览、筛选、路线、建筑列表与建议。
+        // HTMLElement 区块元素：承载建设指挥板标题、工具栏、决策区与固定检查器。
         var sectionElement = document.createElement("section");
 
-        sectionElement.appendChild(createTextElement("h3", game.text.TEXT_REGISTRY.ui.basicBuildings));
-        sectionElement.className = "building-workspace";
-
-        // Object[] 全部已揭示建筑视图模型：完全隐藏建筑不进入统计或 DOM。
+        // Object[] 全部已揭示建筑视图模型：完全隐藏建筑不进入统计、队列或图鉴。
         var allViewModels = game.buildingView.collectBuildingViewModels(state);
 
+        // Object 建设阶段摘要：由关键建筑拥有量确定性推导，不写入存档。
+        var stageSummary = getBuildingStageSummary(state);
+
+        // LaborBreakdown 当前劳力摘要：标题栏显示建筑占用与人口劳力。
+        var laborBreakdown = game.population.analyzeLaborBreakdown(state);
+
+        // number 当前存活人口：标题栏住房占用的非负整数人数。
+        var aliveCount = game.population.countAliveGoblins(state);
+
+        // number 当前住房上限：标题栏住房容量的非负整数床位数。
+        var housingMax = game.population.calculateHousingMax(state);
+
+        // HTMLElement 标题栏元素：把阶段、住房和劳力放在同一管理基线。
+        var headingElement = document.createElement("header");
+
+        headingElement.className = "building-command-heading";
+        headingElement.appendChild(createTextElement("h3", "建设指挥板"));
+        headingElement.appendChild(createTextElement("span", "阶段：" + stageSummary.name));
+        headingElement.appendChild(createTextElement("span", "住房 " + aliveCount + "/" + housingMax));
+        headingElement.appendChild(createTextElement("span", "劳力 " + formatNumber(laborBreakdown.adjustedBuildingUsageTotal) + "/" + formatNumber(laborBreakdown.populationLabor)));
+        headingElement.appendChild(createTextElement("small", stageSummary.description));
+        sectionElement.appendChild(headingElement);
+        sectionElement.className = "building-workspace";
+
         synchronizeNewBuildingReveals(state, allViewModels);
+        ensureSelectedBuilding(allViewModels);
+        sectionElement.appendChild(renderBuildingCommandToolbar(allViewModels));
 
-        sectionElement.appendChild(renderBuildingOverview(state, allViewModels));
-        sectionElement.appendChild(renderBuildingFilters(allViewModels));
-        sectionElement.appendChild(renderBuildingRouteNavigation(allViewModels));
+        sectionElement.appendChild(renderBuildingCommandBody(state, allViewModels));
+        return sectionElement;
+    }
 
-        // HTMLElement 主体网格元素：左侧分组列表，右侧建设参谋。
+    /**
+     * 渲染建设指挥板结果区，在目录搜索结果与决策队列之间切换。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} allViewModels - 按设计顺序排列的全部已揭示建筑视图模型。
+     * @returns {HTMLElement} 建设结果区元素。
+     */
+    function renderBuildingCommandBody(state, allViewModels) {
+        // HTMLElement 主体容器：决策队列使用双栏，图鉴使用无独立详情卡的整宽列表。
         var workspaceBodyElement = document.createElement("div");
 
-        workspaceBodyElement.className = "building-workspace-body";
-        workspaceBodyElement.appendChild(renderBuildingRouteGroups(state, allViewModels));
-        sectionElement.appendChild(workspaceBodyElement);
+        workspaceBodyElement.className = "building-command-body";
+        if (game.runtime.buildingViewId === "catalog" || (game.runtime.buildingSearchText || "").trim()) {
+            workspaceBodyElement.classList.add("is-catalog-view");
+            workspaceBodyElement.appendChild(renderBuildingCatalog(state, allViewModels));
+        } else {
+            workspaceBodyElement.appendChild(renderBuildingDecisionQueue(state, allViewModels));
+            workspaceBodyElement.appendChild(renderSelectedBuildingDetails(state, allViewModels));
+        }
+        return workspaceBodyElement;
+    }
+
+    /**
+     * 根据关键建筑推导当前建设阶段摘要。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {Object} 阶段摘要；name 为 string 标题，description 为 string 定向说明。
+     */
+    function getBuildingStageSummary(state) {
+        // BuildingState|null 深渊门状态：存在且 owned 大于零时进入最终阶段。
+        var abyssGateState = state.buildingsById.abyss_gate || null;
+        // BuildingState|null 酋长厅状态：用于判定城邦经营阶段。
+        var chiefHallState = state.buildingsById.chief_hall || null;
+        // BuildingState|null 工匠棚状态：用于判定矿业扩张阶段。
+        var artisanShedState = state.buildingsById.artisan_shed || null;
+        // BuildingState|null 涂鸦墙状态：用于判定氏族成形阶段。
+        var graffitiWallState = state.buildingsById.graffiti_wall || null;
+
+        if (abyssGateState && abyssGateState.owned > 0) { return { name: "深渊帝国", description: "建设后期容量与远征设施" }; }
+        if (chiefHallState && chiefHallState.owned > 0) { return { name: "城邦经营", description: "平衡军工、贸易、祭祀与治理" }; }
+        if (artisanShedState && artisanShedState.owned > 0) { return { name: "矿业扩张", description: "打通采矿、冶炼和加工链" }; }
+        if (graffitiWallState && graffitiWallState.owned > 0) { return { name: "氏族成形", description: "扩张人口并建立研究循环" }; }
+        return { name: "求生扎根", description: "先稳定菌菇、住房与基础储备" };
+    }
+
+    /**
+     * 确保固定检查器始终拥有一个有效选择。
+     *
+     * @param {Object[]} viewModels - 按设计顺序排列的已揭示建筑视图模型数组。
+     * @returns {void} 无返回值；必要时会修改运行时 selectedBuildingId 偏好。
+     */
+    function ensureSelectedBuilding(viewModels) {
+        // boolean 当前选择是否仍存在：true 时保持玩家上一轮选择。
+        var hasExistingSelection = viewModels.some(function (viewModel) { return viewModel.definition.id === game.runtime.selectedBuildingId; });
+
+        if (hasExistingSelection || viewModels.length <= 0) { return; }
+
+        // Object|null 默认选择模型：优先等待项，其次可建项，最后取设计顺序第一项。
+        var selectedViewModel = viewModels.find(function (viewModel) { return viewModel.buildingViewStatus === "unaffordable"; }) ||
+            viewModels.find(function (viewModel) { return viewModel.buildingViewStatus === "available"; }) || viewModels[0];
+
+        game.runtime.selectedBuildingId = selectedViewModel.definition.id;
+    }
+
+    /**
+     * 渲染建设指挥板的搜索、图鉴与管理工具栏。
+     *
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 工具栏元素。
+     */
+    function renderBuildingCommandToolbar(viewModels) {
+        // HTMLElement 工具栏元素：只承载三项常用入口。
+        var toolbarElement = renderBuildingToolbar();
+        // HTMLButtonElement|null 图鉴切换按钮：补充已揭示/总数计数与明确动作。
+        var catalogButtonElement = toolbarElement.querySelector("[data-building-view-id]");
+
+        if (catalogButtonElement) {
+            catalogButtonElement.textContent = game.runtime.buildingViewId === "catalog" ? "返回决策队列" : "打开建筑图鉴 " + viewModels.length + "/" + game.definitions.BUILDING_DEFINITIONS.length;
+        }
+        return toolbarElement;
+    }
+
+    /**
+     * 渲染最多七项的确定性建筑决策队列。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 决策队列元素。
+     */
+    function renderBuildingDecisionQueue(state, viewModels) {
+        // HTMLElement 队列容器元素：包含下一步、可立即建造和需处理三个固定区段。
+        var queueElement = document.createElement("div");
+        // BuildingQueueSnapshot 决策快照：排序、风险过滤、意图覆盖和防抖均由纯决策模块完成。
+        var queueSnapshot = game.buildingDecisions.getBuildingQueueSnapshot(state, viewModels, game.runtime.buildingDecisionRuntime, Date.now());
+
+        queueElement.className = "building-decision-queue";
+        queueElement.appendChild(renderBuildingQueueSection(state, "当前目标", queueSnapshot.target, "没有需要等待的明确目标；可直接建设或前往图鉴查看。"));
+        queueElement.appendChild(renderBuildingQueueSection(state, "可立即建造", queueSnapshot.available, "当前没有安全且可支付的建设方案。"));
+        queueElement.appendChild(renderBuildingQueueSection(state, "先处理", queueSnapshot.attention, "当前未发现建设阻断或建造后严重风险。"));
+        return queueElement;
+    }
+
+    /**
+     * 渲染决策队列的一个固定区段。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {string} headingText - 区段中文标题。
+     * @param {BuildingDecisionProfile[]} decisionProfiles - 本区最多三项建筑决策档案数组。
+     * @param {string} emptyText - 无候选项时显示的具体结论。
+     * @returns {HTMLElement} 队列区段元素。
+     */
+    function renderBuildingQueueSection(state, headingText, decisionProfiles, emptyText) {
+        // HTMLElement 区段元素：承载标题和蓝图签。
+        var sectionElement = document.createElement("section");
+
+        sectionElement.className = "building-queue-section";
+        sectionElement.appendChild(createTextElement("h4", headingText));
+        if (decisionProfiles.length <= 0) {
+            sectionElement.appendChild(createTextElement("p", emptyText));
+            return sectionElement;
+        }
+        // number 模型循环索引：按区段排序依次生成蓝图签。
+        for (var modelIndex = 0; modelIndex < decisionProfiles.length; modelIndex += 1) {
+            sectionElement.appendChild(renderBuildingBlueprintSlip(state, decisionProfiles[modelIndex].viewModel, false, decisionProfiles[modelIndex]));
+        }
         return sectionElement;
+    }
+
+    /**
+     * 渲染可选择的决策蓝图签或只读图鉴列表行。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object} viewModel - 单个建筑视图模型。
+     * @param {boolean} isCatalogRow - true 表示图鉴列表行，false 表示决策队列签。
+     * @param {BuildingDecisionProfile=} decisionProfile - 决策队列档案；图鉴行省略。
+     * @returns {HTMLElement} 包含决策选择按钮或只读图鉴行及悬浮详情的建筑条目。
+     */
+    function renderBuildingBlueprintSlip(state, viewModel, isCatalogRow, decisionProfile) {
+        // HTMLElement 蓝图条目容器：为未选中建筑承载不参与布局的详情浮窗。
+        var entryElement = document.createElement("div");
+        // HTMLElement 建筑交互元素：决策队列为选择按钮，图鉴为只可聚焦的浏览行。
+        var buildingElement = document.createElement(isCatalogRow ? "div" : "button");
+        // number 已拥有数量：未拥有时不显示乘零。
+        var ownedCount = viewModel.state ? viewModel.state.owned : 0;
+        // string 建筑显示名：预览态匿名，避免泄露正式名称。
+        var displayName = viewModel.isPreview ? "未知设施" : viewModel.definition.name;
+        // string 主效果标签：只显示第一项受控效果标签。
+        var primaryEffect = game.buildingView.getEffectTagLabel(viewModel.definition.effectTags[0]);
+        // string 行动结论：可建、等待、容量、来源、前置、暂停或过载。
+        var actionText = !viewModel.isPreview && viewModel.willOverloadLabor ? "将过载" : getBuildingAvailabilityLabel(viewModel);
+
+        entryElement.className = "building-blueprint-entry";
+        buildingElement.className = "building-blueprint-slip building-status-" + viewModel.buildingViewStatus + (isCatalogRow ? " is-catalog-row" : "");
+        if (isCatalogRow) {
+            buildingElement.tabIndex = 0;
+            buildingElement.setAttribute("aria-label", displayName + "，" + actionText + "；聚焦查看详情");
+        } else {
+            // HTMLButtonElement 决策选择按钮：只更新固定检查器，不直接建造。
+            var decisionButtonElement = /** @type {HTMLButtonElement} */ (buildingElement);
+
+            decisionButtonElement.type = "button";
+            decisionButtonElement.dataset.buildingSelectId = viewModel.definition.id;
+            decisionButtonElement.setAttribute("aria-current", String(game.runtime.selectedBuildingId === viewModel.definition.id));
+        }
+        buildingElement.innerHTML = "<span class=\"building-slip-symbol\" aria-hidden=\"true\">" + getBuildingStatusSymbol(viewModel.buildingViewStatus) + "</span>" +
+            "<strong>" + displayName + (ownedCount > 0 ? " ×" + ownedCount : "") + "</strong>" +
+            "<span class=\"building-slip-action\">" + actionText + "</span>" +
+            "<small>" + primaryEffect + "</small>" +
+            "<small class=\"building-slip-bottleneck\">" + (decisionProfile ? getBuildingDecisionReason(decisionProfile) : getBuildingSingleBottleneck(viewModel)) + "</small>";
+        entryElement.appendChild(buildingElement);
+        if (isCatalogRow || game.runtime.selectedBuildingId !== viewModel.definition.id) {
+            entryElement.appendChild(createBuildingViewTooltip(state, viewModel));
+        }
+        return entryElement;
+    }
+
+    /**
+     * 将结构化决策理由格式化为玩家可验证的中文短句。
+     *
+     * @param {BuildingDecisionProfile} decisionProfile - 建筑决策档案。
+     * @returns {string} 现状、建筑效果与行动方向组成的单句理由。
+     */
+    function getBuildingDecisionReason(decisionProfile) {
+        // Object 建筑视图模型：用于读取建筑名称、效果和缺口。
+        var viewModel = decisionProfile.viewModel;
+        // Object.<string, string|number> 理由字段：由决策层生成的受控数据。
+        var reasonTokens = decisionProfile.reasonTokens;
+        if (reasonTokens.dependencyTargetName && reasonTokens.dependencyResourceId) { return "为“" + reasonTokens.dependencyTargetName + "”解除" + formatResourceIdList([reasonTokens.dependencyResourceId]) + "阻断" + (reasonTokens.blockerCoverageCount > 1 ? "等 " + reasonTokens.blockerCoverageCount + " 项" : ""); }
+        if (reasonTokens.dependencyTargetName) { return "为“" + reasonTokens.dependencyTargetName + "”铺路 → " + getBuildingSingleBottleneck(viewModel); }
+        if (decisionProfile.bottleneck && decisionProfile.bottleneck.type === "labor_risk") {
+            // LaborBreakdown 劳力摘要：只用于格式化建造后的明确占用数字。
+            var laborBreakdown = game.population.analyzeLaborBreakdown(game.runtime.state);
+            // number 建造后劳力占用：单位劳力，非负浮点数。
+            var usageAfterPurchase = laborBreakdown.adjustedBuildingUsageTotal + viewModel.laborUsage * (1 - laborBreakdown.reductionRatio);
+            return "建造后劳力 " + formatNumber(usageAfterPurchase) + "/" + formatNumber(laborBreakdown.populationLabor) + " → " + decisionProfile.bottleneck.action;
+        }
+        if (decisionProfile.bottleneck && decisionProfile.bottleneck.type === "chain_risk") { return formatResourceIdList([decisionProfile.bottleneck.resourceId]) + "净流量不足 → " + decisionProfile.bottleneck.action; }
+        if (decisionProfile.bottleneck && decisionProfile.bottleneck.type === "capacity") {
+            // ResourceState 容量受阻资源状态：用于显示当前容量。
+            var resourceState = game.runtime.state.resourcesById[decisionProfile.bottleneck.resourceId];
+            return formatResourceIdList([decisionProfile.bottleneck.resourceId]) + "容量 " + formatNumber(resourceState ? resourceState.maxValue : 0) + " → " + decisionProfile.bottleneck.action;
+        }
+        if (decisionProfile.bottleneck && (decisionProfile.bottleneck.type === "discrete_source" || decisionProfile.bottleneck.type === "source_missing")) { return formatResourceIdList([decisionProfile.bottleneck.resourceId]) + "无法自动等待 → " + decisionProfile.bottleneck.action; }
+        if (reasonTokens.reservedForTargetName) { return "会占用“" + reasonTokens.reservedForTargetName + "”所需资源" + (Number.isFinite(reasonTokens.reservationDelaySeconds) ? "，约延迟 " + formatDuration(reasonTokens.reservationDelaySeconds) : "，当前无法自动补回") + " → 非紧急时暂缓"; }
+        if (reasonTokens.kind === "progression" && reasonTokens.ownedCount === 0) { return "首座开放新系统 → " + getBuildingAvailabilityLabel(viewModel); }
+        if (decisionProfile.primaryIntentId === "expand_housing") { return "住房压力 → 建成后增加 " + formatNumber(viewModel.definition.effects.housingMax || 0) + " 住房"; }
+        if (decisionProfile.primaryIntentId === "survive_food") { return "口粮压力 → 建成后改善菌菇供给"; }
+        if (decisionProfile.primaryIntentId === "recover_labor") { return "劳力紧张 → 建成后降低生产占用"; }
+        return getBuildingSingleBottleneck(viewModel);
+    }
+
+    /**
+     * 获取蓝图签唯一瓶颈文本。
+     *
+     * @param {Object} viewModel - 建筑视图模型。
+     * @returns {string} 最多一个资源缺口或具名前置说明。
+     */
+    function getBuildingSingleBottleneck(viewModel) {
+        if (viewModel.isPreview) { return viewModel.unlockText; }
+        if (viewModel.capacityBlockedResourceIds.length > 0) { return formatResourceIdList([viewModel.capacityBlockedResourceIds[0]]) + "容量不足"; }
+        if (viewModel.sourceBlockedResourceIds.length > 0) { return getResourceAcquisitionText(viewModel.sourceBlockedResourceIds[0]); }
+        if (viewModel.waitInfo.entries.length > 0) {
+            // ResourceWaitEntry 首要等待条目：统一等待模型已按资源系统给出最大等待。
+            var waitEntry = viewModel.waitInfo.entries[0];
+            return "缺 " + formatNumber(waitEntry.missingAmount) + " " + formatResourceIdList([waitEntry.resource]);
+        }
+        return viewModel.willOverloadLabor ? "建成后生产将停摆" : "资源已齐备";
+    }
+
+    /**
+     * 渲染按六个稳定分区组织的完整建筑图鉴。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 图鉴筛选和分区建筑列表容器。
+     */
+    function renderBuildingCatalog(state, viewModels) {
+        // HTMLElement 图鉴容器元素：原位替换决策队列。
+        var catalogElement = document.createElement("div");
+        // HTMLElement 筛选栏元素：只保留四个状态和仅已拥有开关。
+        var filterElement = document.createElement("div");
+        // Object.<string, string> 筛选文案字典：key 为受控筛选 ID，value 为玩家可见名称。
+        var filterLabelById = { all: "全部", available: "可建", waiting: "等待", blocked: "受阻" };
+        // string[] 筛选 ID 数组：决定固定按钮顺序。
+        var filterIds = ["all", "available", "waiting", "blocked"];
+        // Function 当前筛选谓词：由四种受控状态和拥有开关共同决定。
+        var filterPredicate = getBuildingFilterPredicate(game.runtime.buildingFilter || "all");
+        // string 标准化搜索词：匹配名称、说明、效果、成本和解锁条件。
+        var searchText = (game.runtime.buildingSearchText || "").trim().toLowerCase();
+        // Object[] 匹配模型数组：保持原定义设计顺序，不执行用户排序。
+        var matchedModels = viewModels.filter(function (viewModel) {
+            return filterPredicate(viewModel) && (!game.runtime.isBuildingOwnedOnly || (viewModel.state && viewModel.state.owned > 0)) && doesBuildingMatchSearch(viewModel, searchText);
+        });
+
+        catalogElement.className = "building-catalog";
+        filterElement.className = "building-catalog-filters";
+        // number 筛选循环索引：生成四个固定状态按钮。
+        for (var filterIndex = 0; filterIndex < filterIds.length; filterIndex += 1) {
+            // string 当前筛选 ID：用于按钮数据和选中态。
+            var filterId = filterIds[filterIndex];
+            // HTMLButtonElement 筛选按钮：切换后只局部重绘建设指挥板。
+            var filterButtonElement = document.createElement("button");
+
+            filterButtonElement.type = "button";
+            filterButtonElement.dataset.buildingFilter = filterId;
+            filterButtonElement.setAttribute("aria-pressed", String((game.runtime.buildingFilter || "all") === filterId));
+            filterButtonElement.textContent = filterLabelById[filterId];
+            filterElement.appendChild(filterButtonElement);
+        }
+        // HTMLButtonElement 仅已拥有开关：通过拥有量大于零筛选。
+        var ownedButtonElement = document.createElement("button");
+
+        ownedButtonElement.type = "button";
+        ownedButtonElement.dataset.buildingOwnedOnlyToggle = "true";
+        ownedButtonElement.setAttribute("aria-pressed", String(Boolean(game.runtime.isBuildingOwnedOnly)));
+        ownedButtonElement.textContent = game.runtime.isBuildingOwnedOnly ? "✓ 仅已拥有" : "仅已拥有";
+        filterElement.appendChild(ownedButtonElement);
+        catalogElement.appendChild(filterElement);
+
+        if (matchedModels.length <= 0) {
+            // HTMLElement 空结果元素：说明条件并提供清除入口。
+            var emptyElement = document.createElement("div");
+            // HTMLButtonElement 清除筛选按钮：恢复全部状态、拥有开关和搜索词。
+            var clearButtonElement = document.createElement("button");
+
+            emptyElement.className = "building-catalog-empty";
+            emptyElement.appendChild(createTextElement("p", "当前搜索与筛选条件下没有建筑。"));
+            clearButtonElement.type = "button";
+            clearButtonElement.dataset.buildingFilterClear = "true";
+            clearButtonElement.textContent = "清除筛选";
+            emptyElement.appendChild(clearButtonElement);
+            catalogElement.appendChild(emptyElement);
+            return catalogElement;
+        }
+
+        // number 分区循环索引：按静态六分区顺序生成稳定列表。
+        for (var routeIndex = 0; routeIndex < game.definitions.BUILDING_ROUTE_DEFINITIONS.length; routeIndex += 1) {
+            // BuildingRouteDefinition 当前建筑分区定义：提供稳定 ID 与中文名。
+            var routeDefinition = game.definitions.BUILDING_ROUTE_DEFINITIONS[routeIndex];
+            // Object[] 当前分区全部已揭示模型：用于标题计数。
+            var revealedRouteModels = viewModels.filter(function (viewModel) { return viewModel.definition.routeId === routeDefinition.id; });
+            // Object[] 当前分区匹配模型：保持 designOrder 原顺序。
+            var matchedRouteModels = matchedModels.filter(function (viewModel) { return viewModel.definition.routeId === routeDefinition.id; });
+
+            if (matchedRouteModels.length <= 0) { continue; }
+            // HTMLElement 分区元素：承载标题与单列建筑列表。
+            var routeElement = document.createElement("section");
+            // HTMLElement 建筑列表元素：每行一栋建筑并保持设计顺序。
+            var buildingListElement = document.createElement("div");
+
+            routeElement.className = "building-catalog-route route-" + routeDefinition.id;
+            routeElement.appendChild(createTextElement("h4", routeDefinition.name + "　" + revealedRouteModels.length + "/" + countBuildingDefinitionsByRoute(routeDefinition.id)));
+            buildingListElement.className = "building-catalog-list";
+            // number 模型循环索引：按 designOrder 生成建筑列表行。
+            for (var modelIndex = 0; modelIndex < matchedRouteModels.length; modelIndex += 1) {
+                buildingListElement.appendChild(renderBuildingBlueprintSlip(state, matchedRouteModels[modelIndex], true));
+            }
+            routeElement.appendChild(buildingListElement);
+            if (routeDefinition.id === "industry") {
+                // HTMLButtonElement 生产链次级入口：仅工业分区显示，不常驻首屏。
+                var industryButtonElement = document.createElement("button");
+
+                industryButtonElement.type = "button";
+                industryButtonElement.dataset.industryChainToggle = "true";
+                industryButtonElement.className = "building-secondary-action";
+                industryButtonElement.textContent = game.runtime.isIndustryChainOpen ? "收起工业生产链" : "查看工业生产链";
+                routeElement.appendChild(industryButtonElement);
+                if (game.runtime.isIndustryChainOpen) { routeElement.appendChild(renderIndustryChain(state)); }
+            }
+            catalogElement.appendChild(routeElement);
+        }
+        return catalogElement;
+    }
+
+    /**
+     * 统计指定分区的静态建筑定义总数。
+     *
+     * @param {BuildingRouteId} routeId - 六分区之一的稳定 ID。
+     * @returns {number} 分区建筑定义数量，非负整数。
+     */
+    function countBuildingDefinitionsByRoute(routeId) {
+        return game.definitions.BUILDING_DEFINITIONS.filter(function (buildingDefinition) { return buildingDefinition.routeId === routeId; }).length;
+    }
+
+    /**
+     * 渲染原生 Canvas 地穴建设图；建筑只作为空间节点绘制，不生成列表、网格或卡片 DOM。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 地穴建设图容器，包含画布、图例和唯一详情浮框。
+     */
+    function renderBuildingCaveMap(state, viewModels) {
+        // HTMLElement 建设图容器：为画布和绝对定位详情浮框提供坐标系。
+        var mapElement = document.createElement("section");
+        // HTMLCanvasElement 建设画布：绘制分区、隧道和建筑节点。
+        var canvasElement = document.createElement("canvas");
+        // HTMLElement 详情浮框：全图只创建一个，按命中节点动态填充。
+        var popoverElement = document.createElement("div");
+        // HTMLElement 图例元素：解释节点图形而不承担建筑浏览功能。
+        var legendElement = document.createElement("div");
+        // Object[] 可绘制建筑模型：应用当前分区、搜索和状态筛选。
+        var visibleViewModels = getVisibleBuildingMapModels(viewModels);
+
+        mapElement.className = "building-cave-map";
+        canvasElement.className = "building-map-canvas";
+        canvasElement.dataset.buildingMapCanvas = "true";
+        canvasElement.setAttribute("aria-label", "地穴建设图；移动指针或点击建筑节点查看详情");
+        canvasElement.tabIndex = 0;
+        // Object[] 画布建筑模型：事件命中后读取，不作为游戏权威状态。
+        canvasElement.buildingViewModels = visibleViewModels;
+        // Object[] 节点命中区：drawBuildingCaveMap 写入 x、y、radius 和 buildingId。
+        canvasElement.buildingHitAreas = [];
+        popoverElement.className = "building-map-popover";
+        popoverElement.dataset.buildingMapPopover = "true";
+        popoverElement.setAttribute("role", "tooltip");
+        popoverElement.hidden = true;
+        legendElement.className = "building-map-legend";
+        legendElement.appendChild(createTextElement("span", "◆ 可建"));
+        legendElement.appendChild(createTextElement("span", "△ 等待"));
+        legendElement.appendChild(createTextElement("span", "× 受阻"));
+        legendElement.appendChild(createTextElement("span", "◇ 接近解锁"));
+        mapElement.appendChild(canvasElement);
+        mapElement.appendChild(popoverElement);
+        mapElement.appendChild(legendElement);
+
+        window.requestAnimationFrame(function () {
+            drawBuildingCaveMap(canvasElement, visibleViewModels);
+        });
+        return mapElement;
+    }
+
+    /**
+     * 获取当前筛选、搜索和分区聚焦后的建筑地图模型。
+     *
+     * @param {Object[]} viewModels - 全部已揭示建筑视图模型数组。
+     * @returns {Object[]} 保持稳定排序的地图模型数组。
+     */
+    function getVisibleBuildingMapModels(viewModels) {
+        // Function 当前状态筛选谓词：只影响地图投影。
+        var filterPredicate = getBuildingFilterPredicate(game.runtime.buildingFilter || "all");
+        // string 标准化搜索词：匹配名称、效果、资源和解锁来源。
+        var searchText = (game.runtime.buildingSearchText || "").trim().toLowerCase();
+        // Object[] 可见地图模型：不会修改原始视图模型数组。
+        var visibleViewModels = viewModels.filter(function (viewModel) {
+            // boolean 是否属于聚焦分区：目录视图或未聚焦时允许全部分区。
+            var isInFocusedRoute = game.runtime.buildingViewId === "catalog" || !game.runtime.buildingRouteId || viewModel.definition.routeId === game.runtime.buildingRouteId;
+
+            return isInFocusedRoute && filterPredicate(viewModel) && doesBuildingMatchSearch(viewModel, searchText);
+        });
+
+        sortBuildingViewModels(visibleViewModels, game.runtime.buildingSort || "status");
+        return visibleViewModels;
+    }
+
+    /**
+     * 绘制地穴建设图，并生成与绘制节点一致的命中区域。
+     *
+     * @param {HTMLCanvasElement} canvasElement - 建设图画布，会修改像素尺寸和 buildingHitAreas。
+     * @param {Object[]} viewModels - 当前要绘制的建筑模型数组。
+     * @returns {void} 无返回值。
+     */
+    function drawBuildingCaveMap(canvasElement, viewModels) {
+        // CanvasRenderingContext2D|null 绘图上下文：不可用时不绘制。
+        var context = canvasElement.getContext("2d");
+
+        if (!context) {
+            return;
+        }
+
+        // number 画布 CSS 宽度：随中栏可用空间变化，单位 CSS 像素。
+        var cssWidth = Math.max(280, canvasElement.clientWidth || 900);
+        // number 画布 CSS 高度：固定管理视野高度，单位 CSS 像素。
+        var cssHeight = cssWidth < 760 ? 820 : (game.runtime.buildingRouteId ? 620 : 720);
+        // number 设备像素倍率：高清屏保持文字和线条锐利，范围至少 1。
+        var pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+
+        canvasElement.width = Math.round(cssWidth * pixelRatio);
+        canvasElement.height = Math.round(cssHeight * pixelRatio);
+        canvasElement.style.height = cssHeight + "px";
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.clearRect(0, 0, cssWidth, cssHeight);
+        drawBuildingMapBackground(context, cssWidth, cssHeight);
+
+        // Object.<string, Object> 分区锚点字典：key 为 BuildingRouteId，value 包含 x、y 和 color。
+        var anchorByRouteId = getBuildingMapAnchors(cssWidth, cssHeight);
+
+        drawBuildingMapTunnels(context, anchorByRouteId);
+        drawBuildingMapRouteLabels(context, anchorByRouteId);
+        canvasElement.buildingHitAreas = [];
+
+        // Object.<string, number> 分区节点计数字典：key 为 BuildingRouteId，value 为当前分区已布局节点数。
+        var routeNodeCountById = {};
+
+        for (var modelIndex = 0; modelIndex < viewModels.length; modelIndex += 1) {
+            // Object 当前建筑模型：用于计算空间位置和状态外观。
+            var viewModel = viewModels[modelIndex];
+            // BuildingRouteId 当前建筑分区 ID：决定围绕哪个洞室锚点布局。
+            var routeId = viewModel.definition.routeId;
+            // number 当前分区节点序号：用于生成确定性螺旋位置，非负整数。
+            var routeNodeIndex = routeNodeCountById[routeId] || 0;
+            // Object 分区锚点：包含 CSS 像素坐标和边线颜色。
+            var anchor = anchorByRouteId[routeId];
+            // Object 节点位置：包含 x、y 和 radius，单位 CSS 像素。
+            var nodePosition = getBuildingMapNodePosition(anchor, routeNodeIndex, cssWidth, cssHeight, Boolean(game.runtime.buildingRouteId));
+
+            routeNodeCountById[routeId] = routeNodeIndex + 1;
+            drawBuildingMapNode(context, viewModel, nodePosition, anchor.color);
+            canvasElement.buildingHitAreas.push({
+                buildingId: viewModel.definition.id,
+                x: nodePosition.x,
+                y: nodePosition.y,
+                radius: nodePosition.radius
+            });
+        }
+
+        if (viewModels.length <= 0) {
+            context.fillStyle = "#a99d84";
+            context.font = "14px sans-serif";
+            context.textAlign = "center";
+            context.fillText("当前筛选下没有已揭示建筑", cssWidth / 2, cssHeight / 2);
+        }
+    }
+
+    /**
+     * 绘制低饱和岩层背景和洞室纹理。
+     *
+     * @param {CanvasRenderingContext2D} context - 二维绘图上下文，会写入像素。
+     * @param {number} width - CSS 画布宽度，单位像素。
+     * @param {number} height - CSS 画布高度，单位像素。
+     * @returns {void} 无返回值。
+     */
+    function drawBuildingMapBackground(context, width, height) {
+        // CanvasGradient 背景渐变：由中心暖褐过渡到边缘深岩色。
+        var gradient = context.createRadialGradient(width * 0.5, height * 0.45, 30, width * 0.5, height * 0.5, Math.max(width, height) * 0.75);
+
+        gradient.addColorStop(0, "#29251d");
+        gradient.addColorStop(1, "#12130f");
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, width, height);
+        context.strokeStyle = "rgba(126, 105, 67, 0.10)";
+        context.lineWidth = 1;
+        for (var ringIndex = 0; ringIndex < 9; ringIndex += 1) {
+            context.beginPath();
+            context.ellipse(width * 0.5, height * 0.5, 90 + ringIndex * 58, 55 + ringIndex * 42, -0.12, 0, Math.PI * 2);
+            context.stroke();
+        }
+    }
+
+    /**
+     * 计算六个建设分区的固定空间锚点。
+     *
+     * @param {number} width - CSS 画布宽度，单位像素。
+     * @param {number} height - CSS 画布高度，单位像素。
+     * @returns {Object.<string, Object>} 分区锚点字典；每个值包含 x、y、color。
+     */
+    function getBuildingMapAnchors(width, height) {
+        return {
+            survival: { x: width * 0.20, y: height * 0.25, color: "#7f9855" },
+            storage: { x: width * 0.50, y: height * 0.16, color: "#9a8052" },
+            industry: { x: width * 0.80, y: height * 0.28, color: "#b56d42" },
+            governance: { x: width * 0.22, y: height * 0.72, color: "#c0964b" },
+            military: { x: width * 0.53, y: height * 0.78, color: "#a75249" },
+            abyss: { x: width * 0.82, y: height * 0.70, color: "#4d9290" }
+        };
+    }
+
+    /**
+     * 绘制分区之间的隧道连线，表达帝国结构而非严格前置关系。
+     *
+     * @param {CanvasRenderingContext2D} context - 二维绘图上下文。
+     * @param {Object.<string, Object>} anchorByRouteId - 分区锚点字典。
+     * @returns {void} 无返回值。
+     */
+    function drawBuildingMapTunnels(context, anchorByRouteId) {
+        // string[][] 隧道连接对数组：每项包含两个 BuildingRouteId。
+        var routePairs = [["survival", "storage"], ["storage", "industry"], ["survival", "governance"], ["storage", "military"], ["industry", "abyss"], ["governance", "military"], ["military", "abyss"]];
+
+        context.lineWidth = 8;
+        context.strokeStyle = "rgba(91, 78, 57, 0.42)";
+        for (var pairIndex = 0; pairIndex < routePairs.length; pairIndex += 1) {
+            // Object 起点锚点：隧道连接的第一个分区。
+            var startAnchor = anchorByRouteId[routePairs[pairIndex][0]];
+            // Object 终点锚点：隧道连接的第二个分区。
+            var endAnchor = anchorByRouteId[routePairs[pairIndex][1]];
+
+            context.beginPath();
+            context.moveTo(startAnchor.x, startAnchor.y);
+            context.quadraticCurveTo((startAnchor.x + endAnchor.x) / 2, (startAnchor.y + endAnchor.y) / 2 - 18, endAnchor.x, endAnchor.y);
+            context.stroke();
+        }
+    }
+
+    /**
+     * 绘制六个分区名称。
+     *
+     * @param {CanvasRenderingContext2D} context - 二维绘图上下文。
+     * @param {Object.<string, Object>} anchorByRouteId - 分区锚点字典。
+     * @returns {void} 无返回值。
+     */
+    function drawBuildingMapRouteLabels(context, anchorByRouteId) {
+        context.font = "600 14px sans-serif";
+        context.textAlign = "center";
+        for (var routeIndex = 0; routeIndex < game.definitions.BUILDING_ROUTE_DEFINITIONS.length; routeIndex += 1) {
+            // BuildingRouteDefinition 当前分区定义：用于显示符号和中文名。
+            var routeDefinition = game.definitions.BUILDING_ROUTE_DEFINITIONS[routeIndex];
+            // Object 当前分区锚点：用于放置标题。
+            var anchor = anchorByRouteId[routeDefinition.id];
+
+            context.fillStyle = anchor.color;
+            context.fillText(routeDefinition.symbol + " " + routeDefinition.name, anchor.x, anchor.y - 64);
+        }
+    }
+
+    /**
+     * 计算建筑节点围绕分区洞室的确定性螺旋位置。
+     *
+     * @param {Object} anchor - 分区锚点；包含 x、y 和 color。
+     * @param {number} nodeIndex - 分区内节点序号，非负整数。
+     * @param {number} width - CSS 画布宽度，单位像素。
+     * @param {number} height - CSS 画布高度，单位像素。
+     * @param {boolean} isFocusedRoute - true 表示单分区聚焦，节点可使用更大范围。
+     * @returns {Object} 节点位置；包含 x、y、radius，单位 CSS 像素。
+     */
+    function getBuildingMapNodePosition(anchor, nodeIndex, width, height, isFocusedRoute) {
+        // number 黄金角：让节点自然分散而不形成规则表格，单位弧度。
+        var goldenAngle = 2.399963;
+        // number 节点环距：聚焦单区时扩大空间，单位 CSS 像素。
+        var ringDistance = isFocusedRoute ? 42 : 31;
+        // number 螺旋半径：随节点序号平方根增长，单位 CSS 像素。
+        var spiralRadius = 24 + Math.sqrt(nodeIndex) * ringDistance;
+        // number 节点角度：加入分区锚点坐标扰动，保持确定但不机械。
+        var angle = nodeIndex * goldenAngle + anchor.x * 0.001;
+        // number 横坐标：限制在画布安全边距内，单位 CSS 像素。
+        var x = Math.max(42, Math.min(width - 42, anchor.x + Math.cos(angle) * spiralRadius));
+        // number 纵坐标：椭圆压缩后限制在画布安全边距内，单位 CSS 像素。
+        var y = Math.max(54, Math.min(height - 54, anchor.y + Math.sin(angle) * spiralRadius * 0.72));
+
+        return { x: x, y: y, radius: isFocusedRoute ? 22 : 18 };
+    }
+
+    /**
+     * 绘制单个建筑节点、拥有量和短名称。
+     *
+     * @param {CanvasRenderingContext2D} context - 二维绘图上下文。
+     * @param {Object} viewModel - 建筑视图模型。
+     * @param {Object} position - 节点位置；包含 x、y、radius。
+     * @param {string} routeColor - 所属分区 CSS 颜色。
+     * @returns {void} 无返回值。
+     */
+    function drawBuildingMapNode(context, viewModel, position, routeColor) {
+        // Object.<string, string> 状态填充色字典：key 为建筑封闭状态 ID。
+        var fillColorByStatus = { available: "#5f7d42", unaffordable: "#6d5a38", blocked: "#432d29", preview: "#252722", paused: "#3e3d38" };
+        // string 状态图形：保证颜色不是唯一表达。
+        var statusSymbol = getBuildingStatusSymbol(viewModel.buildingViewStatus);
+
+        context.beginPath();
+        context.arc(position.x, position.y, position.radius, 0, Math.PI * 2);
+        context.fillStyle = fillColorByStatus[viewModel.buildingViewStatus] || "#292a25";
+        context.fill();
+        context.lineWidth = viewModel.isKeyBuilding ? 4 : 2;
+        context.strokeStyle = routeColor;
+        if (viewModel.isPreview || viewModel.buildingViewStatus === "blocked") {
+            context.setLineDash([4, 3]);
+        }
+        context.stroke();
+        context.setLineDash([]);
+        context.fillStyle = "#eee3c9";
+        context.font = "700 12px sans-serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(statusSymbol, position.x, position.y);
+        context.font = "11px sans-serif";
+        context.textBaseline = "top";
+        context.fillStyle = "#d8ceb7";
+        context.fillText(viewModel.isPreview ? "未知设施" : viewModel.definition.name, position.x, position.y + position.radius + 5);
+        if (!viewModel.isPreview && viewModel.state.owned > 0) {
+            context.fillStyle = "#d9ad52";
+            context.font = "10px sans-serif";
+            context.fillText("×" + viewModel.state.owned, position.x + position.radius - 2, position.y - position.radius - 5);
+        }
+    }
+
+    /**
+     * 按画布坐标查找命中的建筑节点 ID。
+     *
+     * @param {HTMLCanvasElement} canvasElement - 建设图画布；buildingHitAreas 由绘制函数生成。
+     * @param {number} clientX - 指针视口横坐标，单位 CSS 像素。
+     * @param {number} clientY - 指针视口纵坐标，单位 CSS 像素。
+     * @returns {BuildingId|string} 命中的建筑 ID；未命中时返回空字符串。
+     */
+    function getBuildingMapHitId(canvasElement, clientX, clientY) {
+        // DOMRect 画布视口边界：用于把指针坐标转换为画布 CSS 坐标。
+        var canvasRect = canvasElement.getBoundingClientRect();
+        // number 画布横坐标：单位 CSS 像素。
+        var canvasX = clientX - canvasRect.left;
+        // number 画布纵坐标：单位 CSS 像素。
+        var canvasY = clientY - canvasRect.top;
+        // Object[] 命中区数组：每项包含 buildingId、x、y 和 radius。
+        var hitAreas = canvasElement.buildingHitAreas || [];
+
+        for (var hitIndex = hitAreas.length - 1; hitIndex >= 0; hitIndex -= 1) {
+            // Object 当前命中区：用于计算指针到节点圆心的距离。
+            var hitArea = hitAreas[hitIndex];
+            // number 横向距离：指针与节点圆心的 CSS 像素差。
+            var deltaX = canvasX - hitArea.x;
+            // number 纵向距离：指针与节点圆心的 CSS 像素差。
+            var deltaY = canvasY - hitArea.y;
+
+            if (deltaX * deltaX + deltaY * deltaY <= Math.pow(hitArea.radius + 8, 2)) {
+                return hitArea.buildingId;
+            }
+        }
+
+        return "";
+    }
+
+    /**
+     * 在建设图内显示命中建筑的唯一详情浮框。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {HTMLCanvasElement} canvasElement - 建设图画布。
+     * @param {BuildingId} buildingId - 要显示的建筑稳定 ID。
+     * @param {number} clientX - 浮框锚点视口横坐标，单位 CSS 像素。
+     * @param {number} clientY - 浮框锚点视口纵坐标，单位 CSS 像素。
+     * @returns {void} 无返回值；会更新浮框 DOM 和位置。
+     */
+    function showBuildingMapPopover(state, canvasElement, buildingId, clientX, clientY) {
+        // HTMLElement|null 地图容器：用于限制浮框坐标范围。
+        var mapElement = canvasElement.closest(".building-cave-map");
+        // HTMLElement|null 详情浮框：全图唯一动态详情节点。
+        var popoverElement = mapElement ? mapElement.querySelector("[data-building-map-popover]") : null;
+
+        if (!mapElement || !popoverElement) {
+            return;
+        }
+
+        // Object|null 建筑视图模型：从画布当前投影中按稳定 ID 查找。
+        var viewModel = null;
+        // Object[] 当前画布模型数组：不会作为游戏权威状态。
+        var viewModels = canvasElement.buildingViewModels || [];
+
+        for (var modelIndex = 0; modelIndex < viewModels.length; modelIndex += 1) {
+            if (viewModels[modelIndex].definition.id === buildingId) {
+                viewModel = viewModels[modelIndex];
+                break;
+            }
+        }
+
+        if (!viewModel) {
+            hideBuildingMapPopover(canvasElement);
+            return;
+        }
+
+        // HTMLElement 临时详情浮框：复用统一建筑详情字段生成函数。
+        var detailElement = createBuildingViewTooltip(state, viewModel);
+
+        popoverElement.innerHTML = "";
+        while (detailElement.firstChild) {
+            popoverElement.appendChild(detailElement.firstChild);
+        }
+        // HTMLElement 浮框操作区：固定详情时提供建造与管理操作。
+        var actionsElement = document.createElement("div");
+        // HTMLButtonElement 建造按钮：复用既有建筑购买事件入口。
+        var buyButtonElement = document.createElement("button");
+
+        actionsElement.className = "building-map-popover-actions";
+        buyButtonElement.type = "button";
+        buyButtonElement.dataset.buildingId = buildingId;
+        buyButtonElement.disabled = viewModel.buildingViewStatus !== "available";
+        buyButtonElement.textContent = getBuildingActionLabel(viewModel);
+        actionsElement.appendChild(buyButtonElement);
+        if (!viewModel.isPreview && viewModel.state.owned > 0) {
+            appendBuildingDestroyControls(actionsElement, state, viewModel);
+        }
+        popoverElement.appendChild(actionsElement);
+        popoverElement.hidden = false;
+        popoverElement.dataset.buildingId = buildingId;
+        popoverElement.classList.toggle("is-pinned", game.runtime.pinnedBuildingMapId === buildingId);
+
+        // DOMRect 地图视口边界：用于把指针坐标换算为容器内部位置。
+        var mapRect = mapElement.getBoundingClientRect();
+        // number 浮框宽度：显示后测量的 CSS 像素宽度。
+        var popoverWidth = popoverElement.offsetWidth;
+        // number 浮框高度：显示后测量的 CSS 像素高度。
+        var popoverHeight = popoverElement.offsetHeight;
+        // number 浮框左坐标：限制在地图容器内，单位 CSS 像素。
+        var leftPosition = Math.max(8, Math.min(mapRect.width - popoverWidth - 8, clientX - mapRect.left + 16));
+        // number 浮框顶坐标：优先显示在指针下方，空间不足时翻到上方。
+        var topPosition = clientY - mapRect.top + 16;
+
+        if (topPosition + popoverHeight > mapRect.height - 8) {
+            topPosition = Math.max(8, clientY - mapRect.top - popoverHeight - 16);
+        }
+        popoverElement.style.left = leftPosition + "px";
+        popoverElement.style.top = topPosition + "px";
+    }
+
+    /**
+     * 隐藏建设图详情浮框。
+     *
+     * @param {HTMLCanvasElement} canvasElement - 建设图画布。
+     * @returns {void} 无返回值。
+     */
+    function hideBuildingMapPopover(canvasElement) {
+        // HTMLElement|null 地图容器：用于查找唯一详情浮框。
+        var mapElement = canvasElement.closest(".building-cave-map");
+        // HTMLElement|null 详情浮框：存在时隐藏并清除当前建筑 ID。
+        var popoverElement = mapElement ? mapElement.querySelector("[data-building-map-popover]") : null;
+
+        if (popoverElement) {
+            popoverElement.hidden = true;
+            popoverElement.dataset.buildingId = "";
+            popoverElement.classList.remove("is-pinned");
+        }
+    }
+
+    /**
+     * 渲染建筑工作台顶部三个常驻入口。
+     *
+     * @returns {HTMLElement} 搜索与目录切换入口容器。
+     */
+    function renderBuildingToolbar() {
+        // HTMLElement 顶部工具栏元素：默认严格保持三个操作入口。
+        var toolbarElement = document.createElement("div");
+        // HTMLInputElement 搜索输入框：匹配建筑语义字段。
+        var searchInputElement = document.createElement("input");
+        // HTMLButtonElement 视图切换按钮：在总览和目录之间切换。
+        var viewButtonElement = document.createElement("button");
+
+        toolbarElement.className = "building-toolbar";
+        searchInputElement.type = "search";
+        searchInputElement.className = "game-search-input";
+        searchInputElement.dataset.buildingSearch = "true";
+        searchInputElement.value = game.runtime.buildingSearchText || "";
+        searchInputElement.placeholder = "搜索建筑、住房、劳力、铁矿……";
+        searchInputElement.setAttribute("aria-label", "搜索建筑、效果、资源或解锁系统");
+        viewButtonElement.type = "button";
+        viewButtonElement.dataset.buildingViewId = game.runtime.buildingViewId === "catalog" ? "overview" : "catalog";
+        viewButtonElement.textContent = game.runtime.buildingViewId === "catalog" ? "返回总览" : "目录";
+        toolbarElement.appendChild(searchInputElement);
+        toolbarElement.appendChild(viewButtonElement);
+        return toolbarElement;
+    }
+
+    /**
+     * 渲染当前选中建筑的常驻详情面板。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @returns {HTMLElement} 常驻详情面板元素。
+     */
+    function renderSelectedBuildingDetails(state, viewModels) {
+        // HTMLElement 详情面板元素：桌面常驻，窄屏作为可滚动详情区。
+        var detailElement = document.createElement("aside");
+        // Object|null 选中建筑模型：未选中或已隐藏时为 null。
+        var selectedViewModel = null;
+
+        detailElement.className = "building-detail-panel";
+        for (var modelIndex = 0; modelIndex < viewModels.length; modelIndex += 1) {
+            if (viewModels[modelIndex].definition.id === game.runtime.selectedBuildingId) {
+                selectedViewModel = viewModels[modelIndex];
+                break;
+            }
+        }
+        if (!selectedViewModel) {
+            detailElement.appendChild(createTextElement("h4", "建筑详情"));
+            detailElement.appendChild(createTextElement("p", "选择一栋建筑查看效果与成本。"));
+            return detailElement;
+        }
+        if (game.runtime.isBuildingInspectorOpen) {
+            detailElement.classList.add("is-active");
+        }
+        if (game.runtime.recentlyBuiltBuildingId === selectedViewModel.definition.id) {
+            detailElement.classList.add("is-build-success");
+        }
+        // HTMLButtonElement 窄屏详情关闭按钮：桌面隐藏，关闭后保留原列表滚动位置。
+        var closeDetailButtonElement = document.createElement("button");
+
+        closeDetailButtonElement.type = "button";
+        closeDetailButtonElement.dataset.buildingDetailClose = "true";
+        closeDetailButtonElement.className = "building-detail-close";
+        closeDetailButtonElement.textContent = "关闭详情";
+        detailElement.appendChild(closeDetailButtonElement);
+        // string 检查器标题 ID：建立 aside 与当前建筑名称的无障碍关联。
+        var inspectorTitleId = "building-inspector-title";
+        // HTMLElement 检查器标题元素：移动端抽屉打开后的焦点语义锚点。
+        var inspectorTitleElement = createTextElement("h4", selectedViewModel.definition.name);
+
+        inspectorTitleElement.id = inspectorTitleId;
+        inspectorTitleElement.tabIndex = -1;
+        detailElement.setAttribute("aria-labelledby", inspectorTitleId);
+        detailElement.appendChild(inspectorTitleElement);
+        if (game.runtime.recentlyBuiltBuildingId === selectedViewModel.definition.id) {
+            // HTMLElement 克制播报元素：通知读屏器建造结果，不抢夺焦点。
+            var liveElement = createTextElement("p", "已建造" + selectedViewModel.definition.name + "，当前拥有 " + selectedViewModel.state.owned + " 座");
+
+            liveElement.className = "building-live-result";
+            liveElement.setAttribute("aria-live", "polite");
+            detailElement.appendChild(liveElement);
+            window.setTimeout(function () { game.runtime.recentlyBuiltBuildingId = ""; }, 500);
+        }
+        if (selectedViewModel.isPreview) {
+            detailElement.appendChild(createTextElement("p", "用途剪影：" + game.buildingView.getEffectTagLabel(selectedViewModel.definition.effectTags[0])));
+            detailElement.appendChild(createTextElement("p", "解锁条件：" + selectedViewModel.unlockText));
+            return detailElement;
+        }
+        detailElement.appendChild(createTextElement("p", selectedViewModel.definition.description));
+        detailElement.appendChild(createTextElement("p", "决策结论：" + getBuildingAvailabilityLabel(selectedViewModel) + (selectedViewModel.willOverloadLabor ? "；建造后劳力将过载。" : "；建造后劳力仍可覆盖。")));
+        detailElement.appendChild(createTextElement("p", "解锁来源　" + selectedViewModel.unlockText));
+        detailElement.appendChild(renderBuildingCostLedger(state, selectedViewModel));
+        detailElement.appendChild(createTextElement("p", "下一座价格　" + formatPriceList(selectedViewModel.nextPrice) + "；价格倍率 ×" + selectedViewModel.definition.priceRatio.toFixed(2)));
+        // ResourceId[] 解法资源 ID 数组：容量阻断优先，其次为暂无来源阻断。
+        var solutionResourceIds = selectedViewModel.capacityBlockedResourceIds.concat(selectedViewModel.sourceBlockedResourceIds);
+
+        for (var solutionIndex = 0; solutionIndex < solutionResourceIds.length; solutionIndex += 1) {
+            // ResourceId 当前阻断资源 ID：用于查找容量或生产来源建筑。
+            var solutionResourceId = solutionResourceIds[solutionIndex];
+            // boolean 是否为容量阻断：true 查找容量建筑，false 查找持续来源建筑。
+            var isCapacitySolution = selectedViewModel.capacityBlockedResourceIds.indexOf(solutionResourceId) >= 0;
+            // Object|null 解法建筑模型：只允许定位当前已揭示建筑。
+            var solutionViewModel = findBuildingSolutionViewModel(viewModels, solutionResourceId, isCapacitySolution);
+
+            if (solutionViewModel) {
+                // HTMLButtonElement 解法定位按钮：只切换分区并选中，不自动购买。
+                var solutionButtonElement = document.createElement("button");
+
+                solutionButtonElement.type = "button";
+                solutionButtonElement.dataset.buildingSolutionId = solutionViewModel.definition.id;
+                solutionButtonElement.textContent = "查看" + game.resources.getResourceDisplayName(solutionResourceId) + (isCapacitySolution ? "容量" : "来源") + "：" + solutionViewModel.definition.name;
+                detailElement.appendChild(solutionButtonElement);
+            }
+        }
+        detailElement.appendChild(createTextElement("h5", "建成后"));
+        detailElement.appendChild(createTextElement("p", "单座增量　" + formatBuildingEffects(selectedViewModel.definition.effects)));
+        detailElement.appendChild(createTextElement("p", "当前累计　" + formatBuildingAccumulatedEffects(selectedViewModel.definition.effects, selectedViewModel.state.owned)));
+        detailElement.appendChild(createTextElement("p", "开放内容　" + formatUnlockBundle(selectedViewModel.definition.unlock)));
+        detailElement.appendChild(createTextElement("p", "拥有/启用　" + selectedViewModel.state.owned + " / " + selectedViewModel.state.active + "；单座劳力 +" + formatNumber(selectedViewModel.laborUsage)));
+        if (selectedViewModel.willOverloadLabor) {
+            detailElement.appendChild(createTextElement("p", "⚠ 建成后劳力过载，除菌菇床外的生产建筑将停产。"));
+        }
+        // HTMLButtonElement 详情主建造按钮：与列表共用既有购买系统。
+        var buyButtonElement = document.createElement("button");
+
+        buyButtonElement.type = "button";
+        buyButtonElement.className = "building-primary-action";
+        buyButtonElement.dataset.buildingId = selectedViewModel.definition.id;
+        buyButtonElement.disabled = selectedViewModel.buildingViewStatus !== "available";
+        buyButtonElement.textContent = getBuildingActionLabel(selectedViewModel);
+        // HTMLElement 建筑操作行：并排承载建造与已拥有建筑的摧毁入口。
+        var buildingActionElement = document.createElement("div");
+
+        buildingActionElement.className = "building-detail-actions";
+        if (game.runtime.confirmBuildingRiskId === selectedViewModel.definition.id) {
+            detailElement.appendChild(createTextElement("p", "风险确认：建造后建筑劳力将超过人口供给，除菌菇床外的生产建筑会停产。"));
+            // HTMLButtonElement 风险确认按钮：确认后调用既有单座购买入口。
+            var riskConfirmButtonElement = document.createElement("button");
+            // HTMLButtonElement 风险取消按钮：关闭确认且不修改状态。
+            var riskCancelButtonElement = document.createElement("button");
+
+            riskConfirmButtonElement.type = "button";
+            riskConfirmButtonElement.dataset.buildingRiskConfirmId = selectedViewModel.definition.id;
+            riskConfirmButtonElement.textContent = "确认建造";
+            riskCancelButtonElement.type = "button";
+            riskCancelButtonElement.dataset.buildingRiskCancel = "true";
+            riskCancelButtonElement.textContent = "取消";
+            buildingActionElement.appendChild(riskConfirmButtonElement);
+            buildingActionElement.appendChild(riskCancelButtonElement);
+        } else {
+            buildingActionElement.appendChild(buyButtonElement);
+        }
+        if (selectedViewModel.state.owned > 0) {
+            appendBuildingDestroyControls(buildingActionElement, state, selectedViewModel);
+        }
+        detailElement.appendChild(buildingActionElement);
+        detailElement.appendChild(createTextElement("p", "摧毁返还　" + formatPriceList(selectedViewModel.refundPrice) + "；一次性解锁、成就和统计不会回滚"));
+        return detailElement;
+    }
+
+    /**
+     * 渲染建筑检查器中的逐资源成本账目。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {Object} viewModel - 正式解锁建筑的视图模型。
+     * @returns {HTMLElement} 成本账目元素；每行显示库存、需求和单一结论。
+     */
+    function renderBuildingCostLedger(state, viewModel) {
+        // HTMLElement 账目容器元素：使用对齐列展示资源成本。
+        var ledgerElement = document.createElement("section");
+
+        ledgerElement.className = "building-cost-ledger";
+        ledgerElement.appendChild(createTextElement("h5", "本次成本"));
+        // number 价格循环索引：按静态价格顺序逐项生成账目行。
+        for (var priceIndex = 0; priceIndex < viewModel.price.length; priceIndex += 1) {
+            // Price 当前成本项：包含资源稳定 ID 与非负需求量。
+            var priceEntry = viewModel.price[priceIndex];
+            // ResourceState|null 当前资源状态：缺失时按零库存和零容量处理。
+            var resourceState = state.resourcesById[priceEntry.resource] || null;
+            // number 当前库存：非负资源量。
+            var currentAmount = resourceState ? resourceState.value : 0;
+            // number 当前缺口：非负资源量。
+            var missingAmount = Math.max(0, priceEntry.amount - currentAmount);
+            // HTMLElement 账目行元素：固定资源名、库存/需求和结论三列。
+            var rowElement = document.createElement("div");
+            // string 成本结论：足够、缺口、容量阻断或暂无来源之一。
+            var conclusionText = missingAmount <= 0 ? "足够 ●" : "缺 " + formatNumber(missingAmount) + " ◐";
+
+            if (resourceState && resourceState.maxValue < priceEntry.amount) { conclusionText = "容量 " + formatNumber(resourceState.maxValue) + " < " + formatNumber(priceEntry.amount) + " ×"; }
+            else if (viewModel.sourceBlockedResourceIds.indexOf(priceEntry.resource) >= 0) { conclusionText = getResourceAcquisitionText(priceEntry.resource) + " ×"; }
+            rowElement.appendChild(createTextElement("span", game.resources.getResourceDisplayName(priceEntry.resource)));
+            rowElement.appendChild(createTextElement("span", formatNumber(currentAmount) + " / " + formatNumber(priceEntry.amount)));
+            rowElement.appendChild(createTextElement("span", conclusionText));
+            ledgerElement.appendChild(rowElement);
+        }
+        return ledgerElement;
+    }
+
+    /**
+     * 查找能够处理资源容量或持续来源阻断的已揭示建筑。
+     *
+     * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
+     * @param {ResourceId} resourceId - 当前阻断资源稳定 ID。
+     * @param {boolean} isCapacitySolution - true 查容量效果，false 查持续产出效果。
+     * @returns {Object|null} 首个按设计顺序匹配的建筑模型；不存在时返回 null。
+     */
+    function findBuildingSolutionViewModel(viewModels, resourceId, isCapacitySolution) {
+        // string 容量效果键：资源 ID 加 Max 的统一数据字段名。
+        var capacityEffectId = resourceId + "Max";
+
+        // number 模型循环索引：保持静态建筑设计顺序查找解法。
+        for (var modelIndex = 0; modelIndex < viewModels.length; modelIndex += 1) {
+            // Object 当前建筑模型：用于检查效果字段。
+            var viewModel = viewModels[modelIndex];
+            // string[] 效果键数组：允许识别资源每 tick 或每秒产出字段。
+            var effectIds = Object.keys(viewModel.definition.effects);
+
+            if (isCapacitySolution && (viewModel.definition.effects[capacityEffectId] || viewModel.definition.effects.allBasicCapacity)) {
+                return viewModel;
+            }
+            if (!isCapacitySolution) {
+                // number 效果循环索引：匹配以资源 ID 开头且包含 Per 的持续产出字段。
+                for (var effectIndex = 0; effectIndex < effectIds.length; effectIndex += 1) {
+                    if (effectIds[effectIndex].indexOf(resourceId) === 0 && effectIds[effectIndex].indexOf("Per") > 0 && viewModel.definition.effects[effectIds[effectIndex]] > 0) {
+                        return viewModel;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 渲染矿业工业分区的只读生产链。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {HTMLElement} 可折叠生产链区域。
+     */
+    function renderIndustryChain(state) {
+        // HTMLElement 生产链区域：默认只显示切换入口。
+        var chainElement = document.createElement("section");
+        // HTMLButtonElement 生产链开关：不改变游戏状态。
+        var toggleButtonElement = document.createElement("button");
+
+        chainElement.className = "industry-chain";
+        toggleButtonElement.type = "button";
+        toggleButtonElement.dataset.industryChainToggle = "true";
+        toggleButtonElement.setAttribute("aria-expanded", String(game.runtime.isIndustryChainOpen));
+        toggleButtonElement.textContent = game.runtime.isIndustryChainOpen ? "收起生产链" : "查看生产链";
+        chainElement.appendChild(toggleButtonElement);
+        if (!game.runtime.isIndustryChainOpen) {
+            return chainElement;
+        }
+        // string[] 工业链资源 ID：按上游到下游固定排列。
+        var resourceIds = ["rottenWood", "coalSlag", "ironOre", "ironPlate", "steelIngot", "blackIron"];
+        // string[] 工业链节点文本：显示库存、容量与当前净流量。
+        var nodeTexts = [];
+
+        for (var resourceIndex = 0; resourceIndex < resourceIds.length; resourceIndex += 1) {
+            // ResourceId 当前资源 ID：用于读取定义和流量状态。
+            var resourceId = resourceIds[resourceIndex];
+            // ResourceDefinition|null 当前资源定义：用于显示中文名。
+            var resourceDefinition = game.resources.getResourceDefinition(resourceId);
+            // ResourceState|null 当前资源状态：用于显示库存、容量和净流量。
+            var resourceState = state.resourcesById[resourceId] || null;
+
+            if (resourceDefinition && resourceState) {
+                nodeTexts.push(resourceDefinition.name + " " + formatNumber(resourceState.value) + "/" + formatNumber(resourceState.maxValue) + "（" + formatSignedNumber(resourceState.perSecond) + "/秒）");
+            }
+        }
+        chainElement.appendChild(createTextElement("p", nodeTexts.join(" → ")));
+        chainElement.appendChild(createTextElement("p", "朽木 → 闷炭窑 → 煤渣；铁矿 → 粗熔炉 → 铁片；煤渣 + 铁片 → 深炉 → 钢锭 → 黑铁。红字净流量表示链路当前断供。"));
+        return chainElement;
     }
 
     /**
@@ -6944,7 +8624,8 @@
 
         // Object[] 筛选定义数组：id 为运行时筛选值，name 为中文文案。
         var filterDefinitions = [
-            { id: "all", name: "全部状态" }, { id: "available", name: "可建造" },
+            { id: "all", name: "全部" }, { id: "available", name: "可建造" },
+            { id: "attention", name: "需关注" },
             { id: "unaffordable", name: "资源不足" }, { id: "waiting", name: "等待可达" },
             { id: "blocked", name: "当前不可达" }, { id: "preview", name: "接近解锁" },
             { id: "owned", name: "已拥有" }, { id: "key", name: "关键建筑" }
@@ -6957,7 +8638,8 @@
         filterElement.setAttribute("aria-label", "建筑状态筛选");
 
         // number 筛选循环索引：遍历筛选定义的整数下标。
-        for (var filterIndex = 0; filterIndex < filterDefinitions.length; filterIndex += 1) {
+        var visibleFilterCount = game.runtime.isBuildingFilterPanelOpen ? filterDefinitions.length : 3;
+        for (var filterIndex = 0; filterIndex < visibleFilterCount; filterIndex += 1) {
             // Object 当前筛选定义：包含 id 和 name。
             var filterDefinition = filterDefinitions[filterIndex];
 
@@ -6971,15 +8653,28 @@
             filterElement.appendChild(filterButtonElement);
         }
 
+        // HTMLButtonElement 高级筛选开关：低频筛选和排序默认收起。
+        var advancedButtonElement = document.createElement("button");
+
+        advancedButtonElement.type = "button";
+        advancedButtonElement.dataset.buildingFilterPanelToggle = "true";
+        advancedButtonElement.textContent = game.runtime.isBuildingFilterPanelOpen ? "收起筛选" : "筛选";
+        filterElement.appendChild(advancedButtonElement);
+
         // HTMLSelectElement 排序选择元素：切换当前视图排序，不写入游戏存档。
         var sortSelectElement = document.createElement("select");
 
         sortSelectElement.dataset.buildingSort = "true";
         sortSelectElement.setAttribute("aria-label", "建筑排序方式");
         appendSelectOption(sortSelectElement, "status", "状态优先", (game.runtime.buildingSort || "status") === "status");
+        appendSelectOption(sortSelectElement, "recommended", "推荐程度", game.runtime.buildingSort === "recommended");
         appendSelectOption(sortSelectElement, "design", "设计顺序", game.runtime.buildingSort === "design");
         appendSelectOption(sortSelectElement, "owned", "拥有数量", game.runtime.buildingSort === "owned");
-        filterElement.appendChild(sortSelectElement);
+        appendSelectOption(sortSelectElement, "wait", "等待时间", game.runtime.buildingSort === "wait");
+        appendSelectOption(sortSelectElement, "new", "最近解锁", game.runtime.buildingSort === "new");
+        if (game.runtime.isBuildingFilterPanelOpen) {
+            filterElement.appendChild(sortSelectElement);
+        }
         return filterElement;
     }
 
@@ -6989,11 +8684,11 @@
      * @param {Object[]} viewModels - 已揭示建筑视图模型数组。
      * @returns {HTMLElement} 路线导航元素。
      */
-    function renderBuildingRouteNavigation(viewModels) {
+    function renderBuildingRouteNavigation(state, viewModels) {
         // HTMLElement 路线导航元素：允许横向滚动并保持徽签完整。
         var navigationElement = document.createElement("nav");
 
-        navigationElement.className = "building-route-navigation";
+        navigationElement.className = "building-route-navigation building-district-grid";
         navigationElement.setAttribute("aria-label", "建设路线");
 
         // number 路线循环索引：遍历路线定义的整数下标。
@@ -7003,6 +8698,8 @@
 
             // Object[] 当前路线视图模型：用于计算揭示、拥有和可建造数量。
             var routeModels = viewModels.filter(function (viewModel) { return viewModel.definition.routeId === routeDefinition.id; });
+            // Object 分区摘要：包含两个结果指标和一个异常/行动结论。
+            var routeSummary = getBuildingRouteSummary(state, routeDefinition.id, routeModels);
 
             // HTMLButtonElement 路线按钮元素：再次点击当前路线恢复全部路线。
             var routeButtonElement = document.createElement("button");
@@ -7010,11 +8707,91 @@
             routeButtonElement.type = "button";
             routeButtonElement.dataset.buildingRouteId = routeDefinition.id;
             routeButtonElement.setAttribute("aria-pressed", String(game.runtime.buildingRouteId === routeDefinition.id));
-            routeButtonElement.textContent = routeDefinition.symbol + " " + routeDefinition.name + (game.runtime.newBuildingRouteIdsById[routeDefinition.id] ? " 新" : "") + " " + routeModels.length + "·拥有" + sumBuildingOwned(routeModels) + "·可建" + countBuildingModels(routeModels, function (viewModel) { return viewModel.buildingViewStatus === "available"; });
+            routeButtonElement.innerHTML = "<strong>" + routeDefinition.symbol + " " + routeDefinition.name + (game.runtime.newBuildingRouteIdsById[routeDefinition.id] ? " · 新" : "") + "</strong><small>" + routeSummary.alertText + "</small>";
+            routeButtonElement.title = routeSummary.metricTexts.join("｜");
             navigationElement.appendChild(routeButtonElement);
         }
 
         return navigationElement;
+    }
+
+    /**
+     * 生成建设分区的两个结果指标和一个异常结论。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {BuildingRouteId} routeId - 建设分区稳定 ID。
+     * @param {Object[]} routeModels - 当前分区已揭示建筑模型数组。
+     * @returns {Object} 分区摘要；metricTexts 为两个 string 指标，alertText 为一个 string 异常或行动结论。
+     */
+    function getBuildingRouteSummary(state, routeId, routeModels) {
+        // string[] 结果指标文本：固定恰好两个，保持六张卡排版一致。
+        var metricTexts = [];
+        // LaborBreakdown 劳力摘要：工业分区显示建筑占用与人口供给。
+        var laborBreakdown = game.population.analyzeLaborBreakdown(state);
+        // ResourceState|null 菌菇状态：生存分区显示当前口粮净变化。
+        var fungusState = state.resourcesById.fungus || null;
+        // ResourceState|null 粗识状态：治理分区显示研究资源净变化。
+        var knowledgeState = state.resourcesById.crudeKnowledge || null;
+        // ResourceState|null 服从状态：治理分区显示当前秩序值。
+        var obedienceState = state.resourcesById.obedience || null;
+        // ResourceState|null 俘虏状态：军事分区显示俘虏容量压力。
+        var captiveState = state.resourcesById.captive || null;
+        // ResourceState|null 祖灵状态：军事分区显示祭祀持续产量。
+        var ancestorState = state.resourcesById.ancestralEcho || null;
+        // ResourceState|null 魔晶状态：深渊分区显示后期资源库存。
+        var manaState = state.resourcesById.manaCrystal || null;
+        // ResourceState|null 深渊回响状态：深渊分区显示远征资源库存。
+        var abyssState = state.resourcesById.abyssEcho || null;
+
+        if (routeId === "survival") {
+            metricTexts = ["住房 " + game.population.countAliveGoblins(state) + " / " + game.population.calculateHousingMax(state), "口粮 " + formatSignedNumber(fungusState ? fungusState.perSecond : 0) + "/秒"];
+        } else if (routeId === "storage") {
+            // number 已满容量资源数：统计可见且到达上限的资源种类。
+            var fullResourceCount = countFullVisibleResources(state);
+
+            metricTexts = ["爆仓资源 " + fullResourceCount, "仓储建筑 " + sumBuildingOwned(routeModels) + " 座"];
+        } else if (routeId === "industry") {
+            metricTexts = ["工业劳力 " + formatNumber(laborBreakdown.adjustedBuildingUsageTotal) + " / " + formatNumber(laborBreakdown.populationLabor), "工业建筑 " + sumBuildingOwned(routeModels) + " 座"];
+        } else if (routeId === "governance") {
+            metricTexts = ["粗识 " + formatSignedNumber(knowledgeState ? knowledgeState.perSecond : 0) + "/秒", "服从 " + formatNumber(obedienceState ? obedienceState.value : 0) + "%"];
+        } else if (routeId === "military") {
+            metricTexts = ["俘虏 " + formatNumber(captiveState ? captiveState.value : 0) + " / " + formatNumber(captiveState ? captiveState.maxValue : 0), "祖灵 " + formatSignedNumber(ancestorState ? ancestorState.perSecond : 0) + "/秒"];
+        } else {
+            metricTexts = ["魔晶 " + formatNumber(manaState ? manaState.value : 0), "深渊回响 " + formatNumber(abyssState ? abyssState.value : 0)];
+        }
+
+        // number 需关注建筑数：容量、来源、前置或劳力风险的模型数量。
+        var attentionCount = countBuildingModels(routeModels, getBuildingFilterPredicate("attention"));
+        // number 可建造建筑数：当前可立即支付且未暂停的模型数量。
+        var availableCount = countBuildingModels(routeModels, function (viewModel) { return viewModel.buildingViewStatus === "available"; });
+        // string 异常或行动结论：每张卡只显示一条。
+        var alertText = attentionCount > 0 ? "需关注 " + attentionCount + " 项" : "可建 " + availableCount + " 项";
+
+        return { metricTexts: metricTexts, alertText: alertText };
+    }
+
+    /**
+     * 统计当前已显示且达到容量上限的资源种类。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {number} 爆仓资源种类数，非负整数。
+     */
+    function countFullVisibleResources(state) {
+        // number 已满资源数：累加可见、容量大于零且库存达到上限的资源。
+        var fullResourceCount = 0;
+        // ResourceId[] 资源 ID 数组：遍历运行时资源字典的受控键。
+        var resourceIds = Object.keys(state.resourcesById);
+
+        for (var resourceIndex = 0; resourceIndex < resourceIds.length; resourceIndex += 1) {
+            // ResourceState 当前资源状态：用于判断可见性和容量占用。
+            var resourceState = state.resourcesById[resourceIds[resourceIndex]];
+
+            if (resourceState.isVisible && resourceState.maxValue > 0 && resourceState.value >= resourceState.maxValue) {
+                fullResourceCount += 1;
+            }
+        }
+
+        return fullResourceCount;
     }
 
     /**
@@ -7030,6 +8807,8 @@
 
         // Function 当前筛选谓词：只影响视图，不改变原始模型数组。
         var filterPredicate = getBuildingFilterPredicate(game.runtime.buildingFilter || "all");
+        // string 标准化搜索词：用于匹配建筑语义字段，不区分大小写。
+        var searchText = (game.runtime.buildingSearchText || "").trim().toLowerCase();
 
         groupsElement.className = "building-route-groups";
 
@@ -7038,12 +8817,14 @@
             // BuildingRouteDefinition 当前路线定义：用于标题和分组键。
             var routeDefinition = game.definitions.BUILDING_ROUTE_DEFINITIONS[routeIndex];
 
-            if (game.runtime.buildingRouteId && game.runtime.buildingRouteId !== routeDefinition.id) {
+            if (game.runtime.buildingViewId !== "catalog" && game.runtime.buildingRouteId && game.runtime.buildingRouteId !== routeDefinition.id) {
                 continue;
             }
 
             // Object[] 当前路线筛选后模型：随后按用户选择稳定排序。
-            var routeModels = viewModels.filter(function (viewModel) { return viewModel.definition.routeId === routeDefinition.id && filterPredicate(viewModel); });
+            var routeModels = viewModels.filter(function (viewModel) {
+                return viewModel.definition.routeId === routeDefinition.id && filterPredicate(viewModel) && doesBuildingMatchSearch(viewModel, searchText);
+            });
 
             if (routeModels.length <= 0) {
                 continue;
@@ -7093,14 +8874,14 @@
         groupElement.appendChild(headingElement);
 
         if (!isCollapsed) {
-            // HTMLElement 建筑列表元素：承载当前路线紧凑六区建筑行。
+            // HTMLElement 建筑卡片网格：以可扫视的空间卡片取代纵向数据行。
             var listElement = document.createElement("div");
 
-            listElement.className = "building-list";
+            listElement.className = "building-card-grid";
 
             // number 模型循环索引：遍历当前路线建筑模型的整数下标。
             for (var modelIndex = 0; modelIndex < routeModels.length; modelIndex += 1) {
-                listElement.appendChild(renderBuildingViewRow(state, routeModels[modelIndex]));
+                listElement.appendChild(renderBuildingViewCard(state, routeModels[modelIndex]));
             }
 
             groupElement.appendChild(listElement);
@@ -7110,25 +8891,26 @@
     }
 
     /**
-     * 渲染视图模型驱动的单个建筑行。
+     * 渲染视图模型驱动的单个建筑卡片。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {Object} viewModel - 建筑视图模型，包含状态、价格、阻断和劳力风险。
-     * @returns {HTMLElement} 建筑行元素。
+     * @returns {HTMLElement} 建筑卡片元素。
      */
-    function renderBuildingViewRow(state, viewModel) {
+    function renderBuildingViewCard(state, viewModel) {
         // BuildingDefinition 建筑定义：用于显示身份、效果和静态展示标签。
         var buildingDefinition = viewModel.definition;
 
         // BuildingState 建筑状态：用于显示拥有和启用数量。
         var buildingState = viewModel.state;
 
-        // HTMLElement 行元素：桌面为六区网格，窄屏为堆叠卡片。
-        var rowElement = document.createElement("article");
+        // HTMLElement 卡片元素：在固定网格中展示身份、结论、核心效果和主操作。
+        var cardElement = document.createElement("article");
 
-        rowElement.className = "building-row building-status-" + viewModel.buildingViewStatus + (viewModel.isKeyBuilding ? " is-milestone" : "");
-        rowElement.id = "building-row-" + buildingDefinition.id;
-        rowElement.tabIndex = 0;
+        cardElement.className = "building-card building-status-" + viewModel.buildingViewStatus + (viewModel.isKeyBuilding ? " is-milestone" : "") + (game.runtime.newBuildingIdsById[buildingDefinition.id] ? " is-new" : "");
+        cardElement.id = "building-card-" + buildingDefinition.id;
+        cardElement.tabIndex = 0;
+        cardElement.dataset.buildingSelectId = buildingDefinition.id;
 
         // HTMLElement 身份区元素：状态图形、建筑名和效果标签。
         var identityElement = document.createElement("div");
@@ -7136,10 +8918,17 @@
         identityElement.className = "building-identity";
         identityElement.appendChild(createTextElement("span", getBuildingStatusSymbol(viewModel.buildingViewStatus)));
         identityElement.appendChild(createTextElement("strong", buildingDefinition.name));
+        if (game.runtime.newBuildingIdsById[buildingDefinition.id]) {
+            // HTMLElement 新内容标记：首次选中建筑后清除。
+            var newMarkerElement = createTextElement("span", "新");
+
+            newMarkerElement.className = "building-new-marker";
+            identityElement.appendChild(newMarkerElement);
+        }
 
         if (!viewModel.isPreview) {
             // number 标签循环索引：遍历受控效果标签的整数下标。
-            for (var tagIndex = 0; tagIndex < buildingDefinition.effectTags.length; tagIndex += 1) {
+            for (var tagIndex = 0; tagIndex < Math.min(2, buildingDefinition.effectTags.length); tagIndex += 1) {
                 // HTMLElement 标签元素：显示受控中文效果短标签。
                 var tagElement = createTextElement("span", game.buildingView.getEffectTagLabel(buildingDefinition.effectTags[tagIndex]));
 
@@ -7148,6 +8937,14 @@
             }
         } else {
             identityElement.appendChild(createTextElement("span", "用途剪影：" + game.buildingView.getEffectTagLabel(buildingDefinition.effectTags[0])));
+        }
+
+        if (!viewModel.isPreview) {
+            // HTMLElement 拥有数量徽签：直接读取 BuildingState.owned，不从按钮或 DOM 推导。
+            var ownedBadgeElement = createTextElement("span", buildingState.owned + " 座");
+
+            ownedBadgeElement.className = "building-owned-badge";
+            identityElement.appendChild(ownedBadgeElement);
         }
 
         // HTMLElement 成本区元素：预览行只显示具名前置，不泄露数值。
@@ -7185,19 +8982,66 @@
         buyButtonElement.textContent = getBuildingActionLabel(viewModel);
         buyButtonElement.setAttribute("aria-label", "建造" + buildingDefinition.name);
         actionsElement.appendChild(buyButtonElement);
-
         if (!viewModel.isPreview && buildingState.owned > 0) {
             appendBuildingDestroyControls(actionsElement, state, viewModel);
         }
 
-        rowElement.appendChild(identityElement);
-        rowElement.appendChild(costElement);
-        rowElement.appendChild(availabilityElement);
-        rowElement.appendChild(actionsElement);
+        cardElement.appendChild(identityElement);
+        cardElement.appendChild(availabilityElement);
+        if (!viewModel.isPreview) {
+            cardElement.appendChild(createTextElement("p", formatBuildingCardEffectSummary(buildingDefinition)));
+        }
+        cardElement.appendChild(costElement);
+        cardElement.appendChild(actionsElement);
+        cardElement.appendChild(createBuildingViewTooltip(state, viewModel));
 
-        rowElement.appendChild(createBuildingViewTooltip(state, viewModel));
+        return cardElement;
+    }
 
-        return rowElement;
+    /**
+     * 格式化建筑卡片上的一句核心效果摘要。
+     *
+     * @param {BuildingDefinition} buildingDefinition - 建筑静态定义。
+     * @returns {string} 最多两个受控效果标签与下一座效果摘要。
+     */
+    function formatBuildingCardEffectSummary(buildingDefinition) {
+        // string[] 核心标签文本：最多保留两个以控制卡片信息密度。
+        var effectTagTexts = [];
+        // string[] 建筑效果 ID 数组：卡片正面只取第一项，完整效果进入浮框。
+        var effectIds = Object.keys(buildingDefinition.effects);
+
+        for (var tagIndex = 0; tagIndex < Math.min(2, buildingDefinition.effectTags.length); tagIndex += 1) {
+            effectTagTexts.push(game.buildingView.getEffectTagLabel(buildingDefinition.effectTags[tagIndex]));
+        }
+
+        // string 第一项效果摘要：不存在效果时明确显示系统入口。
+        var primaryEffectText = effectIds.length > 0 ? (game.text.TEXT_REGISTRY.effects[effectIds[0]] || effectIds[0]) + " +" + buildingDefinition.effects[effectIds[0]] : "系统入口";
+
+        return effectTagTexts.join(" · ") + "｜" + primaryEffectText;
+    }
+
+    /**
+     * 判断建筑是否匹配统一搜索词。
+     *
+     * @param {Object} viewModel - 建筑视图模型，不会被修改。
+     * @param {string} searchText - 已转小写的搜索词；空字符串表示全部匹配。
+     * @returns {boolean} 是否匹配名称、说明、标签、价格资源或解锁文案。
+     */
+    function doesBuildingMatchSearch(viewModel, searchText) {
+        if (!searchText) {
+            return true;
+        }
+        // string[] 可搜索文本数组：由统一模型和静态定义生成。
+        var searchableTexts = [viewModel.definition.name, viewModel.definition.description, viewModel.unlockText];
+        // number 标签循环索引：加入所有效果标签中文名。
+        for (var tagIndex = 0; tagIndex < viewModel.definition.effectTags.length; tagIndex += 1) {
+            searchableTexts.push(game.buildingView.getEffectTagLabel(viewModel.definition.effectTags[tagIndex]));
+        }
+        // number 价格循环索引：加入当前成本资源中文名。
+        for (var priceIndex = 0; priceIndex < viewModel.price.length; priceIndex += 1) {
+            searchableTexts.push(game.resources.getResourceDisplayName(viewModel.price[priceIndex].resource));
+        }
+        return searchableTexts.join(" ").toLowerCase().indexOf(searchText) >= 0;
     }
 
     /**
@@ -7219,7 +9063,7 @@
 
         tooltipElement.className = "building-tooltip";
         tooltipElement.setAttribute("role", "tooltip");
-        tooltipElement.appendChild(createTextElement("h4", buildingDefinition.name));
+        tooltipElement.appendChild(createTextElement("h4", viewModel.isPreview ? "未知设施" : buildingDefinition.name));
 
         if (viewModel.isPreview) {
             appendTooltipDefinition(listElement, "用途剪影", game.buildingView.getEffectTagLabel(buildingDefinition.effectTags[0]));
@@ -7418,21 +9262,9 @@
         // HTMLElement 侧栏建议容器：位于重要状态卡片之后。
         var adviceContainerElement = document.getElementById("sidebar-building-advice");
 
-        // boolean 是否显示建设建议：仅地穴标签且新局模式选择完成后显示。
-        var shouldShowAdvice = state.activeTabId === "cavern" && !(game.challengesSystem && game.challengesSystem.isRunModeSelectionOpen(state));
-
-        adviceContainerElement.hidden = !shouldShowAdvice;
+        // 建设建议已并入决策队列，侧栏只保留空容器以兼容现有页面骨架。
+        adviceContainerElement.hidden = true;
         adviceContainerElement.innerHTML = "";
-
-        if (!shouldShowAdvice) {
-            return;
-        }
-
-        // Object[] 已揭示建筑视图模型：用于生成与原建筑工作台相同的确定性建议。
-        var viewModels = game.buildingView.collectBuildingViewModels(state);
-
-        adviceContainerElement.appendChild(renderBuildingAdviceCard(state, viewModels));
-        adviceContainerElement.appendChild(renderRecentBuildingLogCard(state));
     }
 
     /**
@@ -7460,6 +9292,7 @@
             if (!game.runtime.revealedBuildingIdsById[viewModel.definition.id]) {
                 game.runtime.revealedBuildingIdsById[viewModel.definition.id] = true;
                 game.runtime.newBuildingRouteIdsById[viewModel.definition.routeId] = true;
+                game.runtime.newBuildingIdsById[viewModel.definition.id] = true;
                 game.simulation.addLog(state, "important", "新的建筑接近可建造：" + viewModel.definition.name + "。");
             }
         }
@@ -7502,9 +9335,10 @@
      */
     function getBuildingFilterPredicate(filterId) {
         if (filterId === "available") { return function (viewModel) { return viewModel.buildingViewStatus === "available"; }; }
+        if (filterId === "attention") { return function (viewModel) { return viewModel.buildingViewStatus === "blocked" || viewModel.isPreview || viewModel.willOverloadLabor; }; }
         if (filterId === "unaffordable") { return function (viewModel) { return viewModel.buildingViewStatus === "unaffordable" || viewModel.buildingViewStatus === "blocked"; }; }
         if (filterId === "waiting") { return function (viewModel) { return viewModel.buildingViewStatus === "unaffordable"; }; }
-        if (filterId === "blocked") { return function (viewModel) { return viewModel.buildingViewStatus === "blocked"; }; }
+        if (filterId === "blocked") { return function (viewModel) { return viewModel.buildingViewStatus === "blocked" || viewModel.isPreview; }; }
         if (filterId === "preview") { return function (viewModel) { return viewModel.isPreview; }; }
         if (filterId === "owned") { return function (viewModel) { return viewModel.state && viewModel.state.owned > 0; }; }
         if (filterId === "key") { return function (viewModel) { return viewModel.isKeyBuilding; }; }
@@ -7515,7 +9349,7 @@
      * 按用户选择稳定排序建筑模型。
      *
      * @param {Object[]} viewModels - 建筑视图模型数组，会被原地排序。
-     * @param {string} sortId - status、design 或 owned。
+     * @param {string} sortId - recommended、status、design、owned、wait 或 new。
      * @returns {void} 无返回值；副作用为修改数组顺序。
      */
     function sortBuildingViewModels(viewModels, sortId) {
@@ -7523,17 +9357,46 @@
         var statusOrderById = { available: 0, unaffordable: 1, blocked: 2, paused: 3, preview: 4, hidden: 5 };
 
         viewModels.sort(function (leftModel, rightModel) {
+            if (sortId === "recommended") {
+                // number 左侧推荐权重：硬阻断解法和系统入口优先，常规等待靠后。
+                var leftWeight = getBuildingRecommendationWeight(leftModel);
+                // number 右侧推荐权重：与左侧使用同一确定性规则。
+                var rightWeight = getBuildingRecommendationWeight(rightModel);
+
+                return leftWeight - rightWeight || leftModel.definition.designOrder - rightModel.definition.designOrder;
+            }
             if (sortId === "owned") {
                 return rightModel.state.owned - leftModel.state.owned || leftModel.definition.designOrder - rightModel.definition.designOrder;
             }
             if (sortId === "design") {
                 return leftModel.definition.designOrder - rightModel.definition.designOrder;
             }
+            if (sortId === "wait") {
+                return leftModel.waitInfo.seconds - rightModel.waitInfo.seconds || leftModel.definition.designOrder - rightModel.definition.designOrder;
+            }
+            if (sortId === "new") {
+                return Number(Boolean(game.runtime.newBuildingIdsById[rightModel.definition.id])) - Number(Boolean(game.runtime.newBuildingIdsById[leftModel.definition.id])) || leftModel.definition.designOrder - rightModel.definition.designOrder;
+            }
             if (leftModel.buildingViewStatus === "unaffordable" && rightModel.buildingViewStatus === "unaffordable") {
                 return leftModel.waitInfo.seconds - rightModel.waitInfo.seconds || leftModel.definition.designOrder - rightModel.definition.designOrder;
             }
             return statusOrderById[leftModel.buildingViewStatus] - statusOrderById[rightModel.buildingViewStatus] || leftModel.definition.designOrder - rightModel.definition.designOrder;
         });
+    }
+
+    /**
+     * 计算建筑推荐排序权重，不生成面向玩家的不透明评分。
+     *
+     * @param {Object} viewModel - 建筑视图模型，不会被修改。
+     * @returns {number} 离散排序权重，数值越小越靠前。
+     */
+    function getBuildingRecommendationWeight(viewModel) {
+        if (viewModel.capacityBlockedResourceIds.length > 0 || viewModel.sourceBlockedResourceIds.length > 0) { return 0; }
+        if (viewModel.isKeyBuilding && viewModel.buildingViewStatus === "available") { return 1; }
+        if (viewModel.willOverloadLabor) { return 2; }
+        if (viewModel.buildingViewStatus === "available") { return 3; }
+        if (viewModel.buildingViewStatus === "unaffordable") { return 4; }
+        return 5;
     }
 
     /**
@@ -7563,7 +9426,7 @@
      */
     function getBuildingStatusSymbol(statusId) {
         // Object.<string, string> 状态符号字典：key 为状态 ID，value 为可读图形。
-        var symbolByStatusId = { available: "◆", unaffordable: "△", blocked: "×", preview: "◇", paused: "Ⅱ", hidden: "·" };
+        var symbolByStatusId = { available: "●", unaffordable: "◐", blocked: "×", preview: "◇", paused: "Ⅱ", hidden: "·" };
 
         return symbolByStatusId[statusId] || "·";
     }
@@ -7577,10 +9440,10 @@
     function getBuildingAvailabilityLabel(viewModel) {
         if (viewModel.isPreview) { return "需完成前置"; }
         if (viewModel.buildingViewStatus === "paused") { return "已暂停"; }
-        if (viewModel.buildingViewStatus === "available") { return "可用"; }
+        if (viewModel.buildingViewStatus === "available") { return "可立即建造"; }
         if (viewModel.capacityBlockedResourceIds.length > 0) { return "容量受限：" + formatResourceIdList(viewModel.capacityBlockedResourceIds); }
-        if (viewModel.sourceBlockedResourceIds.length > 0) { return "无持续来源：" + formatResourceIdList(viewModel.sourceBlockedResourceIds); }
-        return "约 " + formatSecondsAsClock(viewModel.waitInfo.seconds);
+        if (viewModel.sourceBlockedResourceIds.length > 0) { return getResourceAcquisitionText(viewModel.sourceBlockedResourceIds[0]); }
+        return "等待约 " + formatSecondsAsClock(viewModel.waitInfo.seconds);
     }
 
     /**
@@ -7593,9 +9456,9 @@
         if (viewModel.isPreview) { return "需完成前置"; }
         if (viewModel.buildingViewStatus === "paused") { return "已暂停"; }
         if (viewModel.buildingViewStatus === "available") { return "建造"; }
-        if (viewModel.capacityBlockedResourceIds.length > 0) { return "容量受限"; }
-        if (viewModel.sourceBlockedResourceIds.length > 0) { return "暂无来源"; }
-        return "缺少资源";
+        if (viewModel.capacityBlockedResourceIds.length > 0) { return "容量不足"; }
+        if (viewModel.sourceBlockedResourceIds.length > 0) { return "需先取得资源"; }
+        return "等待资源 " + formatSecondsAsClock(viewModel.waitInfo.seconds);
     }
 
     /**
@@ -7610,13 +9473,23 @@
 
         // number 资源循环索引：遍历资源 ID 的整数下标。
         for (var resourceIndex = 0; resourceIndex < resourceIds.length; resourceIndex += 1) {
-            // ResourceDefinition|null 资源定义：缺失时回退稳定 ID。
-            var resourceDefinition = game.resources.getResourceDefinition(resourceIds[resourceIndex]);
-
-            resourceNames.push(resourceDefinition ? resourceDefinition.name : resourceIds[resourceIndex]);
+            resourceNames.push(game.resources.getResourceDisplayName(resourceIds[resourceIndex]));
         }
 
         return resourceNames.join("、");
+    }
+
+    /**
+     * 使用建筑决策与资源浮窗共享的来源查询格式化单项取得方向。
+     *
+     * @param {ResourceId} resourceId - 当前缺口资源稳定 ID。
+     * @returns {string} 含中文资源名和真实持续或离散取得方向的短句。
+     */
+    function getResourceAcquisitionText(resourceId) {
+        // Object 取得路径摘要：type 为受控来源类型，text 为具体行动方向。
+        var acquisition = game.buildingDecisions.getResourceAcquisition(game.runtime.state, resourceId);
+
+        return formatResourceIdList([resourceId]) + "：" + acquisition.text;
     }
 
     /**
@@ -7666,14 +9539,35 @@
      * @returns {string} 标签页、资源、职业、配方等开放内容；无则返回无一次性开放。
      */
     function formatUnlockBundle(unlockBundle) {
-        // string[] 开放内容文本数组：按系统类别汇总稳定 ID。
+        // string[] 开放内容文本数组：按系统类别汇总中文显示名。
         var unlockTexts = [];
-        if ((unlockBundle.tabs || []).length > 0) { unlockTexts.push("标签页 " + unlockBundle.tabs.join("、")); }
-        if ((unlockBundle.resources || []).length > 0) { unlockTexts.push("资源 " + formatResourceIdList(unlockBundle.resources)); }
-        if ((unlockBundle.jobs || []).length > 0) { unlockTexts.push("职业 " + unlockBundle.jobs.join("、")); }
-        if ((unlockBundle.crafts || []).length > 0) { unlockTexts.push("配方 " + unlockBundle.crafts.join("、")); }
-        if ((unlockBundle.buildings || []).length > 0) { unlockTexts.push("建筑 " + unlockBundle.buildings.join("、")); }
+        if ((unlockBundle.tabs || []).length > 0) { unlockTexts.push("标签页 " + formatUnlockIdList("tab", unlockBundle.tabs)); }
+        if ((unlockBundle.resources || []).length > 0) { unlockTexts.push("资源 " + formatUnlockIdList("resource", unlockBundle.resources)); }
+        if ((unlockBundle.jobs || []).length > 0) { unlockTexts.push("职业 " + formatUnlockIdList("job", unlockBundle.jobs)); }
+        if ((unlockBundle.crafts || []).length > 0) { unlockTexts.push("配方 " + formatUnlockIdList("craft", unlockBundle.crafts)); }
+        if ((unlockBundle.buildings || []).length > 0) { unlockTexts.push("建筑 " + formatUnlockIdList("building", unlockBundle.buildings)); }
         return unlockTexts.length > 0 ? unlockTexts.join("；") : "无一次性开放";
+    }
+
+    /**
+     * 将同类解锁 ID 数组格式化为中文名称列表。
+     *
+     * @param {"resource"|"building"|"job"|"tab"|"craft"} definitionType - 解锁对象类别，用于选择统一定义表。
+     * @param {string[]} unlockIds - 稳定 ID 数组；每项必须属于指定解锁类别。
+     * @returns {string} 使用顿号连接的中文显示名；缺失定义时保留稳定 ID 以暴露配置错误。
+     */
+    function formatUnlockIdList(definitionType, unlockIds) {
+        // string[] 中文显示名数组：与输入稳定 ID 顺序一致。
+        var displayNames = [];
+
+        // number 解锁循环索引：遍历稳定 ID 数组的整数下标。
+        for (var unlockIndex = 0; unlockIndex < unlockIds.length; unlockIndex += 1) {
+            // string 当前解锁 ID：用于查询对应静态定义的中文名。
+            var unlockId = unlockIds[unlockIndex];
+
+            displayNames.push(formatUnlockDisplayName(definitionType, unlockId));
+        }
+        return displayNames.join("、");
     }
 
     /**
@@ -7734,7 +9628,7 @@
         // number 模型循环索引：按设计顺序查找首个容量或来源阻断。
         for (var modelIndex = 0; modelIndex < viewModels.length; modelIndex += 1) {
             if (viewModels[modelIndex].capacityBlockedResourceIds.length > 0) { return formatResourceIdList(viewModels[modelIndex].capacityBlockedResourceIds) + "容量不足"; }
-            if (viewModels[modelIndex].sourceBlockedResourceIds.length > 0) { return "缺少" + formatResourceIdList(viewModels[modelIndex].sourceBlockedResourceIds) + "持续来源"; }
+            if (viewModels[modelIndex].sourceBlockedResourceIds.length > 0) { return getResourceAcquisitionText(viewModels[modelIndex].sourceBlockedResourceIds[0]); }
         }
         return "当前没有明显建设瓶颈";
     }
@@ -7764,7 +9658,7 @@
             var viewModel = viewModels[modelIndex];
             if (viewModel.capacityBlockedResourceIds.length > 0) { adviceTexts.push(formatResourceIdList(viewModel.capacityBlockedResourceIds) + "容量阻断“" + viewModel.definition.name + "”的价格；可查看仓储运输路线。"); continue; }
             if (viewModel.buildingViewStatus === "available" && viewModel.isKeyBuilding) { adviceTexts.push("关键建筑“" + viewModel.definition.name + "”当前可建，会开放新的核心系统；可定位后自行决定是否投入。"); continue; }
-            if (viewModel.sourceBlockedResourceIds.length > 0) { adviceTexts.push("“" + viewModel.definition.name + "”缺少" + formatResourceIdList(viewModel.sourceBlockedResourceIds) + "且暂无持续来源；可先查看对应生产建筑或科技。"); }
+            if (viewModel.sourceBlockedResourceIds.length > 0) { adviceTexts.push("“" + viewModel.definition.name + "”需要先处理：" + getResourceAcquisitionText(viewModel.sourceBlockedResourceIds[0]) + "。"); }
         }
         // number 资源循环索引：没有更高优先级建议时查找已满容量资源。
         for (var resourceIndex = 0; resourceIndex < game.definitions.RESOURCE_DEFINITIONS.length && adviceTexts.length < 3; resourceIndex += 1) {
@@ -7965,10 +9859,7 @@
             // Price 当前价格项：用于格式化单项成本。
             var priceEntry = price[priceIndex];
 
-            // ResourceDefinition|null 资源定义：用于显示中文资源名。
-            var resourceDefinition = game.resources.getResourceDefinition(priceEntry.resource);
-
-            priceTexts.push((resourceDefinition ? resourceDefinition.name : priceEntry.resource) + " " + priceEntry.amount.toFixed(0));
+            priceTexts.push(game.resources.getResourceDisplayName(priceEntry.resource) + " " + priceEntry.amount.toFixed(0));
         }
 
         return priceTexts.join("，");
@@ -8233,6 +10124,11 @@
     game.render = {
         renderApp: renderApp,
         renderAppWhenDue: renderAppWhenDue,
-        renderDiplomacyTabOnly: renderDiplomacyTabOnly
+        renderDiplomacyTabOnly: renderDiplomacyTabOnly,
+        renderCavernTabOnly: renderCavernTabOnly,
+        renderBuildingWorkspaceOnly: renderBuildingWorkspaceOnly,
+        renderBuildingWorkspaceResultsOnly: renderBuildingWorkspaceResultsOnly,
+        renderResearchWorkspaceResultsOnly: renderResearchWorkspaceResultsOnly,
+        renderResearchSelectionOnly: renderResearchSelectionOnly
     };
 })(window.GoblinEmpire);

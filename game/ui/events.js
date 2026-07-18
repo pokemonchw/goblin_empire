@@ -235,7 +235,18 @@
             // HTMLElement|null 点击目标：可能是采集按钮、建筑按钮或其他元素。
             var targetElement = event.target;
 
-            if (!targetElement || !targetElement.dataset) {
+            if (!targetElement || !targetElement.closest) {
+                return;
+            }
+
+            // HTMLButtonElement|null 所属研究签：桌面端点击行内任意位置都归一到整行按钮。
+            var researchSlipElement = targetElement.closest("[data-research-select-id]");
+
+            if (researchSlipElement) {
+                targetElement = researchSlipElement;
+            }
+
+            if (!targetElement.dataset) {
                 return;
             }
 
@@ -265,14 +276,179 @@
             }
 
             if (targetElement.dataset.buildingId) {
-                game.buildings.buyBuilding(currentState, targetElement.dataset.buildingId);
+                // BuildingId 待购买建筑 ID：用于查询统一风险视图模型。
+                var purchaseBuildingId = targetElement.dataset.buildingId;
+                // BuildingDefinition|null 待购买建筑定义：用于创建风险预览。
+                var purchaseBuildingDefinition = game.buildings.getBuildingDefinition(purchaseBuildingId);
+                // Object|null 待购买建筑视图模型：用于判断劳力过载风险。
+                var purchaseViewModel = purchaseBuildingDefinition ? game.buildingView.createBuildingViewModel(currentState, purchaseBuildingDefinition) : null;
+
+                if (purchaseViewModel && purchaseViewModel.willOverloadLabor) {
+                    game.runtime.selectedBuildingId = purchaseBuildingId;
+                    game.runtime.confirmBuildingRiskId = purchaseBuildingId;
+                    delete targetElement.dataset.buildingId;
+                    targetElement.dataset.buildingRiskConfirmId = purchaseBuildingId;
+                    targetElement.textContent = "确认过载并建造";
+                    // HTMLElement 风险提示：原位加入固定浮框，不触发整页重绘。
+                    var riskWarningElement = document.createElement("p");
+
+                    riskWarningElement.className = "building-risk-warning";
+                    riskWarningElement.textContent = "建造后劳力将超过人口供给，除菌菇床外的生产建筑会停产。";
+                    targetElement.parentElement.insertBefore(riskWarningElement, targetElement);
+                    return;
+                }
+                // boolean 是否成功建造：成功时触发检查器一次性反馈。
+                var wasBuildingPurchased = game.buildings.buyBuilding(currentState, purchaseBuildingId);
+
+                game.runtime.recentlyBuiltBuildingId = wasBuildingPurchased ? purchaseBuildingId : "";
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingRiskConfirmId) {
+                // BuildingId 风险确认建筑 ID：成功后保持选择并播报新拥有量。
+                var confirmedBuildingId = targetElement.dataset.buildingRiskConfirmId;
+                // boolean 是否成功完成风险建造：用于控制一次性反馈。
+                var wasRiskBuildingPurchased = game.buildings.buyBuilding(currentState, confirmedBuildingId);
+
+                game.runtime.recentlyBuiltBuildingId = wasRiskBuildingPurchased ? confirmedBuildingId : "";
+                game.runtime.confirmBuildingRiskId = "";
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingRiskCancel) {
+                game.runtime.confirmBuildingRiskId = "";
                 renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.buildingFilter) {
                 game.runtime.buildingFilter = targetElement.dataset.buildingFilter;
+                renderAfterBuildingViewChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingExpandId) {
+                // BuildingId 原位检查建筑 ID：再次点击同一建筑时收起。
+                var expandedBuildingId = targetElement.dataset.buildingExpandId;
+
+                game.runtime.expandedBuildingId = game.runtime.expandedBuildingId === expandedBuildingId ? "" : expandedBuildingId;
+                game.runtime.selectedBuildingId = expandedBuildingId;
+                game.runtime.newBuildingIdsById[expandedBuildingId] = false;
                 renderAfterStateChange(currentState);
+                return;
+            }
+
+            // HTMLElement|null 建筑选择行：允许点击行内非按钮区域选择建筑。
+            var buildingSelectElement = targetElement.closest ? targetElement.closest("[data-building-select-id]") : null;
+
+            if (buildingSelectElement) {
+                game.runtime.selectedBuildingId = buildingSelectElement.dataset.buildingSelectId;
+                game.runtime.isBuildingInspectorOpen = true;
+                game.runtime.newBuildingIdsById[buildingSelectElement.dataset.buildingSelectId] = false;
+                buildingSelectElement.classList.remove("is-new");
+                // HTMLElement|null 新内容徽签：查看卡片后原位清除，不触发整页重绘。
+                var newMarkerElement = buildingSelectElement.querySelector(".building-new-marker");
+
+                if (newMarkerElement) {
+                    newMarkerElement.remove();
+                }
+                renderAfterBuildingViewChange(currentState);
+                if (window.matchMedia("(max-width: 760px)").matches) {
+                    // HTMLElement|null 移动端检查器标题：抽屉打开后接收焦点，建立明确阅读起点。
+                    var inspectorTitleElement = document.getElementById("building-inspector-title");
+
+                    if (inspectorTitleElement) { inspectorTitleElement.focus(); }
+                }
+                return;
+            }
+
+            if (targetElement.dataset.buildingViewId) {
+                game.runtime.buildingViewId = targetElement.dataset.buildingViewId;
+                if (game.runtime.buildingViewId === "catalog") {
+                    game.runtime.buildingRouteId = "";
+                }
+                renderAfterBuildingViewChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingFilterPanelToggle) {
+                game.runtime.isBuildingFilterPanelOpen = !game.runtime.isBuildingFilterPanelOpen;
+                renderAfterBuildingViewChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingOwnedOnlyToggle) {
+                game.runtime.isBuildingOwnedOnly = !game.runtime.isBuildingOwnedOnly;
+                renderAfterBuildingViewChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingFilterClear) {
+                game.runtime.buildingFilter = "all";
+                game.runtime.isBuildingOwnedOnly = false;
+                game.runtime.buildingSearchText = "";
+                renderAfterBuildingViewChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingBatchBuyId) {
+                // BuildingId 批量购买建筑 ID：用于读取对应数量偏好。
+                var batchBuildingId = targetElement.dataset.buildingBatchBuyId;
+                // number 批量购买数量：正整数座数，缺失时默认为一座。
+                var batchPurchaseCount = game.runtime.buildingBatchCountById[batchBuildingId] || 1;
+
+                // BuildingDefinition|null 批量建筑定义：用于计算劳力风险。
+                var batchBuildingDefinition = game.buildings.getBuildingDefinition(batchBuildingId);
+                // LaborBreakdown 当前劳力摘要：用于预估批量建成后的总占用。
+                var batchLaborBreakdown = game.population.analyzeLaborBreakdown(currentState);
+                // number 单座劳力占用：非生产建筑按零处理，单位劳力。
+                var batchLaborUsage = batchBuildingDefinition ? Number(batchBuildingDefinition.effects.laborUsage) || 0 : 0;
+                // number 批量建成后劳力占用：包含当前占用与新增减免后占用，单位劳力。
+                var laborUsageAfterBatch = batchLaborBreakdown.adjustedBuildingUsageTotal + batchLaborUsage * batchPurchaseCount * (1 - batchLaborBreakdown.reductionRatio);
+                // boolean 是否因本批建筑新增劳力占用而产生过载：true 时需要同一按钮二次确认。
+                var willBatchOverloadLabor = batchLaborUsage > 0 && laborUsageAfterBatch > batchLaborBreakdown.populationLabor;
+
+                if (willBatchOverloadLabor && game.runtime.confirmBuildingBatchRiskId !== batchBuildingId) {
+                    game.runtime.confirmBuildingBatchRiskId = batchBuildingId;
+                    renderAfterStateChange(currentState);
+                    return;
+                }
+                game.buildings.buyBuildingBatch(currentState, batchBuildingId, batchPurchaseCount);
+                game.runtime.confirmBuildingBatchRiskId = "";
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.industryChainToggle) {
+                game.runtime.isIndustryChainOpen = !game.runtime.isIndustryChainOpen;
+                renderAfterBuildingViewChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingSolutionId) {
+                // BuildingId 解法建筑 ID：用于选中目标并切换到其固定建设分区。
+                var solutionBuildingId = targetElement.dataset.buildingSolutionId;
+                // BuildingDefinition|null 解法建筑定义：用于读取所属建设分区。
+                var solutionBuildingDefinition = game.buildings.getBuildingDefinition(solutionBuildingId);
+
+                game.runtime.selectedBuildingId = solutionBuildingId;
+                game.runtime.buildingRouteId = solutionBuildingDefinition ? solutionBuildingDefinition.routeId : "";
+                renderAfterStateChange(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.buildingDetailClose) {
+                // BuildingId|string 关闭抽屉前的建筑 ID：重绘后用于归还焦点。
+                var returningBuildingId = game.runtime.selectedBuildingId;
+
+                game.runtime.isBuildingInspectorOpen = false;
+                renderAfterStateChange(currentState);
+                // HTMLElement|null 对应蓝图按钮：可能位于决策队列或图鉴中。
+                var returningBuildingElement = document.querySelector("[data-building-select-id=\"" + returningBuildingId + "\"]");
+
+                if (returningBuildingElement) { returningBuildingElement.focus(); }
                 return;
             }
 
@@ -284,13 +460,16 @@
                 return;
             }
 
-            if (targetElement.dataset.buildingRouteId) {
+            // HTMLButtonElement|null 建设分区按钮：点击名称 strong 或状态 small 时也解析到所属按钮。
+            var buildingRouteButtonElement = targetElement.closest ? targetElement.closest("button[data-building-route-id]") : null;
+
+            if (buildingRouteButtonElement) {
                 // BuildingRouteId 点击路线 ID：再次点击当前路线恢复全部路线。
-                var clickedBuildingRouteId = targetElement.dataset.buildingRouteId;
+                var clickedBuildingRouteId = buildingRouteButtonElement.dataset.buildingRouteId;
 
                 game.runtime.buildingRouteId = game.runtime.buildingRouteId === clickedBuildingRouteId ? "" : clickedBuildingRouteId;
                 game.runtime.newBuildingRouteIdsById[clickedBuildingRouteId] = false;
-                renderAfterStateChange(currentState);
+                renderAfterBuildingViewChange(currentState);
                 return;
             }
 
@@ -299,18 +478,60 @@
                 var collapsedRouteId = targetElement.dataset.buildingRouteCollapseId;
 
                 game.runtime.collapsedBuildingRoutesById[collapsedRouteId] = !game.runtime.collapsedBuildingRoutesById[collapsedRouteId];
-                renderAfterStateChange(currentState);
+                renderAfterBuildingViewChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.buildingDestroyRequestId) {
                 game.runtime.confirmDestroyBuildingId = targetElement.dataset.buildingDestroyRequestId;
+                // HTMLElement|null 地图详情浮框：存在时原位展开确认，不重绘地穴页。
+                var mapPopoverElement = targetElement.closest("[data-building-map-popover]");
+
+                if (mapPopoverElement) {
+                    // HTMLElement 确认区：承载风险文本、确认和取消按钮。
+                    var confirmationElement = document.createElement("span");
+                    // HTMLButtonElement 确认摧毁按钮：调用既有摧毁入口。
+                    var confirmDestroyButtonElement = document.createElement("button");
+                    // HTMLButtonElement 取消摧毁按钮：恢复原请求按钮。
+                    var cancelDestroyButtonElement = document.createElement("button");
+
+                    confirmationElement.className = "building-destroy-inline-confirmation";
+                    confirmationElement.textContent = "确认后只摧毁一座；返还与容量、住房、生产风险见上方详情。";
+                    confirmDestroyButtonElement.type = "button";
+                    confirmDestroyButtonElement.dataset.buildingDestroyId = targetElement.dataset.buildingDestroyRequestId;
+                    confirmDestroyButtonElement.textContent = "确认摧毁";
+                    cancelDestroyButtonElement.type = "button";
+                    cancelDestroyButtonElement.dataset.buildingDestroyCancel = "true";
+                    cancelDestroyButtonElement.textContent = "取消";
+                    targetElement.hidden = true;
+                    targetElement.parentElement.appendChild(confirmationElement);
+                    targetElement.parentElement.appendChild(confirmDestroyButtonElement);
+                    targetElement.parentElement.appendChild(cancelDestroyButtonElement);
+                    return;
+                }
                 renderAfterStateChange(currentState);
                 return;
             }
 
             if (targetElement.dataset.buildingDestroyCancel) {
                 game.runtime.confirmDestroyBuildingId = "";
+                // HTMLElement|null 地图详情浮框：取消时原位恢复摧毁请求按钮。
+                var mapPopoverElement = targetElement.closest("[data-building-map-popover]");
+
+                if (mapPopoverElement) {
+                    // HTMLButtonElement|null 摧毁请求按钮：首次确认时被隐藏。
+                    var destroyRequestButtonElement = mapPopoverElement.querySelector("[data-building-destroy-request-id]");
+                    // NodeListOf<HTMLElement> 行内确认节点：包含提示、确认和取消。
+                    var confirmationElements = mapPopoverElement.querySelectorAll(".building-destroy-inline-confirmation, [data-building-destroy-id], [data-building-destroy-cancel]");
+
+                    if (destroyRequestButtonElement) {
+                        destroyRequestButtonElement.hidden = false;
+                    }
+                    for (var confirmationIndex = 0; confirmationIndex < confirmationElements.length; confirmationIndex += 1) {
+                        confirmationElements[confirmationIndex].remove();
+                    }
+                    return;
+                }
                 renderAfterStateChange(currentState);
                 return;
             }
@@ -351,7 +572,26 @@
 
             if (targetElement.dataset.researchFilter) {
                 game.runtime.researchFilter = targetElement.dataset.researchFilter;
-                renderAfterStateChange(currentState);
+                game.render.renderResearchWorkspaceResultsOnly(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.researchMilestoneToggle) {
+                game.runtime.isResearchMilestoneOnly = !game.runtime.isResearchMilestoneOnly;
+                game.render.renderResearchWorkspaceResultsOnly(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.researchCatalogToggle) {
+                game.runtime.researchViewId = game.runtime.researchViewId === "catalog" ? "decision" : "catalog";
+                targetElement.textContent = game.runtime.researchViewId === "catalog" ? "返回决策队列" : "打开研究图鉴";
+                game.render.renderResearchWorkspaceResultsOnly(currentState);
+                return;
+            }
+
+            if (targetElement.dataset.researchSelectId) {
+                game.runtime.selectedResearchTechnologyId = targetElement.dataset.researchSelectId;
+                game.render.renderResearchSelectionOnly(currentState, targetElement.dataset.researchSelectId);
                 return;
             }
 
@@ -568,6 +808,26 @@
 
             if (targetElement.dataset.buildingSort) {
                 game.runtime.buildingSort = targetElement.value;
+                renderAfterBuildingViewChange(game.runtime.state);
+                return;
+            }
+
+            if (targetElement.dataset.buildingBatchCountId) {
+                // BuildingId 批量数量所属建筑 ID：作为本地视图偏好字典键。
+                var batchBuildingId = targetElement.dataset.buildingBatchCountId;
+                // number 选择的批量购买座数：非负整数，零表示当前资源不能购买。
+                var selectedBatchCount = Math.max(0, Math.floor(Number(targetElement.value) || 0));
+
+                game.runtime.buildingBatchCountById[batchBuildingId] = selectedBatchCount;
+                renderAfterStateChange(game.runtime.state);
+                return;
+            }
+
+            if (targetElement.dataset.buildingCustomBatchCountId) {
+                // number 自定义批量数量：失焦或确认后固定为正整数并刷新完整预览。
+                var customBatchCount = Math.max(1, Math.floor(Number(targetElement.value) || 1));
+
+                game.runtime.buildingBatchCountById[targetElement.dataset.buildingCustomBatchCountId] = customBatchCount;
                 renderAfterStateChange(game.runtime.state);
                 return;
             }
@@ -582,6 +842,51 @@
 
             game.runtime.raidWarbeastByTargetId[targetElement.dataset.raidWarbeastTargetId] = targetElement.value || null;
             renderAfterDiplomacyViewChange(game.runtime.state);
+        });
+
+        tabContentElement.addEventListener("input", function (event) {
+            // HTMLInputElement|null 输入目标：建筑搜索只更新本地视图偏好。
+            var targetElement = event.target;
+
+            if (!targetElement || !targetElement.dataset) {
+                return;
+            }
+
+            if (targetElement.dataset.buildingCustomBatchCountId) {
+                // number 自定义批量数量：正整数座数，非法输入暂按一座预览。
+                var customBatchCount = Math.max(1, Math.floor(Number(targetElement.value) || 1));
+
+                game.runtime.buildingBatchCountById[targetElement.dataset.buildingCustomBatchCountId] = customBatchCount;
+                return;
+            }
+
+            if (!targetElement.dataset.buildingSearch) {
+                return;
+            }
+
+            game.runtime.buildingSearchText = targetElement.value;
+            window.clearTimeout(game.runtime.buildingSearchRenderTimeoutId);
+            game.runtime.buildingSearchRenderTimeoutId = window.setTimeout(refreshBuildingSearchAfterInput, 120);
+        });
+
+        tabContentElement.addEventListener("keydown", function (event) {
+            // HTMLElement|null 键盘目标：建筑行获得焦点时允许回车或空格选中。
+            var targetElement = event.target;
+
+            if (!targetElement || !targetElement.dataset || !targetElement.dataset.buildingSelectId || (event.key !== "Enter" && event.key !== " ")) {
+                return;
+            }
+
+            event.preventDefault();
+            game.runtime.selectedBuildingId = targetElement.dataset.buildingSelectId;
+            game.runtime.newBuildingIdsById[targetElement.dataset.buildingSelectId] = false;
+            targetElement.classList.remove("is-new");
+            // HTMLElement|null 键盘查看后的新内容徽签：原位移除以避免昂贵重绘。
+            var newMarkerElement = targetElement.querySelector(".building-new-marker");
+
+            if (newMarkerElement) {
+                newMarkerElement.remove();
+            }
         });
 
         tabContentElement.addEventListener("input", function (event) {
@@ -661,7 +966,7 @@
      */
     function focusFirstBuildingBottleneck() {
         // HTMLElement|null 目标建筑行：按阻断、关键可建、住房标签的优先级选择。
-        var targetBuildingElement = document.querySelector(".building-status-blocked, .building-row.is-milestone.building-status-available, .building-route-survival .building-row");
+        var targetBuildingElement = document.querySelector(".building-card.building-status-blocked, .building-card.is-milestone.building-status-available, .building-route-survival .building-card");
 
         if (targetBuildingElement) {
             targetBuildingElement.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -698,24 +1003,7 @@
             return;
         }
 
-        // Element|null 刷新前聚焦元素：用于判断玩家是否仍在研究搜索框输入。
-        var activeElement = document.activeElement;
-
-        // boolean 是否恢复搜索焦点：true 表示刷新前焦点仍位于研究搜索框。
-        var shouldRestoreSearchFocus = Boolean(activeElement && activeElement.dataset && activeElement.dataset.researchSearch);
-
-        renderAfterStateChange(scheduledState);
-        if (!shouldRestoreSearchFocus) {
-            return;
-        }
-
-        // HTMLInputElement|null 新搜索框元素：重建后恢复焦点并把光标放到文本末尾。
-        var restoredSearchInputElement = document.querySelector("[data-research-search]");
-
-        if (restoredSearchInputElement) {
-            restoredSearchInputElement.focus();
-            restoredSearchInputElement.setSelectionRange(restoredSearchInputElement.value.length, restoredSearchInputElement.value.length);
-        }
+        game.render.renderResearchWorkspaceResultsOnly(scheduledState);
     }
 
     /**
@@ -843,7 +1131,7 @@
     }
 
     /**
-     * 恢复完整研究图谱并平滑定位关联研究卡片，定位后关闭浮框。
+     * 恢复完整研究目录并平滑定位关联研究签，定位后关闭浮框。
      *
      * @param {GameState} state - 当前游戏状态对象，不会被修改。
      * @param {TechnologyId} technologyId - 要定位的关联科技稳定 ID。
@@ -852,14 +1140,13 @@
     function focusRelatedResearchTechnology(state, technologyId) {
         closeResearchRelations();
         game.runtime.researchFilter = "all";
-        game.runtime.researchLineId = "";
+        game.runtime.isResearchMilestoneOnly = false;
         game.runtime.researchSearchText = "";
-        game.runtime.researchView = "graph";
-        revealResearchSpecializationForTechnology(technologyId);
+        game.runtime.selectedResearchTechnologyId = technologyId;
         renderAfterStateChange(state);
 
-        // HTMLElement|null 目标研究卡片：完整图谱重建后按稳定节点 ID 查找。
-        var targetCardElement = document.getElementById("research-node-" + technologyId);
+        // HTMLElement|null 目标研究签：完整目录重建后按稳定选择 ID 查找。
+        var targetCardElement = document.querySelector("[data-research-select-id=\"" + technologyId + "\"]");
 
         if (targetCardElement) {
             targetCardElement.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
@@ -950,6 +1237,33 @@
     }
 
     /**
+     * 建筑纯界面状态变化后只刷新地穴中部内容，避免整页重绘造成点击延迟。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @returns {void} 无返回值。
+     */
+    function renderAfterBuildingViewChange(state) {
+        game.runtime.pinnedBuildingMapId = "";
+        if (game.render.renderBuildingWorkspaceOnly(state)) {
+            return;
+        }
+
+        game.render.renderApp(state);
+    }
+
+    /**
+     * 在连续建筑搜索输入停止后只刷新结果区，保留原搜索框节点和焦点。
+     *
+     * @returns {void} 无返回值；会清空运行时搜索定时器 ID。
+     */
+    function refreshBuildingSearchAfterInput() {
+        if (!game.render.renderBuildingWorkspaceResultsOnly(game.runtime.state)) {
+            renderAfterBuildingViewChange(game.runtime.state);
+        }
+        game.runtime.buildingSearchRenderTimeoutId = 0;
+    }
+
+    /**
      * 绑定交互按压状态，供自动渲染判断是否需要暂时保留 DOM。
      *
      * @returns {void} 无返回值。
@@ -988,6 +1302,137 @@
         tabContentElement.addEventListener("focusout", hideBuildingTooltipFromFocus);
         window.addEventListener("scroll", hideAllBuildingTooltips, true);
         window.addEventListener("resize", hideAllBuildingTooltips);
+    }
+
+    /**
+     * 指针在建设画布移动时显示命中节点详情；已点击固定时保持当前浮框。
+     *
+     * @param {PointerEvent} event - 指针事件；clientX/clientY 为视口坐标。
+     * @returns {void} 无返回值。
+     */
+    function updateBuildingMapPopoverFromPointer(event) {
+        // HTMLCanvasElement|null 建设图画布：只有画布目标才处理命中。
+        var canvasElement = event.target && event.target.closest ? event.target.closest("[data-building-map-canvas]") : null;
+
+        if (!canvasElement || game.runtime.pinnedBuildingMapId) {
+            return;
+        }
+
+        // BuildingId|string 命中建筑 ID：未命中时为空字符串。
+        var buildingId = game.render.getBuildingMapHitId(canvasElement, event.clientX, event.clientY);
+
+        canvasElement.style.cursor = buildingId ? "pointer" : "default";
+        if (buildingId) {
+            game.render.showBuildingMapPopover(game.runtime.state, canvasElement, buildingId, event.clientX, event.clientY);
+        } else {
+            game.render.hideBuildingMapPopover(canvasElement);
+        }
+    }
+
+    /**
+     * 指针离开建设画布区域时隐藏未固定的详情浮框。
+     *
+     * @param {PointerEvent} event - 指针离开事件。
+     * @returns {void} 无返回值。
+     */
+    function hideBuildingMapPopoverFromPointer(event) {
+        if (game.runtime.pinnedBuildingMapId) {
+            return;
+        }
+
+        // HTMLCanvasElement|null 建设图画布：从离开目标查找。
+        var canvasElement = event.target && event.target.closest ? event.target.closest("[data-building-map-canvas]") : null;
+
+        // HTMLElement|null 相关目标：仍在同一建设图内时不隐藏。
+        var relatedElement = event.relatedTarget && event.relatedTarget.closest ? event.relatedTarget.closest(".building-cave-map") : null;
+
+        if (canvasElement && !relatedElement) {
+            game.render.hideBuildingMapPopover(canvasElement);
+        }
+    }
+
+    /**
+     * 点击建设图节点时固定或取消详情浮框，供触屏和稳定阅读使用。
+     *
+     * @param {MouseEvent} event - 点击事件；clientX/clientY 为视口坐标。
+     * @returns {void} 无返回值。
+     */
+    function toggleBuildingMapPopoverFromClick(event) {
+        // HTMLCanvasElement|null 建设图画布：只有直接点击画布才处理。
+        var canvasElement = event.target && event.target.closest ? event.target.closest("[data-building-map-canvas]") : null;
+
+        if (!canvasElement) {
+            return;
+        }
+
+        // BuildingId|string 命中建筑 ID：未命中表示关闭固定详情。
+        var buildingId = game.render.getBuildingMapHitId(canvasElement, event.clientX, event.clientY);
+
+        if (!buildingId || game.runtime.pinnedBuildingMapId === buildingId) {
+            game.runtime.pinnedBuildingMapId = "";
+            game.render.hideBuildingMapPopover(canvasElement);
+            return;
+        }
+
+        game.runtime.pinnedBuildingMapId = buildingId;
+        game.runtime.newBuildingIdsById[buildingId] = false;
+        game.render.showBuildingMapPopover(game.runtime.state, canvasElement, buildingId, event.clientX, event.clientY);
+    }
+
+    /**
+     * 使用方向键循环浏览建设图节点，回车固定或取消当前详情。
+     *
+     * @param {KeyboardEvent} event - 键盘事件；处理方向键、Enter 和 Escape。
+     * @returns {void} 无返回值。
+     */
+    function navigateBuildingMapFromKeyboard(event) {
+        // HTMLCanvasElement|null 建设图画布：只有画布获得焦点时处理。
+        var canvasElement = event.target && event.target.closest ? event.target.closest("[data-building-map-canvas]") : null;
+
+        if (!canvasElement) {
+            return;
+        }
+
+        // Object[] 节点命中区：按当前稳定绘制顺序用于键盘循环。
+        var hitAreas = canvasElement.buildingHitAreas || [];
+
+        if (hitAreas.length <= 0) {
+            return;
+        }
+
+        if (event.key === "Escape") {
+            event.preventDefault();
+            game.runtime.pinnedBuildingMapId = "";
+            game.render.hideBuildingMapPopover(canvasElement);
+            return;
+        }
+
+        if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+            event.preventDefault();
+            game.runtime.buildingMapFocusIndex = (game.runtime.buildingMapFocusIndex + 1) % hitAreas.length;
+        } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+            event.preventDefault();
+            game.runtime.buildingMapFocusIndex = (game.runtime.buildingMapFocusIndex - 1 + hitAreas.length) % hitAreas.length;
+        } else if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            // Object 当前键盘节点：用于切换固定详情。
+            var activeHitArea = hitAreas[Math.min(game.runtime.buildingMapFocusIndex, hitAreas.length - 1)];
+
+            game.runtime.pinnedBuildingMapId = game.runtime.pinnedBuildingMapId === activeHitArea.buildingId ? "" : activeHitArea.buildingId;
+        } else {
+            return;
+        }
+
+        // Object 当前命中区：方向键更新后用于显示详情。
+        var hitArea = hitAreas[Math.min(game.runtime.buildingMapFocusIndex, hitAreas.length - 1)];
+        // DOMRect 画布视口边界：把节点画布坐标换算为视口锚点。
+        var canvasRect = canvasElement.getBoundingClientRect();
+
+        if (game.runtime.pinnedBuildingMapId || event.key.indexOf("Arrow") === 0) {
+            game.render.showBuildingMapPopover(game.runtime.state, canvasElement, hitArea.buildingId, canvasRect.left + hitArea.x, canvasRect.top + hitArea.y);
+        } else {
+            game.render.hideBuildingMapPopover(canvasElement);
+        }
     }
 
     /**
@@ -1201,7 +1646,13 @@
             return null;
         }
 
-        return targetElement.closest(".building-row, .research-card[data-technology-node-id]");
+        // HTMLElement|null 候选浮窗触发元素：包含建筑条目、兼容卡片和研究签。
+        var tooltipRowElement = targetElement.closest(".building-blueprint-entry, .building-card, .building-row, .research-slip-entry, .research-card[data-technology-node-id]");
+
+        if (tooltipRowElement && tooltipRowElement.matches(".building-blueprint-entry, .research-slip-entry") && tooltipRowElement.querySelector('[aria-current="true"]')) {
+            return null;
+        }
+        return tooltipRowElement;
     }
 
     /**

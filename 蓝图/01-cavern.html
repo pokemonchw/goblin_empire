@@ -73,7 +73,7 @@
                 <div class="grid-2">
                     <div class="card">
                         <h3>地穴控制台</h3>
-                        <p>显示启动前说明和运行状态提示；此时不出现地穴剖面、手动采集或基础建筑行列表。</p>
+                        <p>显示启动前说明和运行状态提示；此时不出现地穴剖面、手动采集或建设指挥板。</p>
                     </div>
                     <div class="card">
                         <h3>新局模式</h3>
@@ -102,20 +102,17 @@
                 </div>
             </section>
             <section class="section building-workspace">
-                <h2>建筑工作台</h2>
-                <div class="card building-overview"><h3>建设总览</h3><p>已解锁 12/45｜拥有 27 座｜住房 6/8｜建筑劳力 42/60｜可建造 3</p><p>当前瓶颈：碎石容量不足</p></div>
-                <div class="building-filter-bar"><button class="btn active">全部状态</button><button class="btn">可建造 3</button><button class="btn">资源不足 6</button><button class="btn">等待可达 4</button><button class="btn">当前不可达 2</button><button class="btn">接近解锁 1</button><button class="btn">已拥有 8</button><button class="btn">关键建筑</button></div>
-                <div class="building-route-navigation"><button class="btn">● 生存繁衍 5·可建1</button><button class="btn">■ 仓储运输 3·可建1</button><button class="btn active">◆ 矿业工业 4·可建1</button><button class="btn">▲ 知识治理 2·可建0</button><button class="btn">✦ 军事祭祀 1·可建0</button><button class="btn">◇ 深渊扩张 0·可建0</button></div>
-                <div class="building-workspace-body">
-                    <div class="building-route-group">
-                        <header class="building-route-heading"><strong>◆ 矿业工业</strong><span>已揭示 4｜拥有 5 座｜可建造 1</span><button class="btn" aria-expanded="true">收起</button></header>
-                        <div class="building-list">
-                            <div class="building-row affordable"><div class="building-identity"><strong>◆ 浅矿井</strong><span>矿业</span><span>劳力</span></div><div class="building-cost">所需：朽木 125 <span class="building-missing">缺 30</span></div><div class="building-availability">约 00:00:42</div><div class="building-actions"><button class="btn" disabled>缺少资源</button><button class="btn danger-button">摧毁</button></div><div class="building-tooltip"><strong>浅矿井</strong><span>拥有/启用：2 / 2</span><span>下一座：碎石产出 +20%</span></div></div>
-                            <div class="building-row affordable"><div class="building-identity"><strong>△ 粗熔炉</strong><span>冶炼</span><span>转换</span></div><div class="building-cost">所需：碎石 230</div><div class="building-availability">可用</div><div class="building-actions"><button class="btn">建造</button><button class="btn danger-button">摧毁</button></div><div class="building-tooltip"><strong>粗熔炉</strong><span>拥有/启用：1 / 1</span><span>下一座：铁矿/铁片转换</span></div></div>
-                            <div class="building-row preview"><div class="building-identity"><strong>◇ 深炉</strong><span>用途剪影：冶炼</span></div><div class="building-cost">前置：研究“机械”</div><div class="building-availability">需完成前置</div><div class="building-actions"><button class="btn" disabled>需完成前置</button></div><div class="building-tooltip"><strong>深炉</strong><span>用途剪影：冶炼。</span><span>解锁条件：研究“机械”。</span><span>完整成本与效果将在正式解锁后显示。</span></div></div>
-                        </div>
+                <header class="building-command-heading"><h2>建设指挥板</h2><span>阶段：矿业扩张</span><span>住房 6/8</span><span>劳力 57/60</span><small>打通采矿、冶炼和加工链</small></header>
+                <div class="building-toolbar"><input type="search" placeholder="搜索建筑、住房、劳力、铁矿……" aria-label="搜索建筑"><button class="btn">打开建筑图鉴 12/45</button></div>
+                <div class="building-command-body">
+                    <div class="building-decision-queue">
+                        <section><h3>下一步</h3><button class="blueprint-slip waiting"><b>◐ 浅矿井 ×2</b><span>等待约 0:42</span><small>碎石 +20% · 劳力 +15</small><small>缺 18 朽木</small></button></section>
+                        <section><h3>可立即建造</h3><button class="blueprint-slip available"><b>● 菌菇床 ×4</b><span>可立即建造</span><small>口粮生产</small><small>资源已齐备</small></button><button class="blueprint-slip available"><b>● 储物坑 ×1</b><span>可立即建造</span><small>基础容量</small><small>资源已齐备</small></button></section>
+                        <section><h3>需处理</h3><button class="blueprint-slip blocked"><b>× 粗熔炉</b><span>碎石容量不足</span><small>冶炼转换</small><small>容量 80 &lt; 100</small></button><button class="blueprint-slip preview"><b>◇ 未知设施</b><span>需完成前置</span><small>冶炼剪影</small><small>需完成机械</small></button></section>
                     </div>
+                    <aside class="building-inspector"><h3>浅矿井 ×2</h3><p>碎石产出 +20% · 解锁矿工</p><p>解锁来源　研究“采矿”</p><h4>本次成本</h4><p class="ledger">朽木　82 / 100　缺 18 ◐</p><p class="ledger">碎石　240 / 200　足够 ●</p><p>下一座价格　朽木 115 · 碎石 230；倍率 ×1.15</p><h4>建成后</h4><p>碎石产出　+1.25/s → +1.50/s</p><p>当前累计　碎石产出 +40%</p><p class="alert">⚠ 建成后劳力 57/60 → 72/60，生产将停摆</p><div class="building-actions"><button class="btn" disabled>等待资源 0:42</button><button class="btn danger">摧毁</button></div><p>摧毁返还　本座成本的 10%</p></aside>
                 </div>
+                <section class="catalog-variant"><h3>建筑图鉴视图（替换上方双栏，不与其同时显示）</h3><div class="catalog-filters"><button class="btn active">全部</button><button class="btn">可建</button><button class="btn">等待</button><button class="btn">受阻</button><button class="btn">仅已拥有</button></div><h4>矿业工业　4/8</h4><div class="catalog-building-list"><div class="catalog-building-row" tabindex="0"><span>●</span><b>浅矿井 ×2</b><span>可立即建造</span><small>矿业生产</small><small>资源已齐备</small></div><div class="catalog-building-row" tabindex="0"><span>×</span><b>粗熔炉</b><span>容量不足</span><small>冶炼转换</small><small>碎石容量不足</small></div><div class="catalog-building-row" tabindex="0"><span>◇</span><b>未知设施</b><span>需完成前置</span><small>冶炼剪影</small><small>需完成机械</small></div></div><p class="note">图鉴为整宽单列只读列表，所有行不可选中且不显示独立详情卡；悬停或键盘聚焦每一行都会显示详情浮窗。</p></section>
             </section>
             <section class="section">
                 <h2>早期界面状态规则</h2>

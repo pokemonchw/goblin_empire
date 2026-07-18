@@ -104,6 +104,107 @@
     }
 
     /**
+     * 计算连续购买指定数量建筑的总价格。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {BuildingDefinition} buildingDefinition - 建筑定义对象。
+     * @param {number} purchaseCount - 计划购买数量，正整数。
+     * @returns {Price[]} 合并后的总价格数组；amount 为非负资源数量。
+     */
+    function getBuildingBatchPrice(state, buildingDefinition, purchaseCount) {
+        // number 安全购买数量：向下取整且不低于零的建筑座数。
+        var safePurchaseCount = Math.max(0, Math.floor(purchaseCount));
+        // BuildingState|null 建筑状态：用于读取当前拥有数量。
+        var buildingState = state.buildingsById[buildingDefinition.id] || null;
+        // number 当前拥有数量：价格曲线起始指数，非负整数。
+        var ownedCount = buildingState ? buildingState.owned : 0;
+        // Object.<string, number> 资源总价字典：key 为 ResourceId，value 为累计资源数量。
+        var totalsByResourceId = {};
+
+        // number 购买循环索引：逐座累加指数价格的整数下标。
+        for (var purchaseIndex = 0; purchaseIndex < safePurchaseCount; purchaseIndex += 1) {
+            // Price[] 单座价格：按购买后的拥有指数逐项计算。
+            var unitPrice = getBuildingPriceForOwnedCount(state, buildingDefinition, ownedCount + purchaseIndex);
+
+            // number 价格循环索引：遍历单座价格数组的整数下标。
+            for (var priceIndex = 0; priceIndex < unitPrice.length; priceIndex += 1) {
+                // Price 当前价格项：合并到对应资源总价。
+                var priceEntry = unitPrice[priceIndex];
+
+                totalsByResourceId[priceEntry.resource] = (totalsByResourceId[priceEntry.resource] || 0) + priceEntry.amount;
+            }
+        }
+
+        // ResourceId[] 总价资源 ID 数组：保持基础价格字段的稳定插入顺序。
+        var resourceIds = Object.keys(totalsByResourceId);
+        // Price[] 合并总价数组：供预览与一次性支付校验使用。
+        var totalPrice = [];
+
+        // number 资源循环索引：把总价字典转换为明确价格数组。
+        for (var resourceIndex = 0; resourceIndex < resourceIds.length; resourceIndex += 1) {
+            // ResourceId 当前资源 ID：用于生成价格项。
+            var resourceId = resourceIds[resourceIndex];
+
+            totalPrice.push({ resource: resourceId, amount: totalsByResourceId[resourceId] });
+        }
+
+        return totalPrice;
+    }
+
+    /**
+     * 计算当前库存可一次支付的最大连续购买数量。
+     *
+     * @param {GameState} state - 当前游戏状态对象，不会被修改。
+     * @param {BuildingDefinition} buildingDefinition - 建筑定义对象。
+     * @returns {number} 最大可购买座数，范围 0-1000 的非负整数。
+     */
+    function getMaximumAffordableBuildingCount(state, buildingDefinition) {
+        // number 最大购买数量：逐座验证累计总价，设置硬上限防止异常零价配置无限循环。
+        var maximumCount = 0;
+
+        while (maximumCount < 1000 && game.resources.canAfford(state, getBuildingBatchPrice(state, buildingDefinition, maximumCount + 1))) {
+            maximumCount += 1;
+        }
+
+        return maximumCount;
+    }
+
+    /**
+     * 连续购买指定数量建筑；只有总价可完整支付时才执行。
+     *
+     * @param {GameState} state - 当前游戏状态对象，会被直接修改。
+     * @param {BuildingId} buildingId - 建筑稳定 ID。
+     * @param {number} purchaseCount - 要购买的建筑座数，正整数。
+     * @returns {boolean} 是否完整购买；false 表示未购买任何建筑。
+     */
+    function buyBuildingBatch(state, buildingId, purchaseCount) {
+        // BuildingDefinition|null 建筑定义：用于校验解锁和累计价格。
+        var buildingDefinition = getBuildingDefinition(buildingId);
+        // number 安全购买数量：向下取整后的正整数座数。
+        var safePurchaseCount = Math.max(0, Math.floor(purchaseCount));
+
+        if (!buildingDefinition || safePurchaseCount <= 0 || state.isPaused || !state.buildingsById[buildingId].isUnlocked) {
+            return false;
+        }
+
+        // Price[] 批量总价：提交前完整验证，禁止静默减少数量。
+        var totalPrice = getBuildingBatchPrice(state, buildingDefinition, safePurchaseCount);
+
+        if (!game.resources.canAfford(state, totalPrice)) {
+            return false;
+        }
+
+        // number 执行循环索引：调用既有单座购买入口以复用效果、解锁和统计逻辑。
+        for (var purchaseIndex = 0; purchaseIndex < safePurchaseCount; purchaseIndex += 1) {
+            if (!buyBuilding(state, buildingId)) {
+                throw new Error("批量购买预检通过后执行失败：" + buildingId);
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * 购买建筑并应用解锁。
      *
      * @param {GameState} state - 当前游戏状态对象，会被直接修改。
@@ -452,10 +553,7 @@
             // Price 当前返还项：用于格式化资源名和数量。
             var refundEntry = refundPrice[refundIndex];
 
-            // ResourceDefinition|null 资源定义：用于读取中文资源名。
-            var resourceDefinition = game.resources.getResourceDefinition(refundEntry.resource);
-
-            refundTexts.push((resourceDefinition ? resourceDefinition.name : refundEntry.resource) + " " + refundEntry.amount.toFixed(1));
+            refundTexts.push(game.resources.getResourceDisplayName(refundEntry.resource) + " " + refundEntry.amount.toFixed(1));
         }
 
         return refundTexts.join("，");
@@ -467,8 +565,11 @@
         getBuildingPrice: getBuildingPrice,
         getBuildingPriceForOwnedCount: getBuildingPriceForOwnedCount,
         getBuildingDestroyRefund: getBuildingDestroyRefund,
+        getBuildingBatchPrice: getBuildingBatchPrice,
+        getMaximumAffordableBuildingCount: getMaximumAffordableBuildingCount,
         canBuyBuilding: canBuyBuilding,
         buyBuilding: buyBuilding,
+        buyBuildingBatch: buyBuildingBatch,
         destroyBuilding: destroyBuilding,
         applyBuildingEffects: applyBuildingEffects,
         removeBuildingEffects: removeBuildingEffects,
